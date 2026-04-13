@@ -136,10 +136,14 @@ def _classify_trigger(text: str) -> str:
         return "payment_app"
     if any(w in t for w in ["split", "halves", "half", "divide", "chip in", "go dutch"]):
         return "bill_splitting"
-    if any(w in t for w in ["owe", "owed", "pay me back", "pay back", "pay you back"]):
+    if any(w in t for w in ["owe", "owed", "pay me back", "pay back", "pay you back",
+                            "where's my money", "my money back", "pay me"]):
         return "owing_debt"
     if "$" in t or any(w in t for w in ["dollars", "bucks"]):
         return "direct_amount"
+    if any(w in t for w in ["my treat", "on me", "i got you", "i'll cover", "let me cover",
+                            "i'll take care", "let me take care", "cover", "spot", "front"]):
+        return "general_money"
     return "general_money"
 
 
@@ -165,6 +169,9 @@ def _classify_direction(text: str) -> str:
         "i got you", "my treat", "i'll get this", "on me",
         "sending you", "lemme pay", "lemme send", "ima send", "ima pay",
         "i can venmo", "i can cashapp", "i can zelle",
+        "lemme venmo", "lemme cashapp", "lemme zelle",
+        "venmo you", "cashapp you", "zelle you",
+        "i'll get you", "let me get you", "i'll take care of",
     ]
     for p in offer_patterns:
         if p in t:
