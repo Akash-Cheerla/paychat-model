@@ -424,6 +424,9 @@ async def detect(req: DetectRequest):
 
     result = run_inference(req.text)
 
+    # Opportunistic cleanup every call so non-money chatter also prunes stale entries
+    _evict_stale_trackers()
+
     # Popup policy layer — stateless model + stateful API decision
     if not result["is_money"]:
         should_popup = False
@@ -442,6 +445,8 @@ async def detect(req: DetectRequest):
                 _record_popup_fired(req.chat_id, result["detected_amount"], result["trigger_type"])
             else:
                 _record_popup_suppressed(req.chat_id)
+            # Report the state AFTER this call — what app team sees should match tracker truth
+            chat_state = popup_tracker.get(req.chat_id, {}).get("state", chat_state)
 
     return DetectResponse(
         **result,
@@ -483,6 +488,8 @@ async def ws_detect(websocket: WebSocket):
             result = run_inference(text)
             chat_id = msg.get("chat_id")
 
+            _evict_stale_trackers()
+
             # Same popup policy as /detect — consistent contract for the app
             if not result["is_money"]:
                 should_popup = False
@@ -501,6 +508,7 @@ async def ws_detect(websocket: WebSocket):
                         _record_popup_fired(chat_id, result["detected_amount"], result["trigger_type"])
                     else:
                         _record_popup_suppressed(chat_id)
+                    chat_state = popup_tracker.get(chat_id, {}).get("state", chat_state)
 
             response = {
                 **msg,
