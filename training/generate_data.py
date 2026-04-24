@@ -1,11 +1,17 @@
 """
-Training Data Generator for PayChat Money Detector
-Generates high-quality labeled examples across all 4 detection categories:
-  1. Owing/Debt
-  2. Bill Splitting
-  3. Direct Amounts
-  4. Venmo/CashApp mentions
-Also generates hard negatives (messages that mention money-adjacent topics but are NOT requests)
+Training Data Generator for PayChat Multi-Intent Detector.
+
+Intents (multi-label — a message can fire multiple):
+  - money     — payments, debts, splits, venmo/cashapp/zelle
+  - alarm     — reminders, wake-me-up, set-alarm, ping-me
+  - contact   — phone numbers to save (US + India)
+  - calendar  — meetings, events, appointments with a date/time
+  - maps      — places, addresses, meet-me-at, directions
+
+Each example has a `labels` dict with one 0/1 per intent.
+A single message can fire multiple intents (e.g. "meet me at blue bottle 3pm" -> maps + calendar).
+
+Output: train.json / val.json / test.json / full_dataset.json
 """
 
 import json
@@ -15,12 +21,14 @@ from pathlib import Path
 
 random.seed(42)
 
-# ─────────────────────────────────────────────
-# POSITIVE EXAMPLES — money detection required
-# ─────────────────────────────────────────────
+INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  MONEY TEMPLATES (unchanged from the money-only model)
+# ═════════════════════════════════════════════════════════════════════
 
 OWING_DEBT = [
-    # Direct debt
     "you owe me {amount} from last week",
     "hey don't forget you owe me {amount}",
     "still waiting on that {amount} you owe me bro",
@@ -40,7 +48,7 @@ OWING_DEBT = [
     "still haven't gotten my money back smh",
     "pay me back the {amount} you borrowed",
     "settle up with me when you can",
-    "I kept the receipt — you owe {amount}",
+    "I kept the receipt - you owe {amount}",
     "quick reminder: you owe me {amount} for the Lyft",
     "hey I covered the tip, that's {amount} from you",
     "you said you'd pay me back ages ago",
@@ -52,7 +60,6 @@ OWING_DEBT = [
     "I want my money back",
     "need my money back asap",
     "you gonna pay me or what",
-    # More real-world variations
     "bruh pay up",
     "pay up already",
     "cough up the {amount}",
@@ -86,22 +93,21 @@ BILL_SPLITTING = [
     "we should split rent this month",
     "split the tab with me?",
     "going halves on the pizza?",
-    "divide the bill — your share is {amount}",
+    "divide the bill - your share is {amount}",
     "let's do {amount} each for the Uber",
     "splitting the groceries {amount} ways tonight",
     "we split the utility bill evenly right?",
     "your half comes out to {amount}",
-    "I calculated your share — it's {amount}",
+    "I calculated your share - it's {amount}",
     "everyone owes {amount} for the group gift",
     "splitting the hotel room 3 ways so {amount} each",
     "let's divide this evenly, about {amount} a person",
     "we're splitting the cable bill right?",
     "can you chip in {amount} for the supplies?",
-    "splitting the dinner check — you're {amount}",
+    "splitting the dinner check - you're {amount}",
     "let's cut costs and split the subscription",
     "your portion of the bill is {amount}",
     "we're splitting everything down the middle",
-    # More variations
     "let's go dutch",
     "going dutch on this one",
     "50/50 on the bill?",
@@ -183,7 +189,6 @@ VENMO_CASHAPP = [
     "let me venmo you for that",
     "venmo you later for the food",
     "cashapp you the {amount} now",
-    # More payment app variations
     "apple pay me {amount}",
     "just apple pay me",
     "paypal me the {amount}",
@@ -204,17 +209,16 @@ VENMO_CASHAPP = [
     "do a bank transfer for {amount}",
 ]
 
-# Mixed/compound (include multiple signals)
 MIXED_MONEY = [
     "you owe me {amount}, just venmo me",
     "split it with me? should be {amount} each, cashapp me",
-    "we can split the bill — your half is {amount}, send on venmo",
+    "we can split the bill - your half is {amount}, send on venmo",
     "you owe me {amount} for the Uber, venmo: @handle",
     "hey I covered dinner, everyone venmo me {amount}",
     "can you zelle me {amount}? we're splitting the Airbnb",
     "I paid {amount} for parking, split it with me?",
     "you owe me {amount}, just cashapp me when you can",
-    "let's split the subscription — {amount} each, I'll venmo request",
+    "let's split the subscription - {amount} each, I'll venmo request",
     "still owe me {amount} from the grocery run, my venmo is @name",
     "I'll cover it don't worry",
     "I'll cover it no worries",
@@ -238,17 +242,6 @@ MIXED_MONEY = [
     "let me take care of this",
     "let me get you back for that",
     "I'll get you back for the {amount}",
-    "want some money",
-    "you want some money?",
-    "want some cash?",
-    "need some money?",
-    "i want money",
-    "i want my money",
-    "i need money from you",
-    "can you send some money",
-    "send some cash over",
-    "send some money my way",
-    # More offer/casual money
     "drinks on me",
     "dinner's on me",
     "lunch is on me today",
@@ -257,15 +250,9 @@ MIXED_MONEY = [
     "let me foot the bill",
     "I'll pick up the tab",
     "let me pick up the tab",
-    "don't worry about paying",
-    "don't worry about the money",
-    "forget about the money",
-    "keep the change",
     "here's {amount} for gas",
     "take {amount} for helping",
     "here's some money for food",
-    "grab some food on me",
-    "get yourself something nice",
     "I'll spot you {amount}",
     "let me spot you",
     "spot me {amount}?",
@@ -274,43 +261,444 @@ MIXED_MONEY = [
     "can I borrow {amount}",
     "loan me {amount} till Friday",
     "can you loan me some money",
-    "fronting you {amount}",
-    "I'll front the money",
-    "put it on my card",
-    "I'll put it on my card",
-    "charge it to me",
-    "bill me for it",
-    "invoice me",
-    "send me an invoice for {amount}",
     "how much do I owe",
     "how much do I owe you",
     "what do I owe you",
     "do I owe you anything",
-    "do I owe you for that",
-    "am I square with you",
     "are we even",
     "are we square",
     "we good on money?",
-    "did I pay you back yet",
-    "did you get the money",
-    "did you get my payment",
-    "did the money come through",
-    "did the payment go through",
-    "money sent",
-    "payment sent",
-    "just paid you",
-    "just sent the money",
-    "sent the payment",
-    "received your payment thanks",
-    "got the money thanks",
-    "got your {amount} thanks",
 ]
 
-# ─────────────────────────────────────────────
-# NEGATIVE EXAMPLES — NOT money-related
-# ─────────────────────────────────────────────
 
-NOT_MONEY_CASUAL = [
+# ═════════════════════════════════════════════════════════════════════
+#  ALARM TEMPLATES
+# ═════════════════════════════════════════════════════════════════════
+
+ALARM_REMIND_ME = [
+    "remind me to {task} at {time}",
+    "remind me to {task} {time}",
+    "remind me at {time} to {task}",
+    "remind me in {duration} to {task}",
+    "remind me about {task} {time}",
+    "can you remind me to {task} {time}",
+    "pls remind me to {task} at {time}",
+    "remind me to {task}",
+    "need a reminder to {task} {time}",
+    "set a reminder for {task} at {time}",
+    "set a reminder to {task} {time}",
+    "reminder: {task} at {time}",
+    "hey remind me to {task} later",
+    "don't let me forget to {task}",
+    "remember to {task} {time}",
+    "note to self - {task} at {time}",
+    "remind me to {task} in {duration}",
+    "remind me later to {task}",
+    "nudge me {time} about {task}",
+    "poke me in {duration} for {task}",
+]
+
+ALARM_SET_ALARM = [
+    "set an alarm for {time}",
+    "set an alarm at {time}",
+    "set alarm for {time}",
+    "alarm at {time}",
+    "alarm for {time}",
+    "alarm {time}",
+    "I need an alarm for {time}",
+    "put an alarm on for {time}",
+    "can you set an alarm for {time}",
+    "set an alarm in {duration}",
+    "I need to wake up at {time}, alarm please",
+    "alarm tomorrow at {time}",
+    "set alarm tomorrow {time}",
+    "need an alarm set for {time}",
+    "please set an alarm for {time}",
+    "set multiple alarms starting {time}",
+    "alarm at {time} and {time2}",
+]
+
+ALARM_WAKEUP = [
+    "wake me up at {time}",
+    "wake me at {time}",
+    "wake me up in {duration}",
+    "someone wake me up at {time}",
+    "please wake me at {time}",
+    "wake me up tomorrow at {time}",
+    "wake me tomorrow {time}",
+    "gonna need a wake up call at {time}",
+    "wake me before {time}",
+    "wake me when it's {time}",
+    "can someone wake me up at {time}",
+]
+
+ALARM_PING_NOTIFY = [
+    "ping me at {time}",
+    "ping me in {duration}",
+    "ping me when it's {time}",
+    "notify me at {time}",
+    "alert me at {time}",
+    "buzz me at {time}",
+    "text me at {time}",
+    "hit me up at {time}",
+    "tell me at {time} to {task}",
+    "ping me {time} about {task}",
+]
+
+ALARM_MISC = [
+    "timer for {duration}",
+    "set a timer for {duration}",
+    "start a timer {duration}",
+    "{duration} timer plz",
+    "countdown {duration}",
+    "can you start a timer for {duration}",
+    "need a {duration} timer",
+    "remind me in {duration}",
+    "in {duration} remind me",
+    "give me a {duration} heads up",
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  CONTACT TEMPLATES (US + India phone formats)
+# ═════════════════════════════════════════════════════════════════════
+
+CONTACT_SHARE_OTHER = [
+    "save {name}'s number: {phone}",
+    "this is {name}'s number {phone}",
+    "{name}'s number is {phone}",
+    "{name}'s cell {phone}",
+    "here's {name}'s contact {phone}",
+    "here is {name}s number {phone}",
+    "{name} is at {phone}",
+    "{name}'s new number {phone}",
+    "{name} just changed his number to {phone}",
+    "you can reach {name} at {phone}",
+    "call {name} on {phone}",
+    "text {name} at {phone}",
+    "ping {name} on {phone}",
+    "hey save this, {name}'s cell is {phone}",
+    "add {name} to your contacts - {phone}",
+    "save as {name}: {phone}",
+    "{name} phone: {phone}",
+    "number for {name}: {phone}",
+    "the plumber's number is {phone}",
+    "dentist's office {phone}",
+    "electrician {name} {phone}",
+]
+
+CONTACT_SHARE_SELF = [
+    "my number is {phone}",
+    "my number - {phone}",
+    "this is my number {phone}",
+    "save my number {phone}",
+    "hey save my number {phone}",
+    "btw my cell {phone}",
+    "my new number is {phone}",
+    "I just got a new number {phone}",
+    "my contact {phone}",
+    "text me at {phone}",
+    "reach me at {phone}",
+    "you can call me on {phone}",
+    "my cell {phone}",
+    "here's my digits {phone}",
+    "feel free to call me at {phone}",
+    "save my contact - {phone}",
+]
+
+CONTACT_ADDRESSED = [
+    "{addressee} save this, {name}'s number {phone}",
+    "hey {addressee}, {name}'s cell is {phone}",
+    "{addressee} add {name} to contacts {phone}",
+    "{addressee} here's the plumber's number {phone}",
+    "{addressee} save {phone} as {name}",
+    "{addressee} this is {name} from work {phone}",
+    "@{addressee} save {name}'s number {phone}",
+    "{addressee} take this number down {phone}",
+    "yo {addressee}, {name}'s number is {phone}",
+]
+
+CONTACT_BUSINESS = [
+    "call the restaurant at {phone}",
+    "the shop's number is {phone}",
+    "reception desk - {phone}",
+    "booking hotline {phone}",
+    "clinic contact {phone}",
+    "the landlord's number {phone}",
+    "the electrician's cell {phone}",
+    "salon number {phone}",
+    "cab driver's number {phone}",
+    "uber driver's no {phone}",
+    "the guy's number who does the painting is {phone}",
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  CALENDAR TEMPLATES
+# ═════════════════════════════════════════════════════════════════════
+
+CAL_MEETING = [
+    "meeting at {time}",
+    "meeting {day} {time}",
+    "meeting on {date}",
+    "team sync {day} {time}",
+    "standup {day} at {time}",
+    "1:1 {day} {time}",
+    "quick sync at {time}",
+    "got a meeting at {time}",
+    "call at {time}",
+    "zoom call {day} {time}",
+    "meeting with {name} at {time}",
+    "meeting with {name} {day}",
+    "client call {day} at {time}",
+    "interview at {time} {day}",
+    "performance review {day} at {time}",
+    "one on one with {name} {time}",
+]
+
+CAL_EVENT = [
+    "dinner {day} at {time}",
+    "lunch with {name} at {time}",
+    "coffee with {name} {day}",
+    "drinks {day} at {time}",
+    "gym {day} at {time}",
+    "yoga class {day} {time}",
+    "haircut appointment at {time} {day}",
+    "doctor's appointment {day} at {time}",
+    "dentist at {time} {day}",
+    "therapy {day} at {time}",
+    "{event} on {date} at {time}",
+    "{event} {day} at {time}",
+    "{name}'s birthday {day}",
+    "birthday party {day} at {time}",
+    "wedding on {date}",
+    "{name}'s wedding {date}",
+    "graduation on {date}",
+    "flight at {time} {day}",
+    "train at {time}",
+    "concert {day} at {time}",
+    "game night {day} {time}",
+    "movie night {day} at {time}",
+    "class {day} at {time}",
+]
+
+CAL_SCHEDULE = [
+    "schedule a meeting {day} {time}",
+    "let's schedule for {day} at {time}",
+    "can we schedule {event} {day}",
+    "schedule {event} for {time}",
+    "put {event} on the calendar {day}",
+    "add {event} to my calendar at {time}",
+    "block my calendar {day} {time}",
+    "block off {day} from {time} to {time2}",
+    "book {event} on {date}",
+    "let's book {day} at {time}",
+    "pencil me in {day} at {time}",
+    "save the date {date}",
+    "save the date for {event} - {date}",
+]
+
+CAL_INVITE = [
+    "let's grab {event} {day}",
+    "let's grab {event} at {time}",
+    "want to meet {day} at {time}",
+    "wanna meet up {day}",
+    "free {day} at {time}?",
+    "you around {day} at {time}",
+    "you free for {event} {day}",
+    "up for {event} at {time}",
+    "lunch on {day}?",
+    "dinner {day}?",
+    "meet at {time} on {day}",
+    "brunch this {day}",
+    "catch up {day} at {time}?",
+]
+
+CAL_MULTI_PERSON = [
+    "team offsite {date}",
+    "everyone in for dinner {day} at {time}",
+    "guys lunch at {time}",
+    "all hands at {time}",
+    "full team meeting {day}",
+    "party at my place {day} at {time}",
+    "everyone's invited {day}",
+    "group dinner {day} at {time}",
+    "squad gym session {day} {time}",
+    "entire team call {day} at {time}",
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  MAPS TEMPLATES
+# ═════════════════════════════════════════════════════════════════════
+
+MAPS_MEET_AT = [
+    "meet me at {place}",
+    "lets meet at {place}",
+    "meet at {place}",
+    "meet you at {place}",
+    "see u at {place}",
+    "catch you at {place}",
+    "rendezvous at {place}",
+    "meet up at {place}",
+    "come to {place}",
+    "come meet me at {place}",
+    "we're meeting at {place}",
+    "everyone meet at {place}",
+    "group meet at {place}",
+]
+
+MAPS_IM_AT = [
+    "i'm at {place}",
+    "im at {place}",
+    "currently at {place}",
+    "im parked at {place}",
+    "im outside {place}",
+    "waiting at {place}",
+    "been sitting at {place}",
+    "at {place} right now",
+    "hanging at {place}",
+    "chilling at {place}",
+    "im inside {place}",
+    "we're at {place}",
+]
+
+MAPS_HEADING_TO = [
+    "heading to {place}",
+    "on my way to {place}",
+    "omw to {place}",
+    "driving to {place}",
+    "pulling up to {place}",
+    "pulling into {place}",
+    "headed over to {place}",
+    "going to {place}",
+    "making my way to {place}",
+    "about to pull up to {place}",
+    "en route to {place}",
+]
+
+MAPS_DIRECTIONS = [
+    "directions to {place}",
+    "how do i get to {place}",
+    "what's the route to {place}",
+    "shortest way to {place}",
+    "navigate to {place}",
+    "map me to {place}",
+    "can you drop the address for {place}",
+    "whats the way to {place}",
+    "how far is {place}",
+    "distance to {place}",
+    "pull up {place} on maps",
+    "open {place} in maps",
+    "find {place} on maps",
+]
+
+MAPS_ADDRESS = [
+    "the address is {address}",
+    "spot is {address}",
+    "come to {address}",
+    "{address} is where we are",
+    "we're at {address}",
+    "send the address - {address}",
+    "meet me at {address}",
+    "im at {address}",
+    "address for the party: {address}",
+    "venue is {address}",
+    "dropping the address - {address}",
+    "here's the address {address}",
+    "the airbnb is at {address}",
+    "event location: {address}",
+]
+
+MAPS_PIN_SHARE = [
+    "sharing my pin",
+    "dropping a pin at {place}",
+    "pin is dropped at {place}",
+    "i sent you my location",
+    "sharing my live location",
+    "check my pin",
+    "ill drop a pin",
+    "here's the pin {place}",
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  CROSS-INTENT MIXED TEMPLATES — messages that fire 2+ intents
+# ═════════════════════════════════════════════════════════════════════
+#
+# Format: (template, {intent: 1 for each fired intent})
+# Unmentioned intents default to 0.
+
+MIXED_MULTI = [
+    # maps + calendar
+    ("meet me at {place} at {time}", {"maps": 1, "calendar": 1}),
+    ("dinner at {place} {day} {time}", {"maps": 1, "calendar": 1}),
+    ("team offsite at {place} on {date}", {"maps": 1, "calendar": 1}),
+    ("lunch with {name} at {place} {time}", {"maps": 1, "calendar": 1}),
+    ("let's grab coffee at {place} {day}", {"maps": 1, "calendar": 1}),
+    ("meeting at {place} {time}", {"maps": 1, "calendar": 1}),
+    ("wedding on {date} at {place}", {"maps": 1, "calendar": 1}),
+    ("party at {place} {day} at {time}", {"maps": 1, "calendar": 1}),
+    ("birthday at {place} on {date}", {"maps": 1, "calendar": 1}),
+    ("interview at {place} {time}", {"maps": 1, "calendar": 1}),
+
+    # maps + alarm
+    ("heading to {place}, remind me to leave at {time}", {"maps": 1, "alarm": 1}),
+    ("meet at {place}, remind me {time}", {"maps": 1, "alarm": 1}),
+    ("i'm at {place}, ping me in {duration}", {"maps": 1, "alarm": 1}),
+
+    # calendar + alarm
+    ("meeting at {time}, remind me 10 min before", {"calendar": 1, "alarm": 1}),
+    ("{event} at {time}, remind me {duration} before", {"calendar": 1, "alarm": 1}),
+    ("flight {day} at {time}, wake me at {time2}", {"calendar": 1, "alarm": 1}),
+    ("{event} {day} at {time}, set an alarm", {"calendar": 1, "alarm": 1}),
+    ("dentist at {time}, remind me", {"calendar": 1, "alarm": 1}),
+    ("gym {day} {time}, remind me 15 min before", {"calendar": 1, "alarm": 1}),
+    ("don't let me miss {event} at {time}", {"calendar": 1, "alarm": 1}),
+
+    # contact + alarm
+    ("save {name}'s number {phone}, remind me to call them {time}", {"contact": 1, "alarm": 1}),
+    ("{name}'s number is {phone}, remind me to follow up {time}", {"contact": 1, "alarm": 1}),
+
+    # contact + calendar
+    ("meeting with {name} at {time}, his number is {phone}", {"contact": 1, "calendar": 1}),
+    ("{name}'s wedding {date}, his number {phone}", {"contact": 1, "calendar": 1}),
+
+    # contact + maps
+    ("{name}'s place is at {address}, his number {phone}", {"contact": 1, "maps": 1}),
+    ("pick up from {address}, driver's no {phone}", {"contact": 1, "maps": 1}),
+
+    # money + maps
+    ("you owe me {amount}, meet me at {place}", {"money": 1, "maps": 1}),
+    ("drinks at {place} - {amount} each", {"money": 1, "maps": 1}),
+
+    # money + calendar
+    ("dinner {day} {time} - splitting {amount} each", {"money": 1, "calendar": 1}),
+    ("rent due {date} - {amount}", {"money": 1, "calendar": 1}),
+
+    # money + alarm
+    ("remind me to venmo you {amount} tomorrow", {"money": 1, "alarm": 1}),
+    ("remind me to pay rent {day}", {"money": 1, "alarm": 1}),
+
+    # triple: maps + calendar + alarm
+    ("dinner at {place} {time}, remind me {duration} before", {"maps": 1, "calendar": 1, "alarm": 1}),
+    ("gym with {name} at {place} {time}, remind me {duration} before", {"maps": 1, "calendar": 1, "alarm": 1}),
+    ("{event} at {place} {day} {time}, set a reminder", {"maps": 1, "calendar": 1, "alarm": 1}),
+
+    # triple: money + calendar + maps
+    ("dinner {day} at {place}, {amount} each", {"money": 1, "calendar": 1, "maps": 1}),
+    ("team offsite at {place} {date} - {amount} per person", {"money": 1, "calendar": 1, "maps": 1}),
+
+    # contact + calendar + alarm
+    ("{name}'s interview {day} at {time}, his number {phone}, remind me", {"contact": 1, "calendar": 1, "alarm": 1}),
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  NEGATIVE TEMPLATES (shared — boring chat that fires no intent)
+# ═════════════════════════════════════════════════════════════════════
+
+NOT_ANYTHING_CASUAL = [
     "what are you up to tonight",
     "did you see that game last night",
     "lmao that's hilarious",
@@ -318,24 +706,16 @@ NOT_MONEY_CASUAL = [
     "I'm so tired honestly",
     "this weather is insane",
     "can you send me that link",
-    "what time are we meeting",
-    "you around later?",
-    "I'm on my way",
+    "what time are we meeting",  # ambiguous — let model decide, but bias negative
+    "I'll think about it",
     "that movie was so good",
     "happy birthday!!",
-    "ok I'll be there in 10",
     "omg same I was thinking that",
-    "are you coming to the party?",
-    "I just got here",
     "this place is packed",
-    "where are you parked",
-    "I'll meet you outside",
     "he said what?!",
     "that's crazy",
     "I can't believe it",
     "sounds good to me",
-    "let me know when you're free",
-    "I'll think about it",
     "brb getting food",
     "yo what's good",
     "sup bro",
@@ -348,171 +728,433 @@ NOT_MONEY_CASUAL = [
     "see you tomorrow",
     "miss you guys",
     "that's so funny",
-    "who's coming tonight",
-    "what should we eat",
-    "I'm starving",
-    "let's get food",
-    "wanna grab coffee",
-    "movie night?",
-    "game night at my place",
-    "who won the game",
     "this song is fire",
     "check out this meme",
     "haha dead",
     "no cap that's wild",
     "fr fr",
+    "I can't rn",
+    "lmk",
+    "bet",
+    "say less",
+    "on god",
+    "deadass",
+    "wild",
+    "hell nah",
+    "hell yeah",
+    "lets go",
+    "lets gooo",
+    "rip",
+    "welp",
+    "sheesh",
+    "whatever man",
+    "figures",
+    "ur funny",
+    "so true",
+    "agreed",
+    "ig so",
+    "dunno lol",
+    "eh maybe",
 ]
 
-NOT_MONEY_TRANSACTIONAL = [
-    "can you send me the doc",
-    "what's the address again",
-    "I'll send you the photos later",
-    "forward me that email",
-    "can you share the spreadsheet",
-    "what time does it start",
-    "I'll send over the details soon",
-    "just text me when you're ready",
-    "can you share your location",
-    "send me the invite link",
-    "what's the WiFi password",
-    "I'll forward you the email",
-    "you got the address I sent?",
-    "just dm me on instagram",
-    "drop me a pin when you get there",
-    "send me the zoom link",
-    "can you share the google doc",
-    "I'll send the screenshots",
-    "send me your resume",
-    "I'll share it with the group",
-    "upload it to the drive",
-    "check the shared folder",
-    "download the app first",
-    "update the spreadsheet",
-    "I'll text you the code",
-    "what's the meeting ID",
-    "join the call when ready",
-    "I'll add you to the group",
-    "check your email I sent it",
-    "look at the attachment",
+
+# Past-tense / already-done references — should NOT fire calendar/alarm/maps
+NOT_ANYTHING_PAST = [
+    "already woke up",
+    "already did that",
+    "had dinner yesterday",
+    "went to {place} last week",
+    "was at {place} earlier",
+    "met up with {name} yesterday",
+    "called {name} last night",
+    "my alarm went off already",
+    "alarm already rang",
+    "saw {name} yesterday",
+    "dropped by {place} this morning",
+    "was at the meeting earlier",
+    "the meeting ended",
+    "dinner was at {place} last week",
+    "the wedding was last month",
+    "appointment was yesterday",
+    "got woken up already",
+    "drove by {place} earlier",
+    "hit up {place} on saturday",
+    "the standup is done",
+    "meeting just ended",
+    "finished my {duration} run",
+    "timer went off",
+    "already set the alarm thanks",
 ]
 
+# Phone-number-shaped things that aren't phones
+NOT_CONTACT_TRICKY = [
+    "my credit card ends in 1234",
+    "credit card last 4 is 9876",
+    "order # 9876543210",
+    "tracking id 9876543210",
+    "flight number 9876",
+    "confirmation 8765432109",
+    "ticket {name} 8765432",
+    "passport number 9876543",
+    "invoice 9876543210",
+    "reference 1234567890",
+    "pin is 1234",
+    "room 9876",
+    "flight AA {num4}",
+    "i'm 25 years old",
+    "it's been 10 years",
+    "3.14 is pi",
+    "we need 4 people",
+    "score was 9-2",
+    "won 10-0 last night",
+    "build 9.8.7",
+    "version 1.2.3.4",
+    "the year 1999",
+    "born in 1998",
+    "it's 2026 already",
+    "zip code 94110",
+]
+
+# Place-name-shaped things that aren't navigation intent
+NOT_MAPS_TRICKY = [
+    "i love paris",
+    "paris is beautiful",
+    "boston sports are trash",
+    "austin powers is funny",
+    "paris hilton lol",
+    "born in chicago",
+    "new york pizza is the best",
+    "i'm from la originally",
+    "grew up in dallas",
+    "miami is too humid",
+    "manhattan is crazy",
+    "lived in brooklyn for 5 years",
+    "sf is wild",
+    "la is overrated",
+    "vegas was a blur",
+    "seattle rain though",
+    "new jersey is underrated",
+    "the {place} episode of that show",
+    "that {place} documentary",
+    "texas is huge",
+    "california weather",
+    "never been to tokyo",
+    "wanna go to tokyo someday",  # aspirational, not actionable
+    "heard {place} is nice",
+    "supposedly {place} has good food",
+]
+
+# Time-mentioned but no scheduling intent
+NOT_CALENDAR_TRICKY = [
+    "what time is it",
+    "whats the time",
+    "it's 3pm already??",
+    "only 10am and im drained",
+    "morning already feels long",
+    "cant believe its friday",
+    "mondays hit different",
+    "weekends are the best",
+    "time flies",
+    "it's been a minute",
+    "that was a long time ago",
+    "back in the day",
+    "some time ago",
+    "any time now",
+    "one of these days",
+    "for the time being",
+]
+
+# Money-mentioned but no payment intent (extra)
 NOT_MONEY_TRICKY = [
-    # Mentions numbers but not money
-    "I'll be there at 7",
-    "my number is 555-1234",
-    "it's on floor 3",
-    "we need like 5 people",
-    "the score was 3-1",
-    "meet at gate 12",
-    "text me at 4pm",
-    "I'm at table 8",
-    # Mentions financial topics but not requesting payment
     "prices are insane these days",
     "I'm so broke lately",
     "just got paid finally",
     "rent is going up again",
     "gas prices are ridiculous",
-    "I need to save more money",
-    "I'm saving up for a trip",
     "money doesn't grow on trees",
-    "I spent too much this month",
-    "I'm on a budget right now",
-    # Tricky phrases that look like money but aren't
-    "you owe me an apology",
-    "you owe me an explanation",
-    "you owe it to yourself",
-    "I owe you one for that favor",
-    "I owe you big time for helping",
-    "that's rich coming from you",
-    "he's loaded with work",
-    "we're splitting up",
-    "let's split up and search",
-    "send me the file",
-    "send me that pic",
-    "can you send the notes",
-    "I'll send you the details",
-    "send it over when ready",
-    "drop me the link",
-    "I got you bro no worries about it",
-    "I got your back",
-    "I got your message",
-    "got it thanks",
-    "cover for me at work",
-    "can you cover my shift",
-    "cover me I'll be late",
-    "it's on the table",
-    "it's on the second shelf",
-    "money can't buy happiness",
     "time is money",
     "penny for your thoughts",
-    "a dime a dozen",
-    "that costs nothing",
-    "free of charge",
-    "this is priceless",
-    "worth every penny but not paying anyone",
-    "I want pizza",
-    "I want to go home",
-    "I want some food",
-    "want some water?",
-    "want some food?",
-    "want to hang out?",
-    "need some help with this",
-    "need some time to think",
-    "I need a break",
-    "do you need anything",
-    "pay attention to this",
-    "pay no mind to that",
-    "it'll pay off eventually",
-    "that doesn't pay well",
+    "worth every penny",
+    "you owe me an apology",
+    "you owe me an explanation",
+    "I owe you one for that favor",
+    "that's rich coming from you",
+    "he's loaded with work",
 ]
 
-# ─────────────────────────────────────────────
-# Amount generators
-# ─────────────────────────────────────────────
+# Reminder-shaped but not actionable alarm
+NOT_ALARM_TRICKY = [
+    "I remember that",
+    "remember the good old days",
+    "remember that time we",
+    "do you remember?",
+    "never forget",
+    "don't remind me lol",
+    "don't remind me of that",
+    "dont wanna remember",
+    "alarming news",
+    "that's alarming",
+    "alarmingly bad",
+    "set the table please",
+    "set the record straight",
+    "set a good example",
+    "timer on the oven already",
+    "the alarm in the building went off",
+    "fire alarm was a drill",
+    "I don't need an alarm",
+]
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  GENERATORS — random fillers
+# ═════════════════════════════════════════════════════════════════════
+
+_AMOUNTS = [5, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50, 60, 75, 80, 100, 120, 150, 200]
 
 def random_amount():
     templates = [
-        "${:.0f}",
-        "${:.2f}",
-        "{:.0f} bucks",
-        "{:.0f} dollars",
-        "like ${:.0f}",
-        "around ${:.0f}",
-        "about ${:.0f}",
+        "${:.0f}", "${:.2f}", "{:.0f} bucks", "{:.0f} dollars",
+        "like ${:.0f}", "around ${:.0f}", "about ${:.0f}",
     ]
-    amounts = [5, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50, 60, 75, 80, 100, 120, 150, 200]
-    amt = random.choice(amounts)
-    template = random.choice(templates)
-    if "{:.2f}" in template:
-        return template.format(amt + random.choice([0, 0.5, 0.99]))
-    return template.format(amt)
+    amt = random.choice(_AMOUNTS)
+    t = random.choice(templates)
+    if "{:.2f}" in t:
+        return t.format(amt + random.choice([0, 0.5, 0.99]))
+    return t.format(amt)
+
+
+def random_time():
+    hours = list(range(1, 13))
+    mins = ["", ":00", ":15", ":30", ":45"]
+    suffixes = ["am", "pm", " am", " pm", "AM", "PM"]
+    formats = [
+        lambda: f"{random.choice(hours)}{random.choice(mins)}{random.choice(suffixes)}",
+        lambda: f"{random.choice(hours)}{random.choice(suffixes)}",
+        lambda: f"{random.randint(0,23)}:{random.choice(['00','15','30','45'])}",
+        lambda: f"{random.choice(['noon','midnight','morning','afternoon','evening','tonight','first thing'])}",
+        lambda: f"{random.choice(hours)} {random.choice(['am','pm'])}",
+    ]
+    return random.choice(formats)()
+
+
+def random_duration():
+    n = random.choice([5, 10, 15, 20, 30, 45])
+    unit = random.choice(["min", "minutes", "mins"])
+    if random.random() < 0.3:
+        n = random.choice([1, 2, 3, 4])
+        unit = random.choice(["hour", "hours", "hr", "hrs"])
+    return f"{n} {unit}"
+
+
+def random_day():
+    return random.choice([
+        "today", "tomorrow", "tmrw", "monday", "tuesday", "wednesday",
+        "thursday", "friday", "saturday", "sunday", "mon", "tue", "wed",
+        "thu", "fri", "sat", "sun", "next monday", "this friday",
+        "next week", "next weekend", "this weekend", "tonight",
+    ])
+
+
+def random_date():
+    months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+              "january", "february", "march", "april", "may", "june", "july", "august"]
+    d = random.randint(1, 28)
+    m = random.choice(months)
+    formats = [
+        f"{m} {d}",
+        f"{d} {m}",
+        f"{d}/{random.randint(1,12)}",
+        f"{random.randint(1,12)}/{d}",
+        f"{random.randint(1,12)}/{d}/26",
+    ]
+    return random.choice(formats)
+
+
+def random_event():
+    return random.choice([
+        "standup", "team sync", "1:1", "client call", "interview",
+        "dinner", "lunch", "coffee", "drinks", "brunch",
+        "gym", "yoga", "workout", "run",
+        "haircut", "doctor's", "dentist", "therapy",
+        "birthday", "wedding", "graduation", "baby shower",
+        "flight", "train", "concert", "movie", "game night",
+        "class", "lecture", "party", "offsite",
+    ])
+
+
+def random_name():
+    return random.choice([
+        "akash", "rohit", "priya", "samyak", "nikhil", "aditi", "aunty", "uncle",
+        "mom", "dad", "sarah", "mike", "john", "emma", "alex", "chris",
+        "jessica", "brian", "kevin", "amanda", "rachel", "dave",
+        "the plumber", "the electrician", "the landlord", "the dentist",
+        "meera", "kiran", "anjali", "sid", "rohan", "neha",
+    ])
+
+
+def random_addressee():
+    return random.choice([
+        "akash", "rohit", "priya", "samyak", "sarah", "mike", "john", "alex",
+        "chris", "emma", "kevin", "dave",
+    ])
+
+
+def _us_phone():
+    area = random.randint(200, 999)
+    mid = random.randint(100, 999)
+    last = random.randint(1000, 9999)
+    formats = [
+        f"{area}-{mid}-{last}",
+        f"({area}) {mid}-{last}",
+        f"+1 {area} {mid} {last}",
+        f"+1-{area}-{mid}-{last}",
+        f"{area}.{mid}.{last}",
+        f"{area}{mid}{last}",
+        f"1-{area}-{mid}-{last}",
+    ]
+    return random.choice(formats)
+
+
+def _india_phone():
+    # India mobile: starts with 6/7/8/9, 10 digits total
+    first = random.choice([6, 7, 8, 9])
+    rest = "".join(str(random.randint(0, 9)) for _ in range(9))
+    num = f"{first}{rest}"
+    formats = [
+        f"+91 {num[:5]} {num[5:]}",
+        f"+91-{num[:5]}-{num[5:]}",
+        f"+91{num}",
+        f"{num}",
+        f"0{num}",
+        f"+91 {num}",
+    ]
+    return random.choice(formats)
+
+
+def random_phone():
+    if random.random() < 0.5:
+        return _us_phone()
+    return _india_phone()
+
+
+def random_num4():
+    return str(random.randint(1000, 9999))
+
+
+_PLACES_US = [
+    "blue bottle", "blue bottle coffee", "blue bottle on valencia",
+    "philz coffee", "starbucks", "starbucks on market",
+    "chipotle", "sweetgreen", "chipotle on 4th",
+    "the mission", "dolores park", "union square", "central park",
+    "times square", "brooklyn bridge", "golden gate park",
+    "SFO", "LAX", "JFK", "ORD",
+    "moma", "the met", "sfmoma", "academy of sciences",
+    "trader joe's", "whole foods", "whole foods on market",
+    "target", "costco", "home depot",
+    "my place", "your place", "the usual spot", "the rooftop",
+    "the corner cafe", "that ramen place", "the sushi spot",
+    "coffee shop on 5th", "the gym on mission", "equinox",
+]
+
+_PLACES_IN = [
+    "cafe coffee day", "starbucks bandra", "blue tokai",
+    "bandra bandstand", "marine drive", "hauz khas village",
+    "cyber hub", "forum mall", "phoenix mall",
+    "koramangala", "indiranagar", "connaught place",
+    "the taj", "leela palace", "oberoi",
+]
+
+
+def random_place():
+    return random.choice(_PLACES_US + _PLACES_IN)
+
+
+_STREETS = [
+    "main st", "market st", "valencia st", "mission st", "broadway",
+    "5th ave", "4th st", "castro st", "polk st", "folsom st",
+    "3rd ave", "7th st", "larkin st", "hyde st",
+]
+
+
+def random_address():
+    n = random.randint(100, 9999)
+    street = random.choice(_STREETS)
+    formats = [
+        f"{n} {street}",
+        f"{n} {street} apt {random.randint(1,20)}",
+        f"{n} {street} #{random.randint(1,500)}",
+        f"{n} {street}, {random.choice(['sf','ny','la'])}",
+    ]
+    return random.choice(formats)
+
+
+def random_task():
+    return random.choice([
+        "take meds", "take my vitamins", "call mom", "call dad",
+        "call the plumber", "check the oven", "turn off the stove",
+        "leave for the airport", "pack my bags", "start the laundry",
+        "go to the gym", "pick up kids", "pick up groceries",
+        "submit the form", "send the email", "call back {}".format(random.choice(['akash','rohit','priya'])),
+        "turn off the lights", "water the plants",
+        "take out the trash", "book the flight", "pay the bill",
+        "reply to sarah", "send the invoice", "follow up with the client",
+    ])
+
+
+# ═════════════════════════════════════════════════════════════════════
+#  FILL — replace all {tokens} in a template
+# ═════════════════════════════════════════════════════════════════════
+
+_TOKEN_MAP = {
+    "amount":    random_amount,
+    "time":      random_time,
+    "time2":     random_time,
+    "duration":  random_duration,
+    "day":       random_day,
+    "date":      random_date,
+    "event":     random_event,
+    "name":      random_name,
+    "addressee": random_addressee,
+    "phone":     random_phone,
+    "place":     random_place,
+    "address":   random_address,
+    "task":      random_task,
+    "num4":      random_num4,
+}
+
 
 def fill(template):
-    return template.replace("{amount}", random_amount())
+    """Replace every {token} in the template with a random filler value."""
+    def _sub(match):
+        key = match.group(1)
+        fn = _TOKEN_MAP.get(key)
+        if fn is None:
+            return match.group(0)
+        return fn()
+    return re.sub(r"\{(\w+)\}", _sub, template)
 
-# ─────────────────────────────────────────────
-# Augmentation helpers
-# ─────────────────────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════
+#  AUGMENT — inject casual chat noise
+# ═════════════════════════════════════════════════════════════════════
 
 def augment(text):
-    """Apply random light augmentations to simulate real chat variety."""
     variants = [text]
 
-    # Lowercase/uppercase variation
     if random.random() < 0.3:
         variants.append(text.lower())
-    if random.random() < 0.15:
+    if random.random() < 0.1:
         variants.append(text.upper())
 
-    # Add filler words
-    fillers_pre = ["hey ", "yo ", "btw ", "fyi ", "ok so ", "so ", "also "]
-    fillers_post = [" lol", " haha", " fr", " ngl", " tbh", " tho", " rn", " asap"]
+    fillers_pre = ["hey ", "yo ", "btw ", "fyi ", "ok so ", "so ", "also ", "wait "]
+    fillers_post = [" lol", " haha", " fr", " ngl", " tbh", " tho", " rn", " asap", " plz", " pls"]
+
     if random.random() < 0.3:
         variants.append(random.choice(fillers_pre) + text)
     if random.random() < 0.25:
         variants.append(text + random.choice(fillers_post))
 
-    # Typo simulation (very light)
+    # light typo: drop a char from a medium-length word
     if random.random() < 0.1:
         words = text.split()
         if words:
@@ -520,55 +1162,149 @@ def augment(text):
             w = words[idx]
             if len(w) > 3:
                 i = random.randint(1, len(w) - 2)
-                words[idx] = w[:i] + w[i+1:]  # drop a char
+                words[idx] = w[:i] + w[i+1:]
             variants.append(" ".join(words))
 
     return random.choice(variants)
 
-# ─────────────────────────────────────────────
-# Build dataset
-# ─────────────────────────────────────────────
 
-def generate_dataset(n_per_category=600):
-    dataset = []
+# ═════════════════════════════════════════════════════════════════════
+#  BUILD — emit multi-label examples
+# ═════════════════════════════════════════════════════════════════════
 
-    categories = {
-        "owing_debt": OWING_DEBT,
-        "bill_splitting": BILL_SPLITTING,
-        "direct_amount": DIRECT_AMOUNTS,
-        "venmo_cashapp": VENMO_CASHAPP,
-        "mixed": MIXED_MONEY,
+def _zeros():
+    return {k: 0 for k in INTENTS}
+
+
+def make_example(text, category, labels):
+    return {
+        "text": text,
+        "labels": labels,
+        "category": category,
+        "split": "train",
     }
 
-    for cat_name, templates in categories.items():
-        count = n_per_category if cat_name != "mixed" else n_per_category // 2
+
+def generate_dataset(n_per_intent=600):
+    """
+    Build the full multi-label dataset.
+
+    Target (roughly):
+      money   : ~600 singles + ~30 multi-intent inclusions
+      alarm   : ~500 singles + ~60 multi-intent inclusions
+      contact : ~500 singles + ~30 multi-intent inclusions
+      calendar: ~500 singles + ~60 multi-intent inclusions
+      maps    : ~500 singles + ~60 multi-intent inclusions
+      negatives: ~1200 (balance against positives)
+    Total target: ~4500 examples. Good for a ~25-min colab retrain.
+    """
+    dataset = []
+
+    # ── Money (keep existing volume) ──
+    money_groups = {
+        "owing_debt":     OWING_DEBT,
+        "bill_splitting": BILL_SPLITTING,
+        "direct_amount":  DIRECT_AMOUNTS,
+        "venmo_cashapp":  VENMO_CASHAPP,
+        "mixed_money":    MIXED_MONEY,
+    }
+    for cat, templates in money_groups.items():
+        count = n_per_intent // 5 if cat != "mixed_money" else n_per_intent // 10
         for _ in range(count):
-            template = random.choice(templates)
-            text = fill(template)
-            text = augment(text)
-            dataset.append({
-                "text": text,
-                "label": 1,
-                "category": cat_name,
-                "split": "train"
-            })
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels["money"] = 1
+            dataset.append(make_example(text, cat, labels))
 
-    # Negatives (match total positive count for balance)
+    # ── Alarm ──
+    alarm_groups = {
+        "alarm_remind_me": ALARM_REMIND_ME,
+        "alarm_set":       ALARM_SET_ALARM,
+        "alarm_wakeup":    ALARM_WAKEUP,
+        "alarm_ping":      ALARM_PING_NOTIFY,
+        "alarm_timer":     ALARM_MISC,
+    }
+    for cat, templates in alarm_groups.items():
+        for _ in range(n_per_intent // 5):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels["alarm"] = 1
+            dataset.append(make_example(text, cat, labels))
+
+    # ── Contact ──
+    contact_groups = {
+        "contact_other":     CONTACT_SHARE_OTHER,
+        "contact_self":      CONTACT_SHARE_SELF,
+        "contact_addressed": CONTACT_ADDRESSED,
+        "contact_business":  CONTACT_BUSINESS,
+    }
+    for cat, templates in contact_groups.items():
+        for _ in range(n_per_intent // 4):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels["contact"] = 1
+            dataset.append(make_example(text, cat, labels))
+
+    # ── Calendar ──
+    calendar_groups = {
+        "cal_meeting":      CAL_MEETING,
+        "cal_event":        CAL_EVENT,
+        "cal_schedule":     CAL_SCHEDULE,
+        "cal_invite":       CAL_INVITE,
+        "cal_multi_person": CAL_MULTI_PERSON,
+    }
+    for cat, templates in calendar_groups.items():
+        for _ in range(n_per_intent // 5):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels["calendar"] = 1
+            dataset.append(make_example(text, cat, labels))
+
+    # ── Maps ──
+    maps_groups = {
+        "maps_meet_at":    MAPS_MEET_AT,
+        "maps_im_at":      MAPS_IM_AT,
+        "maps_heading":    MAPS_HEADING_TO,
+        "maps_directions": MAPS_DIRECTIONS,
+        "maps_address":    MAPS_ADDRESS,
+        "maps_pin":        MAPS_PIN_SHARE,
+    }
+    for cat, templates in maps_groups.items():
+        for _ in range(n_per_intent // 6):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels["maps"] = 1
+            dataset.append(make_example(text, cat, labels))
+
+    # ── Cross-intent mixed ──
+    # Each template generates 8 augmented variants -> ~300 multi-intent examples
+    for template, intent_flags in MIXED_MULTI:
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "multi_intent", labels))
+
+    # ── Negatives ──
     total_pos = len(dataset)
-    neg_templates = NOT_MONEY_CASUAL + NOT_MONEY_TRANSACTIONAL + NOT_MONEY_TRICKY
-    for _ in range(total_pos):
-        text = augment(random.choice(neg_templates))
-        dataset.append({
-            "text": text,
-            "label": 0,
-            "category": "not_money",
-            "split": "train"
-        })
+    neg_templates = (
+        NOT_ANYTHING_CASUAL
+        + NOT_ANYTHING_PAST
+        + NOT_CONTACT_TRICKY
+        + NOT_MAPS_TRICKY
+        + NOT_CALENDAR_TRICKY
+        + NOT_MONEY_TRICKY
+        + NOT_ALARM_TRICKY
+    )
+    # Match 50% of positive count (we have a lot of positives, don't need 1:1)
+    n_neg = int(total_pos * 0.5)
+    for _ in range(n_neg):
+        text = augment(fill(random.choice(neg_templates)))
+        labels = _zeros()
+        dataset.append(make_example(text, "none", labels))
 
-    # Shuffle
+    # ── Shuffle + split (80/10/10) ──
     random.shuffle(dataset)
-
-    # Train/val/test split: 80/10/10
     n = len(dataset)
     for i, item in enumerate(dataset):
         ratio = i / n
@@ -582,6 +1318,10 @@ def generate_dataset(n_per_category=600):
     return dataset
 
 
+# ═════════════════════════════════════════════════════════════════════
+#  SAVE
+# ═════════════════════════════════════════════════════════════════════
+
 def save_splits(dataset, out_dir):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -592,25 +1332,33 @@ def save_splits(dataset, out_dir):
 
     for split_name, items in splits.items():
         path = out_dir / f"{split_name}.json"
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(items, f, indent=2)
         print(f"  {split_name}: {len(items)} examples -> {path}")
 
-    # Also save full dataset
-    with open(out_dir / "full_dataset.json", "w") as f:
+    with open(out_dir / "full_dataset.json", "w", encoding="utf-8") as f:
         json.dump(dataset, f, indent=2)
 
-    # Category breakdown
+    # Per-intent breakdown
     from collections import Counter
-    cats = Counter(item["category"] for item in dataset if item["label"] == 1)
-    print(f"\nPositive example breakdown:")
+    print("\nPer-intent positive counts (one message can count toward multiple intents):")
+    for intent in INTENTS:
+        n_pos = sum(1 for d in dataset if d["labels"][intent] == 1)
+        print(f"  {intent:<10} {n_pos}")
+
+    n_none = sum(1 for d in dataset if all(v == 0 for v in d["labels"].values()))
+    n_multi = sum(1 for d in dataset if sum(d["labels"].values()) >= 2)
+    print(f"\n  no-intent (negatives): {n_none}")
+    print(f"  multi-intent (>=2):    {n_multi}")
+    print(f"\nCategory breakdown:")
+    cats = Counter(item["category"] for item in dataset)
     for cat, count in cats.most_common():
-        print(f"  {cat}: {count}")
-    print(f"\nTotal: {len(dataset)} examples ({sum(1 for d in dataset if d['label']==1)} positive, {sum(1 for d in dataset if d['label']==0)} negative)")
+        print(f"  {cat:<22} {count}")
+    print(f"\nTotal: {len(dataset)} examples")
 
 
 if __name__ == "__main__":
-    print("Generating training data...")
-    dataset = generate_dataset(n_per_category=600)
+    print("Generating multi-intent training data...")
+    dataset = generate_dataset(n_per_intent=600)
     save_splits(dataset, ".")
-    print("\nDone! Ready for training.")
+    print("\nDone. Ready for multi-label training.")

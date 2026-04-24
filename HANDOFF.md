@@ -1,11 +1,21 @@
-# Handoff — PayChat money detection
+# Handoff — PayChat intent detection (v2)
 
 
 ## What it actually does fyi
 
-Takes a chat message, tells you if it's about money, and tells you whether to actually pop the venmo sheet. That last part matters — i'll explain below.
+Takes a chat message, tells you which of 5 actionable intents it hits, and tells you whether to actually pop the sheet for each. That last part matters — i'll explain below.
 
-Model is DistilBERT fine-tuned on ~5400 chat examples. Currently 99.81% accuracy on the test set, 100% precision. Good enough to ship.
+The 5 intents and what each one triggers on Android:
+
+| intent | example message | android action |
+|---|---|---|
+| `money` | "you owe me $20", "venmo me" | venmo / cashapp / upi flow |
+| `alarm` | "remind me at 10pm" | `AlarmClock.ACTION_SET_ALARM` |
+| `contact` | "save this number +1 415-555-1234" | `ContactsContract.Intents.Insert` |
+| `calendar` | "meeting at 3pm tomorrow" | `CalendarContract.Events` insert |
+| `maps` | "heading to dolores park" | `geo:` uri / google maps |
+
+All 5 are free android intents — no api keys, no external services, just open the system app. Model is a DistilBERT with 5 sigmoid heads (multi-label so one message can fire money + alarm at once, like "remind me to venmo priya at 8pm $25"). ~4900 training examples. Not retrained yet but the old 2-class money checkpoint works fine with the new api too — num_labels auto-detect.
 
 ## Run it
 
@@ -14,81 +24,113 @@ docker build -t paychat-model .
 docker run -d -p 8000:8000 --name paychat paychat-model
 ```
 
-First boot takes ~20s to load the model into memory. After that every request is ~200-300ms on CPU. We're fine on a t3.medium for MVP, don't need a GPU.
+First boot takes ~20s to load the model. After that every request is ~20-40ms on cpu (five heads, same backbone, no slower than the single-head version). t3.medium is fine for mvp.
 
-`GET /health` returns 503 while it's loading and 200 once the model is ready. Use that for your readiness probe.
+`GET /health` returns 503 while loading, 200 when ready. Use for readiness probe. Response now includes `num_labels` and `intents` array so you can see what the server thinks it's serving.
 
-## The only field you need to read
+## The one field you read per intent
 
 Every chat message goes through:
 
 ```
 POST /detect
-{ "text": "you owe me $20", "chat_id": "room_xyz", "sender": "akash" }
+{ "text": "remind me to venmo priya $25 at 8pm", "chat_id": "room_xyz", "sender": "akash" }
 ```
 
-Response has a bunch of fields but **the only one you need to check is `should_popup`**. True = pop venmo. False = don't. That's it.
+Response has an `intents` array with one entry per intent that fired. Each entry has `should_popup`. **That's the only field the app branches on.** True = fire the popup for that intent. False = stay quiet.
 
 ```json
 {
-  "is_money": true,
-  "should_popup": true,
-  "detected_amount": "$20",
-  "direction": "request",
-  "trigger_type": "owing_debt",
-  ...
+  "intents": [
+    { "type": "money",  "should_popup": true, "payload": { "amount": "$25", ... }, "targeting": {...} },
+    { "type": "alarm",  "should_popup": true, "payload": { "time_iso": "2026-04-24T20:00", "label": "venmo priya" }, "targeting": {...} }
+  ],
+  "is_money": true, "should_popup": true, "detected_amount": "$25", ...  // v1 back-compat mirror of money
 }
 ```
 
-The rest is diagnostic — good for logs, not required for branching.
+Everything else (`confidence`, `trigger_type`, `cooldown_remaining_seconds`, etc.) is diagnostic — logs, dashboards, debugging — not required for branching.
 
-## Why there's a `should_popup` separate from `is_money`
+**Existing v1 code keeps working.** The flat top-level fields (`is_money`, `should_popup`, `detected_amount`, etc.) still mirror the money intent exactly like before. You can migrate to the `intents[]` array when you have time. Nothing breaks in the meantime.
 
-Coz people send 10 money messages in a row sometimes. "you owe me 20" → "bro pay up" → "venmo me fr" → "lol send it". If we popped venmo for every single one the user would lose their mind. So the server holds a per-chat state machine and only says `should_popup: true` when it actually makes sense.
+## Per-intent payloads — what the app gets
 
-You don't need to know the internal rules to integrate. But in case anyone asks:
+Each `intents[].payload` is pre-built so android can fire the system intent with no extra parsing:
 
-- First money msg in a chat → pops
-- Follow-ups inside a 5 min window → suppressed (quietly, no user-visible anything)
-- A *different* $ amount in the same chat → pops again (new transaction)
-- Payment completes → cooldown clears
-- User dismissed without paying → 15 min cooldown before we try again
+- **money** → `{ amount, trigger_type, direction }` — pass `amount` to the venmo/upi deep link
+- **alarm** → `{ label, time_iso, time_phrase, seconds_from_now }` — `time_iso` → hour/min for `AlarmClock.EXTRA_HOUR` / `EXTRA_MINUTES`. `label` → `EXTRA_MESSAGE`
+- **contact** → `{ phone, name_hint }` — `phone` is already normalized to `+1 415 555 1234` or `+91 98765 43210`. pass to `ContactsContract.Intents.Insert.PHONE`
+- **calendar** → `{ title, start_iso, start_phrase, duration_minutes }` — `start_iso` → `CalendarContract.EXTRA_EVENT_BEGIN_TIME`. duration is 30 for meetings, 60 for dinners
+- **maps** → `{ place }` — url-encode and pass to `geo:0,0?q=<place>`. let google maps resolve it
 
-Net result in a messy conversation: 1-2 popups instead of 10. Which is the whole point.
+Full Android snippets for all 5 are in `API_DOCS.md`.
 
-## 3 endpoints you need to call besides /detect
+## Targeting — who gets the popup
 
-The server is smart about timing but only if you tell it when real events happen. Wire these up:
+Every intent also comes with a `targeting` object:
 
-**Payment succeeded** — when venmo/cashapp webhook confirms, or your in-app payment flow hits the success screen:
+```json
+"targeting": { "addressee": "akash", "third_party": null, "is_self": false, "is_mutual": false }
+```
+
+- `addressee` — the chat member the message is aimed at ("hey **akash** save this number")
+- `third_party` — a person mentioned who isn't in the chat ("call **mom**")
+- `is_self` — sender is talking about themselves ("remind **me**…")
+- `is_mutual` — group action, pop for everyone ("**team sync** friday 4pm", "**everyone** meet at the mission")
+
+Use these to decide whose device actually pops. A "remind me" alarm should only fire on the sender's phone; a "team sync" calendar event should fire for everyone in the chat.
+
+## Why `should_popup` exists separate from detection
+
+Coz people send 10 related messages in a row. "you owe me 20" → "bro pay up" → "venmo me fr" → "lol send it". The model says yes to all of them. If we popped for every single one the user would lose their mind. So the server holds **per-(chat, intent) state** and only says `should_popup: true` when it's useful.
+
+Rules per intent (they're independent — alarm cooldown never blocks a money popup in the same chat):
+
+- First intent-fire in a chat → pops
+- Follow-ups inside a 5 min window → suppressed quietly
+- A *different* payload for the same intent → pops again (new transaction). dedupe key is per-intent:
+  - money → `amount`
+  - alarm → `time_iso`
+  - contact → `phone`
+  - calendar → `start_iso`
+  - maps → `place`
+- user dismissed without acting → 15 min cooldown
+- money payment completes → cooldown clears, 60s grace so "sent!" / "thanks" don't re-pop
+
+Net result: 1-2 popups per intent per chat, instead of 10. Which is the whole point.
+
+## 3 endpoints you call besides /detect
+
+**Payment succeeded** — money intent only. When venmo/cashapp/upi confirms:
 ```
 POST /payment-complete/{chat_id}
 { "amount": "$40", "payer": "rohit", "method": "venmo" }
 ```
-Body is optional, fill it if you want audit info in logs.
+Body optional. Only affects the money cooldown — alarm/calendar/etc in the same chat are untouched.
 
-**User dismissed the popup without paying** — they tapped X, closed the sheet, etc:
+**User dismissed a popup** — now scoped to the specific intent:
 ```
-POST /popup-dismissed/{chat_id}
+POST /popup-dismissed/{chat_id}?intent=alarm
 ```
-No body.
+If you omit `?intent=`, defaults to `money` for v1 back-compat.
 
-**Force-clear cooldown** — for testing or admin flows:
+**Force-clear cooldown** (testing/admin):
 ```
-POST /reset-cooldown/{chat_id}
+POST /reset-cooldown/{chat_id}?intent=money    # just money
+POST /reset-cooldown/{chat_id}                  # all intents for the chat
 ```
 
-If you skip #1 and #2, the system still works, it just falls back to dumb timer-only mode. Wiring them up is what makes it feel smart.
+Skip these and the system falls back to dumb-timer-only. Wiring them up is what makes it feel smart.
 
 ## Debug endpoint
 
-If you're ever like "why didn't that popup fire" or "why did it fire twice":
+If you're ever "why didn't that popup fire" or "why twice":
 
 ```
 GET /chat-state/{chat_id}
 ```
 
-Tells you exactly what the server thinks about that chat — current state, cooldown remaining, last amount seen, total popups fired, total suppressed. Check this before pinging me.
+Returns per-intent state — which intents are in cooldown, which are dismissed, last payload for each, time remaining. Before pinging me, check this.
 
 ## Websocket (same thing, realtime)
 
@@ -96,23 +138,23 @@ Tells you exactly what the server thinks about that chat — current state, cool
 ws://host:8000/ws/detect
 ```
 
-Send `{"text": "...", "chat_id": "...", "sender": "..."}`, receive the same fields wrapped inside a `venmo_detection` object. Same popup rules apply. Use http or ws, pick whichever fits the app better, the contract is identical.
+Send `{"text": "...", "chat_id": "...", "sender": "..."}`, receive the full response with `intents[]` + v1 `venmo_detection` mirror. Same cooldown rules. Http or ws, pick whichever fits the app better — contract is identical.
 
 ## Env vars worth knowing
 
 | var | default | what it does |
 |---|---|---|
-| `POPUP_COOLDOWN_SECONDS` | 300 | quiet window after a popup fires |
+| `POPUP_COOLDOWN_SECONDS` | 300 | quiet window after any popup fires |
 | `DISMISSED_COOLDOWN_SECONDS` | 900 | longer window if user dismissed |
 | `POST_PAYMENT_GRACE_SECONDS` | 60 | brief suppression after `/payment-complete` so "sent!" / "thanks" don't re-pop |
-| `CONFIDENCE_THRESHOLD` | 0.65 | min model confidence to call it money |
+| `CONFIDENCE_THRESHOLD` | 0.5 | per-intent sigmoid threshold (independent heads) |
 | `MODEL_DIR` | `./saved_model` | where the weights live |
 
-Tune if you want, but the defaults are what we tested against.
+Tune if you want, defaults are what we tested against.
 
 ## Scale note
 
-The cooldown tracker is in-memory. Single-instance deploy is fine for MVP and keeps everything fast — no redis hop. When we scale past 1 server (load balancer, multiple replicas), the tracker needs to move to redis so all instances share state. Swap the `popup_tracker` dict in `app.py` for a redis client with the same keys. Nothing else changes. Not a big job, just not MVP.
+Cooldown tracker is in-memory, keyed by `(chat_id, intent)` tuples. Single-instance is fine for mvp, keeps things fast, no redis dep. When we scale past 1 server, swap `popup_tracker` in `app.py` for redis with keys like `paychat:{chat_id}:{intent}`. Nothing else changes. Not a big job, just not mvp.
 
 ## Metrics
 
@@ -120,18 +162,18 @@ The cooldown tracker is in-memory. Single-instance deploy is fine for MVP and ke
 GET /metrics
 ```
 
-Gives you requests count, money detection rate, popups fired, popups suppressed, suppression rate, active chat count. Hook it into whatever dashboard.
+Now includes `intents_detected` dict (one counter per intent) on top of the v1 money counters. Hook into whatever dashboard.
 
-If `suppression_rate` is ~0 in production, that's a red flag — probably means `chat_id` isn't being passed consistently, so the tracker can't dedupe. Check that first.
+If `suppression_rate` is ~0 in prod — probably means `chat_id` isn't being passed consistently so the tracker can't dedupe. Check that first.
 
 ## When the model is wrong
 
-Two failure modes:
+Same two failure modes per intent:
 
-1. **False positive** — says is_money when it isn't. Low priority, just a stray popup.
-2. **False negative** — misses a real money message. Higher priority, user doesn't get the popup they expect.
+1. **False positive** — fires an intent it shouldn't. Low priority, just a stray popup the user dismisses.
+2. **False negative** — misses a real intent the user expected. Higher priority.
 
-Send me the exact text that failed + what you expected. I'll add it to training data and retrain — takes ~10 min on colab gpu. Then i push the new `saved_model/` folder to the repo and you hit `POST /reload` to hot-swap without restarting the server. Zero downtime.
+Send me the exact text + what intent you expected + what actually fired. I'll add to training data and retrain — ~15 min on colab gpu for the 5-head model. Push the new `saved_model/`, you hit `POST /reload`, zero downtime.
 
 ## Running the tests
 
@@ -139,38 +181,44 @@ Send me the exact text that failed + what you expected. I'll add it to training 
 python tests/test_cooldown.py
 ```
 
-98 checks across 20 scenarios covering the full popup lifecycle — cooldown, dismissal, payment-complete, grace window, multi-chat isolation, websocket parity, everything. Takes about 1 second.
+**174 checks across 32 scenarios** — money back-compat (20), per-intent cooldown isolation, multi-intent messages, scoped `/popup-dismissed` and `/reset-cooldown`, targeting extraction, intents[] shape, websocket parity, error paths. Takes ~2 seconds. Mocks the model so no gpu / no model load needed.
 
-If you change anything in `app.py`, run this first. If any check fails, something's broken.
+If you change `app.py`, run this first. If anything fails, something broke.
 
 ## Files that matter
 
-- `app.py` — the entire api, everything lives here
-- `saved_model/` — the weights (255mb, tracked with git lfs)
-- `API_DOCS.md` — field-by-field reference if you want the details
+- `app.py` — entire api, everything lives here
+- `saved_model/` — weights (255mb, git lfs)
+- `API_DOCS.md` — field-by-field reference + android code snippets per intent
 - `tests/test_cooldown.py` — the test suite
+- `training/` — dataset generator + training script for when we add more intents
 - `Dockerfile` — deploys as-is
-
-Everything else (`training/`, the notebook, dataset json files) is training-side stuff. You don't need any of it to run the api.
 
 ## Quick integration checklist
 
-- [ ] Docker built, running, `/health` returns 200
-- [ ] App sends every chat message to `POST /detect` with `chat_id`
-- [ ] App reads `should_popup` to decide whether to show the venmo sheet
+- [ ] Docker built, running, `/health` returns 200 with `num_labels: 5`
+- [ ] App sends every chat message to `POST /detect` with `chat_id` + `sender`
+- [ ] App iterates `intents[]` and calls the relevant android intent for each entry where `should_popup: true`
 - [ ] App hits `/payment-complete/{chat_id}` when a payment succeeds
-- [ ] App hits `/popup-dismissed/{chat_id}` when user closes the popup
+- [ ] App hits `/popup-dismissed/{chat_id}?intent=<intent>` when a user closes a popup
+- [ ] App uses `targeting.is_self` / `is_mutual` to decide whose device fires the popup for alarms/maps
 - [ ] Load balancer health check points at `/health`
 - [ ] `/metrics` wired into the dashboard
 
-That's it. If all 7 are ticked we're good to demo.
+That's it. If all 8 are ticked we're good to demo.
 
 ## please test this before demo
 
-- Run the test suite once to confirm nothing regressed
-- Hit `/health` to confirm the model's loaded and version is the latest
-- Open a real chat, send "you owe me $20", watch the popup fire
-- Send 3 more nags in the same chat, confirm nothing fires
-- Pay it, send "also $15 for gas", confirm the new popup fires
+- Run the test suite once, confirm 174/174
+- Hit `/health`, confirm model loaded + `num_labels: 5`
+- Open a real chat, send each of these and watch the right popup fire:
+  - `"you owe me $20"` → venmo popup
+  - `"remind me to take meds at 10pm"` → alarm popup
+  - `"save this number +1 415-555-1234"` → contact popup
+  - `"meeting at 3pm tomorrow"` → calendar popup
+  - `"heading to dolores park"` → maps popup
+- Send a multi-intent msg: `"remind me to venmo priya $25 at 8pm"` → both money and alarm popups fire
+- Send 3 follow-up nags in the same chat, confirm nothing fires
+- Pay the $20, send "also $15 for gas", confirm the new money popup fires
 
-Basically live the example convo. If all 5 look right, we're shipping.
+Basically live the demo convo. If all of that looks right, we're shipping.

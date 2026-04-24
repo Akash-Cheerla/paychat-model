@@ -1,18 +1,30 @@
-# PayChat Money Detection API
+# PayChat Intent Detection API — v2.0
 
 Base URL: `http://<your-server>:8000`
+
+PayChat detects **five actionable intents** in chat messages and tells your Android app exactly when to surface a popup for each one:
+
+| Intent | What it catches | Android action |
+|--------|-----------------|----------------|
+| `money` | "you owe me $20", "venmo me", "split the uber" | Open Venmo / CashApp / UPI flow |
+| `alarm` | "remind me at 10pm", "wake me up at 6am tomorrow" | `AlarmClock.ACTION_SET_ALARM` |
+| `contact` | "save this number +1 415-555-1234" | `ContactsContract.Intents.Insert` |
+| `calendar` | "meeting at 3pm tomorrow", "dinner sat 8pm" | `CalendarContract.Events` insert |
+| `maps` | "meet me at blue bottle", "heading to SFO" | `geo:` URI / Google Maps search |
+
+All five run through the **same popup-cooldown policy, per chat, per intent** — so an alarm cooldown never blocks a money popup in the same conversation.
 
 ---
 
 ## `POST /detect`
 
-Send a chat message, get back whether it's about money and what to do with it.
+Send a chat message, get back an array of detected intents and whether each should surface a popup right now.
 
 ### Request
 
 ```json
 {
-  "text": "you owe me $20 from last night",
+  "text": "remind me to venmo priya $25 at 8pm",
   "chat_id": "room_abc123",
   "message_id": "msg_456",
   "sender": "akash"
@@ -30,89 +42,237 @@ Send a chat message, get back whether it's about money and what to do with it.
 
 ```json
 {
+  "intents": [
+    {
+      "type": "money",
+      "confidence": 0.9847,
+      "should_popup": true,
+      "suppressed_reason": null,
+      "cooldown_remaining_seconds": 0,
+      "chat_state": "cooldown",
+      "payload": {
+        "amount": "$25",
+        "trigger_type": "payment_app",
+        "direction": "request"
+      },
+      "targeting": {
+        "addressee": null,
+        "third_party": "priya",
+        "is_self": true,
+        "is_mutual": false
+      }
+    },
+    {
+      "type": "alarm",
+      "confidence": 0.9912,
+      "should_popup": true,
+      "suppressed_reason": null,
+      "cooldown_remaining_seconds": 0,
+      "chat_state": "cooldown",
+      "payload": {
+        "label": "venmo priya",
+        "time_iso": "2026-04-24T20:00",
+        "time_phrase": "at 8pm"
+      },
+      "targeting": {
+        "addressee": null,
+        "third_party": "priya",
+        "is_self": true,
+        "is_mutual": false
+      }
+    }
+  ],
+
   "is_money": true,
   "confidence": 0.9847,
-  "trigger_type": "owing_debt",
+  "trigger_type": "payment_app",
   "direction": "request",
-  "detected_amount": "$20",
+  "detected_amount": "$25",
   "should_popup": true,
   "suppressed_reason": null,
   "cooldown_remaining_seconds": 0,
   "chat_state": "cooldown",
-  "latency_ms": 245.3,
+
+  "latency_ms": 28.4,
   "chat_id": "room_abc123",
   "message_id": "msg_456",
   "sender": "akash"
 }
 ```
 
+### Top-level response fields
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `is_money` | boolean | `true` if the message is about money/payments |
-| `confidence` | float | Model confidence (0.0 to 1.0). Threshold is 0.65 |
-| `trigger_type` | string or null | Why it triggered. One of: `owing_debt`, `bill_splitting`, `direct_amount`, `payment_app`, `general_money`. Null if `is_money` is false |
-| `direction` | string or null | Who should see the popup. One of: `request`, `offer`, `split`. Null if `is_money` is false |
-| `detected_amount` | string or null | Extracted dollar amount (e.g. `"$20"`, `"$15.50"`). Null if no amount found |
-| `should_popup` | boolean | **The one field the app should actually read.** `true` = show the Venmo popup now. `false` = stay quiet. |
-| `suppressed_reason` | string or null | Why the popup was suppressed. One of: `not_money`, `cooldown_active`, `recently_dismissed`, `post_payment_grace`. Null when `should_popup` is true. |
-| `cooldown_remaining_seconds` | int | Seconds until a popup would be allowed again. `0` when `should_popup` is true. |
-| `chat_state` | string | Current tracker state for this chat. One of: `idle`, `cooldown`, `dismissed`, `post_payment`, `untracked`. |
-| `latency_ms` | float | How long inference took in milliseconds |
-| `chat_id` | string or null | Passed through from request |
-| `message_id` | string or null | Passed through from request |
-| `sender` | string or null | Passed through from request |
+| `intents` | array | **The v2 contract.** One entry per intent that cleared the confidence threshold. Empty array = nothing actionable detected. |
+| `is_money`, `confidence`, `trigger_type`, `direction`, `detected_amount`, `should_popup`, `suppressed_reason`, `cooldown_remaining_seconds`, `chat_state` | mixed | **v1 back-compat.** Flat fields mirror the `money` intent if present (same values as `intents[type=money]`). New Android code should read `intents[]`; existing v1 code keeps working unchanged. |
+| `latency_ms` | float | Model inference time in milliseconds |
+| `chat_id`, `message_id`, `sender` | string or null | Passed through from the request |
+
+### Per-intent fields (`intents[]` entries)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | One of `money`, `alarm`, `contact`, `calendar`, `maps` |
+| `confidence` | float | Sigmoid output for this head (0.0–1.0). Entries only appear above threshold (default 0.5). |
+| `should_popup` | boolean | **The field your app reads.** `true` = fire the popup for this intent now. |
+| `suppressed_reason` | string or null | Why the popup was suppressed. One of: `cooldown_active`, `recently_dismissed`, `post_payment_grace`. Null when `should_popup` is true. |
+| `cooldown_remaining_seconds` | int | Seconds until a popup for this intent would be allowed again |
+| `chat_state` | string | Tracker state for this (chat, intent). One of: `idle`, `cooldown`, `dismissed`, `post_payment`, `untracked` |
+| `payload` | object | Android-ready data for this intent. Shape varies per `type` — see below. |
+| `targeting` | object | Who this message is addressed to. Shape below. |
+
+### `payload` schemas per intent
+
+#### `money`
+```json
+{ "amount": "$25", "trigger_type": "payment_app", "direction": "request" }
+```
+- `amount` — extracted dollar amount string, or null
+- `trigger_type` — `owing_debt` | `bill_splitting` | `direct_amount` | `payment_app` | `general_money`
+- `direction` — `request` | `offer` | `split` (determines who sees the popup)
+
+#### `alarm`
+```json
+{ "label": "take meds", "time_iso": "2026-04-24T22:00", "time_phrase": "at 10pm", "seconds_from_now": 1200 }
+```
+- `label` — the task portion ("take meds"). May be null if not extractable.
+- `time_iso` — ISO-8601 local time for `AlarmClock.EXTRA_HOUR`/`EXTRA_MINUTES`
+- `time_phrase` — raw phrase that was parsed
+- `seconds_from_now` — only present for relative times ("in 20 min")
+
+#### `contact`
+```json
+{ "phone": "+1 415 555 1234", "name_hint": "akash" }
+```
+- `phone` — normalized E.164-ish format with country code. US and India supported.
+- `name_hint` — best-effort addressee pulled from the message. App should merge with chat context.
+
+#### `calendar`
+```json
+{ "title": "meeting", "start_iso": "2026-04-25T15:00", "start_phrase": "at 3pm tomorrow", "duration_minutes": 30 }
+```
+- `title` — event title
+- `start_iso` — ISO-8601 start time for `CalendarContract.EXTRA_EVENT_BEGIN_TIME`
+- `duration_minutes` — 30 for meetings/calls/standups, 60 for dinners/events
+
+#### `maps`
+```json
+{ "place": "blue bottle on valencia" }
+```
+- `place` — free-text place string. Pass directly to `geo:0,0?q=<url-encoded place>` or Maps Places search.
+
+### `targeting` schema (all intents)
+
+```json
+{ "addressee": "akash", "third_party": "priya", "is_self": true, "is_mutual": false }
+```
+
+- `addressee` — who the message is directed **at** within the chat (e.g. `"akash"` in "hey akash save this number"). Usually matches another chat member. Null if none detected.
+- `third_party` — a person mentioned who isn't a chat participant (e.g. `"mom"` in "remind me to call mom"). Null if none detected.
+- `is_self` — `true` if the sender is talking about themselves ("remind **me** to…"). Drives whose device should fire the popup for alarms/contacts/maps.
+- `is_mutual` — `true` for group actions ("team sync friday 4pm", "everyone meet at the mission"). Drives "show popup to everyone in the chat" logic.
 
 ### The popup decision — `should_popup`
 
-The model answers "is this about money?". The API answers "should we *actually* pop the Venmo sheet right now?". Those are not the same question.
+The model answers "is this about X?". The API answers "should we *actually* pop the sheet right now?". Those are not the same question.
 
-In a money conversation you might get 10 messages in 30 seconds — "you owe me 20", "bro pay up", "venmo me", "fr". The model says yes to all of them. If the app popped for every one, users would throw their phones. So the API holds a per-chat state machine and only returns `should_popup: true` when it's actually useful.
+In a chatty thread you might get 10 messages in 30 seconds — "you owe me 20", "bro pay up", "venmo me", "fr". The model says yes to all of them. If the app popped for every one, users would throw their phones. So the API holds **per-(chat, intent) state** and only returns `should_popup: true` when it's useful.
 
-**The rules:**
+**The rules (apply independently per intent):**
 
-- First money message for a chat → popup fires.
+- First intent-fire in a chat → popup fires. Tracker remembers `last_payload`.
 - Follow-ups inside the cooldown window (5 min) → suppressed (`cooldown_active`).
-- If a new, distinct `$` amount shows up in the same chat → popup fires again (it's a new transaction).
-- If the user dismisses the popup → cooldown extends to 15 min (`recently_dismissed`).
-- If payment completes → cooldown clears, brief 60s grace window to ignore "sent!" / "thanks" messages (`post_payment_grace`). After grace, chat is fully idle again.
+- A **new distinct payload** for the same intent re-fires the popup. The distinctness key is:
+  - `money` → `amount`
+  - `alarm` → `time_iso` / `seconds_from_now`
+  - `contact` → `phone`
+  - `calendar` → `start_iso`
+  - `maps` → `place`
+- User dismisses → cooldown extends to 15 min (`recently_dismissed`).
+- `/payment-complete` (money only) → cooldown clears, 60s grace window ignores "sent!" / "thanks" / "💸" messages (`post_payment_grace`).
 
-**Your integration is just one line.** Read `should_popup`. If true, pop. If false, don't. Everything else in the response is diagnostic — useful for logs, dashboards, debugging — but not required.
+**Per-intent isolation:** An alarm firing in chat X never affects the money cooldown in chat X. Each (chat_id, intent) pair gets its own state.
 
-### Popup lifecycle — app-side events to report
+---
 
-Your app needs to tell us when certain UI events happen so we can update the state machine. Three endpoints:
+## App-side event reporting
 
-| Event | Endpoint | When to call |
-|-------|----------|--------------|
-| Payment succeeded | `POST /payment-complete/{chat_id}` | Venmo/CashApp webhook confirmed, or in-app payment flow reached success screen |
-| User dismissed popup | `POST /popup-dismissed/{chat_id}` | User tapped X / closed the popup without paying |
-| Manual reset (admin/testing) | `POST /reset-cooldown/{chat_id}` | You want to force-clear the cooldown for any reason |
+Your app needs to tell the server when UI events happen so the cooldown state stays honest:
 
-If you don't wire these up, the system still works — it just falls back to timer-only behavior (5 min cooldown always). Wiring them up is what makes it feel smart.
+| Event | Endpoint | Scope |
+|-------|----------|-------|
+| Payment succeeded | `POST /payment-complete/{chat_id}` | money only |
+| User dismissed a popup | `POST /popup-dismissed/{chat_id}?intent=<intent>` | specified intent (defaults to `money`) |
+| Manual reset (admin/testing) | `POST /reset-cooldown/{chat_id}[?intent=<intent>]` | omit `intent` to clear all intents for the chat |
 
-### Direction field — who gets the popup
+If you don't wire these up, the system still works — it falls back to timer-only behavior (5 min cooldown). Wiring them up is what makes it feel smart.
 
-| Direction | Meaning | Show popup to |
-|-----------|---------|--------------|
-| `request` | Sender is asking for money ("you owe me $20") | Recipients (everyone except sender) |
-| `offer` | Sender is offering to pay ("I'll venmo you") | Sender |
-| `split` | Mutual split ("let's split the bill") | Everyone in the chat |
+---
 
-### Trigger types
+## Android integration — one example per intent
 
-| Trigger Type | Example Messages |
-|-------------|-----------------|
-| `owing_debt` | "you owe me $20", "pay me back", "where's my money" |
-| `bill_splitting` | "let's split the bill", "your share is $15", "go halves?" |
-| `direct_amount` | "send me $50", "that'll be $30", "I need $20 from you" |
-| `payment_app` | "venmo me", "cashapp me $20", "zelle me" |
-| `general_money` | "my treat", "I got you", "drinks on me", "spot me" |
+### `money` → Venmo / CashApp / UPI
+```kotlin
+val uri = Uri.parse("venmo://paycharge?txn=charge&amount=${payload.amount.drop(1)}&note=")
+startActivity(Intent(Intent.ACTION_VIEW, uri))
+```
+
+### `alarm` → `AlarmClock.ACTION_SET_ALARM`
+```kotlin
+val hour = LocalDateTime.parse(payload.timeIso).hour
+val minute = LocalDateTime.parse(payload.timeIso).minute
+val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+    putExtra(AlarmClock.EXTRA_HOUR, hour)
+    putExtra(AlarmClock.EXTRA_MINUTES, minute)
+    putExtra(AlarmClock.EXTRA_MESSAGE, payload.label ?: "Reminder")
+    putExtra(AlarmClock.EXTRA_SKIP_UI, false)  // let user confirm
+}
+startActivity(intent)
+```
+
+### `contact` → `ContactsContract.Intents.Insert`
+```kotlin
+val intent = Intent(ContactsContract.Intents.Insert.ACTION).apply {
+    type = ContactsContract.RawContacts.CONTENT_TYPE
+    putExtra(ContactsContract.Intents.Insert.PHONE, payload.phone)
+    putExtra(ContactsContract.Intents.Insert.NAME, payload.nameHint ?: "")
+}
+startActivity(intent)
+```
+
+### `calendar` → `CalendarContract.Events` insert
+```kotlin
+val start = LocalDateTime.parse(payload.startIso)
+    .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+val intent = Intent(Intent.ACTION_INSERT).apply {
+    data = CalendarContract.Events.CONTENT_URI
+    putExtra(CalendarContract.Events.TITLE, payload.title)
+    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+    putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
+             start + payload.durationMinutes * 60_000L)
+}
+startActivity(intent)
+```
+
+### `maps` → `geo:` URI
+```kotlin
+val place = Uri.encode(payload.place)
+val uri = Uri.parse("geo:0,0?q=$place")
+val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+    setPackage("com.google.android.apps.maps")  // optional — force Google Maps
+}
+startActivity(intent)
+```
+
+---
 
 ### Error responses
 
 | Status | Body | When |
 |--------|------|------|
 | 400 | `{"detail": "text cannot be empty"}` | Empty or missing text |
+| 400 | `{"detail": "unknown intent 'X'..."}` | Invalid `intent` query on `/popup-dismissed` or `/reset-cooldown` |
 | 503 | `{"detail": "Model not loaded..."}` | Server still starting up (cold start ~20s) |
 
 ---
@@ -123,19 +283,23 @@ Health check. Use this for your load balancer or uptime monitoring.
 
 ```json
 {
-  "status": "healthy",
-  "device": "cpu",
-  "model_dir": "/app/saved_model",
-  "loaded_at": "2026-04-11T10:30:00",
+  "status":          "healthy",
+  "device":          "cpu",
+  "model_dir":       "/app/saved_model",
+  "num_labels":      5,
+  "intents":         ["money", "alarm", "contact", "calendar", "maps"],
+  "loaded_at":       "2026-04-24T10:30:00",
   "version": {
-    "trained_at": "2026-04-12T...",
-    "test_accuracy": 1.0,
-    "test_f1": 1.0
+    "trained_at":    "2026-04-24T...",
+    "test_accuracy": 0.98,
+    "test_f1":       0.97
   },
-  "threshold": 0.65,
-  "total_requests": 1284
+  "threshold":       0.5,
+  "total_requests":  1284
 }
 ```
+
+`num_labels` will be `5` for the multi-intent model and `2` for a legacy money-only checkpoint. The server auto-detects and handles both.
 
 ---
 
@@ -145,30 +309,39 @@ Live stats. Good for dashboards.
 
 ```json
 {
-  "requests": 1284,
-  "money_detected": 342,
-  "detection_rate": 0.2664,
-  "popups_fired": 118,
-  "popups_suppressed": 224,
-  "suppression_rate": 0.6550,
-  "active_chat_trackers": 47,
-  "avg_latency_ms": 231.5,
-  "started_at": "2026-04-11T10:30:00"
+  "requests":              1284,
+  "money_detected":        342,
+  "intents_detected": {
+    "money":    342,
+    "alarm":    118,
+    "contact":   47,
+    "calendar": 203,
+    "maps":     161
+  },
+  "detection_rate":        0.2664,
+  "popups_fired":          418,
+  "popups_suppressed":     453,
+  "suppression_rate":      0.5201,
+  "active_chat_trackers":  147,
+  "avg_latency_ms":        28.5,
+  "started_at":            "2026-04-24T10:30:00"
 }
 ```
 
-`suppression_rate` tells you what fraction of detected money messages resulted in a suppressed popup. A healthy chatty-group chat might run 0.6–0.8 — that means the cooldown is earning its keep. Near-zero means either every chat has a single money message (fine) or your `chat_id` isn't being passed consistently (check that first).
+`suppression_rate` tells you what fraction of detections resulted in a suppressed popup. A healthy chatty-group app might run 0.4–0.7. Near-zero usually means your `chat_id` isn't being passed consistently — each message looks like a new chat, so nothing is ever a follow-up.
 
 ---
 
 ## `POST /reload`
 
-Hot-reload the model without restarting the server. Call this after you update the model files on disk.
+Hot-reload the model without restarting the server. Call this after you swap model files on disk.
 
 ```json
 {
   "status": "ok",
-  "loaded_at": "2026-04-11T15:00:00",
+  "loaded_at": "2026-04-24T15:00:00",
+  "num_labels": 5,
+  "intents": ["money", "alarm", "contact", "calendar", "maps"],
   "version": { ... }
 }
 ```
@@ -177,19 +350,14 @@ Hot-reload the model without restarting the server. Call this after you update t
 
 ## `POST /payment-complete/{chat_id}`
 
-Call this the moment a payment succeeds (Venmo webhook, in-app confirmation, whatever your source is). It clears the chat's cooldown so future money topics can pop again, and briefly suppresses popups for 60 seconds so "sent!", "thanks", "💸" type victory-lap messages don't accidentally re-trigger.
+**Money intent only.** Call this the moment a payment succeeds (Venmo webhook, in-app confirmation, UPI callback, etc.). Clears the money cooldown for this chat and opens a 60-second grace window so "sent!" / "thanks" / "💸" messages don't re-trigger the popup. Other intents' cooldowns in the same chat are untouched.
 
 ### Request
 
-Body is optional — pass it if you want audit info logged.
+Body is optional — pass it if you want audit info in the logs.
 
 ```json
-{
-  "amount": "$40",
-  "payer": "rohit",
-  "payee": "akash",
-  "method": "venmo"
-}
+{ "amount": "$40", "payer": "rohit", "payee": "akash", "method": "venmo" }
 ```
 
 ### Response
@@ -198,6 +366,7 @@ Body is optional — pass it if you want audit info logged.
 {
   "status": "ok",
   "chat_id": "room_abc123",
+  "intent": "money",
   "chat_state": "post_payment",
   "previous_state": "cooldown",
   "grace_window_seconds": 60,
@@ -207,9 +376,16 @@ Body is optional — pass it if you want audit info logged.
 
 ---
 
-## `POST /popup-dismissed/{chat_id}`
+## `POST /popup-dismissed/{chat_id}?intent=<intent>`
 
-Call this when the user actively dismisses the popup without paying (taps X, closes the sheet, etc.). We extend the cooldown to 15 minutes so we don't keep re-annoying them every time "money" appears in the chat.
+Call this when the user dismisses a popup without completing the action (taps X, swipes away, closes the sheet). The cooldown extends to 15 minutes for that specific intent so we don't keep re-annoying them.
+
+### Query params
+| Param | Required | Default | Values |
+|-------|----------|---------|--------|
+| `intent` | No | `money` | one of `money`, `alarm`, `contact`, `calendar`, `maps` |
+
+`intent` defaults to `money` so v1 callers (who always targeted the money popup) keep working without changes.
 
 No body required.
 
@@ -219,6 +395,7 @@ No body required.
 {
   "status": "ok",
   "chat_id": "room_abc123",
+  "intent": "alarm",
   "chat_state": "dismissed",
   "previous_state": "cooldown",
   "cooldown_seconds": 900
@@ -227,17 +404,26 @@ No body required.
 
 ---
 
-## `POST /reset-cooldown/{chat_id}`
+## `POST /reset-cooldown/{chat_id}[?intent=<intent>]`
 
-Force-clear the tracker for a chat. Admin / testing only — normal flow should use `/payment-complete` or `/popup-dismissed`.
+Force-clear the tracker. Admin / testing / power-user "snooze" only — normal flow should use `/payment-complete` or `/popup-dismissed`.
 
-### Response
+- `intent=<intent>` → clear that one intent's tracker
+- Omit `intent` → clear **all** intents for this chat
+
+### Response (scoped)
+
+```json
+{ "status": "ok", "chat_id": "room_abc123", "intent": "money", "existed": true, "chat_state": "idle" }
+```
+
+### Response (unscoped — all intents)
 
 ```json
 {
   "status": "ok",
   "chat_id": "room_abc123",
-  "existed": true,
+  "cleared_intents": ["money", "alarm", "calendar"],
   "chat_state": "idle"
 }
 ```
@@ -246,32 +432,46 @@ Force-clear the tracker for a chat. Admin / testing only — normal flow should 
 
 ## `GET /chat-state/{chat_id}`
 
-Inspect the cooldown tracker for a chat. Useful during integration when you're wondering why a popup did or didn't fire.
+Inspect every intent's cooldown state for a chat. Useful during integration when you're wondering why a popup did or didn't fire.
 
-### Response (tracker entry exists)
+### Response (tracker entries exist)
 
 ```json
 {
   "chat_id": "room_abc123",
-  "state": "cooldown",
-  "last_popup_at": "2026-04-18T10:45:10",
-  "last_event_at": "2026-04-18T10:45:10",
-  "last_amount": "$40",
-  "last_trigger": "owing_debt",
-  "popup_count": 2,
-  "suppression_count": 5,
-  "cooldown_remaining_seconds": 187,
-  "reason_for_current_state": "popup_just_fired"
+  "intents": {
+    "money": {
+      "state": "cooldown",
+      "last_popup_at": "2026-04-24T10:45:10",
+      "last_event_at": "2026-04-24T10:45:10",
+      "last_payload": { "amount": "$40", "trigger_type": "owing_debt", "direction": "request" },
+      "popup_count": 2,
+      "suppression_count": 5,
+      "cooldown_remaining_seconds": 187,
+      "reason_for_current_state": "popup_just_fired"
+    },
+    "alarm": {
+      "state": "dismissed",
+      "last_popup_at": "2026-04-24T10:40:12",
+      "last_event_at": "2026-04-24T10:41:50",
+      "last_payload": { "label": "take meds", "time_iso": "2026-04-24T22:00" },
+      "popup_count": 1,
+      "suppression_count": 2,
+      "cooldown_remaining_seconds": 778,
+      "reason_for_current_state": "user_dismissed_popup"
+    }
+  }
 }
 ```
 
-### Response (no tracker entry)
+### Response (no tracker entries yet)
 
 ```json
 {
   "chat_id": "room_abc123",
   "state": "idle",
-  "message": "no tracker entry — next money message will popup"
+  "intents": {},
+  "message": "no tracker entries — next message will popup for any detected intent"
 }
 ```
 
@@ -279,35 +479,39 @@ Inspect the cooldown tracker for a chat. Useful during integration when you're w
 
 ## WebSocket: `ws://<server>:8000/ws/detect`
 
-For real-time detection. Same logic as POST but over a persistent connection.
+Real-time detection. Same logic as `POST /detect` but over a persistent connection — same intents array, same cooldown policy, same back-compat flat fields.
 
 **Send:**
 ```json
-{"text": "venmo me $20", "chat_id": "room_abc", "sender": "akash"}
+{"text": "remind me to venmo priya $25 at 8pm", "chat_id": "room_abc", "sender": "akash"}
 ```
 
 **Receive:**
 ```json
 {
-  "text": "venmo me $20",
+  "text": "remind me to venmo priya $25 at 8pm",
   "chat_id": "room_abc",
   "sender": "akash",
+  "intents": [
+    { "type": "money",  "should_popup": true, "payload": {...}, "targeting": {...} },
+    { "type": "alarm",  "should_popup": true, "payload": {...}, "targeting": {...} }
+  ],
   "venmo_detection": {
     "is_money": true,
     "confidence": 0.9912,
     "trigger_type": "payment_app",
     "direction": "request",
-    "detected_amount": "$20",
+    "detected_amount": "$25",
     "should_popup": true,
     "suppressed_reason": null,
     "cooldown_remaining_seconds": 0,
     "chat_state": "cooldown",
-    "latency_ms": 189.4
+    "latency_ms": 28.9
   }
 }
 ```
 
-The WebSocket applies the exact same cooldown policy as `POST /detect` — same fields, same rules. The app team has one contract regardless of transport.
+The `venmo_detection` object is the v1-back-compat mirror of the money intent. New code should read `intents[]`.
 
 ---
 
@@ -315,11 +519,11 @@ The WebSocket applies the exact same cooldown policy as `POST /detect` — same 
 
 | Scale | Instance | Specs | Cost | Latency |
 |-------|----------|-------|------|---------|
-| MVP (<500 users) | AWS `t3.medium` / GCP `e2-medium` | 2 vCPU, 4GB RAM | ~$30/mo | ~200-300ms |
-| Growing (500-2000) | AWS `t3.large` / GCP `e2-standard-2` | 2 vCPU, 8GB RAM | ~$60/mo | ~150-250ms |
-| Scale (2000+) | GPU instance or multiple CPU behind LB | varies | varies | ~20-50ms (GPU) |
+| MVP (<500 users) | AWS `t3.medium` / GCP `e2-medium` | 2 vCPU, 4GB RAM | ~$30/mo | ~200–300ms |
+| Growing (500–2000) | AWS `t3.large` / GCP `e2-standard-2` | 2 vCPU, 8GB RAM | ~$60/mo | ~150–250ms |
+| Scale (2000+) | GPU instance or multi-CPU behind LB | varies | varies | ~20–50ms (GPU) |
 
-CPU is fine for MVP. No GPU needed — model is only 67M parameters.
+CPU is fine for MVP. The multi-intent model is still ~67M parameters (DistilBERT base with a 5-head classifier) — no GPU needed.
 
 ### Docker deployment
 
@@ -333,22 +537,34 @@ docker run -d -p 8000:8000 --name paychat paychat-model
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MODEL_DIR` | `./saved_model` | Path to model files |
-| `CONFIDENCE_THRESHOLD` | `0.65` | Min confidence to trigger (0.0-1.0) |
+| `CONFIDENCE_THRESHOLD` | `0.5` | Min per-intent sigmoid to trigger (0.0–1.0) |
 | `POPUP_COOLDOWN_SECONDS` | `300` | Quiet window after a popup fires (default 5 min) |
-| `DISMISSED_COOLDOWN_SECONDS` | `900` | Longer quiet window if user dismissed the popup (default 15 min) |
+| `DISMISSED_COOLDOWN_SECONDS` | `900` | Longer quiet window after a user dismissal (default 15 min) |
 | `POST_PAYMENT_GRACE_SECONDS` | `60` | Brief suppression right after `/payment-complete` so confirmation messages don't re-pop |
 | `TRACKER_EVICTION_SECONDS` | `1800` | Drop in-memory chat tracker entries after this much idle time (default 30 min) |
 
 ### A note on scale
 
-The cooldown tracker lives in memory on a single server. For MVP (single instance) this is fine and keeps things fast — no Redis dependency, no network hop. If you scale to multiple API instances behind a load balancer, the tracker needs to move to Redis so all instances share the same view of each chat's state. Swap the in-memory `popup_tracker` dict in `app.py` for a Redis client with the same keys and you're done.
+The cooldown tracker lives in-memory on a single server, keyed by `(chat_id, intent)` tuples. For MVP (single instance) this is fine and fast — no Redis dependency. If you scale to multiple API instances behind a load balancer, swap the in-memory `popup_tracker` dict for Redis with keys like `paychat:{chat_id}:{intent}` and you're done.
 
 ---
 
 ## Quick test
 
 ```bash
+# Single intent
 curl -X POST http://localhost:8000/detect \
   -H "Content-Type: application/json" \
   -d '{"text": "you owe me $20", "chat_id": "test123"}'
+
+# Multi-intent
+curl -X POST http://localhost:8000/detect \
+  -H "Content-Type: application/json" \
+  -d '{"text": "remind me to venmo priya $25 at 8pm", "chat_id": "test123"}'
+
+# Dismiss alarm popup only
+curl -X POST "http://localhost:8000/popup-dismissed/test123?intent=alarm"
+
+# Inspect all tracker state for a chat
+curl http://localhost:8000/chat-state/test123
 ```

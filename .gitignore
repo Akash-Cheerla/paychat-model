@@ -9,3 +9,5 @@ dist/
 build/
 *.log
 .DS_Store
+saved_model_v1_backup/
+PayChat_Train.ipynb

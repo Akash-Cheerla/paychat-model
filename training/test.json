@@ -1,0 +1,5834 @@
+[
+  {
+    "text": "pencil me in tuesday at 4:45PM",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "never been to tokyo",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wake me tomorrow 3AM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "it's 2026 already",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "new york pizza is the best",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "alert me at 8PM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "EN ROUTE TO KORAMANGALA",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "class sunday at 3:30 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "also see u at costco",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "finished my 2 hrs run",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "all hands at 2am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "hanging at the corner cafe",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "cashapped you the around $25",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "yo alex, brian's number is 3712419072",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "dad's number is +1 421 386 3921",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "eh maybe",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "cashapp me about $12?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "my new number is 237.362.1191",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "save my number 1-489-358-5002",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "mike add alex to contacts +1-845-970-5881",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "remind me in 10 min to go to the gym",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "money doesn't grow on trees",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "send over like $10 when you get a chance ngl",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "i love paris",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hell yeah lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "save the date 1/28",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "gym thu at morning",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "remember the good old days",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "the standup is done",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "sheesh ngl",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "any time now",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "so sid is at 675-388-1652",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "wake me up tomorrow at 11:30",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "met up with nikhil yesterday rn",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "appointment was yesterday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "worth every penny",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "put an alarm on for first thing rn",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "team offsite january 7",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "MY CELL +1-582-124-6153",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "flight at 6:00 pm friday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "brunch this thursday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "NEED AN ALARM SET FOR 21:15",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "the electrician's cell +91 84823 73379",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "uber driver's no 06010898573",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "hey save my number 735-267-4850",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "find LAX on maps",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "it's 2026 already",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "doctor's appointment mon at 1:30 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "drinks wednesday at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "hit me up at 2pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "alarm at 2 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "fyi set alarm tomorrow 7:15 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "ur funny ngl",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "buzz me at 2 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "timer on the oven already",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "remember that time we",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wait welp",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "born in chicago",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "invoice 9876543210",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "pencil me in sunday at 9:30PM lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "alarm for 10 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "up for drinks at 10am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "room 9876",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "pin is dropped at oberoi",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "that's rich coming from you",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "call the restaurant at (746) 814-8081",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "clinic contact 265.251.4660",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "the meeting ended",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "address for the party: 307 broadway",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "the landlord's number 9463005937",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "dinner tuesday?",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "wana meet up today",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "salon number +1-686-246-7750",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "LETS GO",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "pull up chipotle on 4th on maps",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "wake me up at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "pick up from 5905 7th st, driver's no +1-942-297-2789",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "wedding on 21/4 at oberoi",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "free thursday at 1PM? plz",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "score was 9-2",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can you start a timer for 10 minutes",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "yo don't let me forget to start the laundry",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "pin is dropped at LAX",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "meeting with amanda thursday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "btw my cell +91-72514-48811",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "don't forget about the money you owe me",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "going halves on the pizza?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "hit me up at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "only 10am and im drained",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "btw dinner was at golden gate park last week",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "had dinner yesterday asap",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "room 9876",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "we all throwing in? fr",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "hit up starbucks bandra on saturday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can you chip in around $45 for the supplies?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "save the date 2/13/26",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "remind me to venmo you 75 bucks tomorrow",
+    "labels": {
+      "money": 1,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "yoga wed at 10 pm, set an alarm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "alert me at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "prices are insane these days",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "need a 5 mins timer",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "need a 1 hrs timer",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "version 1.2.3.4",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hey never been to tokyo",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "I'll think about it",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "happy birthday!!",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "I just got a new number 7285566084",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "paris is beautiful",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "flight AA 7221",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "dinner at central park next week 1 pm haha",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "that's rich coming from you",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meera's number is 1-550-209-4774, remind me to follow up midnight",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "NO WAY THAT ACTUALLY HAPPENED",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "let's grab 1:1 at 10 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "supposedly blue bottle has good food lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "feel free to call me at 7614244260",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "wake me before 11:30PM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "wedding on 11/10/26 at chipotle on 4th",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "THE SHOP'S NUMBER IS +917319057720",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "tell me at noon to go to the gym",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "all hands at 6:45pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "wild",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can you set an alarm for 6 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "nothing much wbu asap",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "knocked around $45 off the total already fr",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "save rohit's number +919247254265, remind me to call them 7:45AM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "fyi seattle rain though",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "do I need to remind you about the $20.99",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "wait miami is too humid",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "won 10-0 last night",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "timer went off",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "that movie was so good",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "yo uber driver's no 850-651-9563",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "my venmo is @handle",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "ping me when it's 1:15 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "dropping the address - 4284 folsom st #144",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "notify me at 5:00PM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "on my way to starbucks bandra",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "team sync at morning, remind me 45 mins before",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "that cost me like $50 total",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "HOW DO I GET TO HOME DEPOT",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "directions to hauz khas village",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "my number is 6152911371",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "sup bro",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "what are you up to tonight",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "see you tomorrow fr",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can you send me $15 real quick",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "everyone in for dinner wednesday at noon",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "going to koramangala",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "we need 4 people",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "FR FR",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "fyi chris take this number down +1 478 181 8255",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "won 10-0 last night",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "good morning",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "rendezvous at home depot",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "remember that time we",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can we go halves on this?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "I just got a new number 1-994-862-3893",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "chilling at connaught place haha",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "yo let's do $40 each for the Uber",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "I need an alarm for 8:00",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "so here's my digits 294-912-3488",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "group dinner monday at 6 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "sharing my live location",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "catch you at SFO",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "lunch on tomorrow?",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "the standup is done",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "passport number 9876543",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "birthday at lax on 4/11",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "FOR THE TIME BEING",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "lunch with emma at union square 0:30",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "how much is my part",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "I'll cover it don't worry",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "mixed_money",
+    "split": "test"
+  },
+  {
+    "text": "free tue at 5 am?",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "miami is too humid",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wake me up tomorrow at 3 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "remind me to pay rent friday",
+    "labels": {
+      "money": 1,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "en route to LAX",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "guys lunch at 4:30pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "need my money back asap",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "headed over to home depot",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "I'll cashapp you back tonight",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "gonna need a wake up call at 2:45AM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "ok so drove by JFK earlier",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "halfsies on the pizza?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "room 9876",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "booking hotline +91 6058561547",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "doctor's appointment thursday at 3 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "the alarm in the building went off",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "everyone meet at the mission",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "remind me later to take meds plz",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "ping me when it's 9 pm rn",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "still owe me $15 from the grocery run, my venmo is @name",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "mixed_money",
+    "split": "test"
+  },
+  {
+    "text": "let's schedule for thursday at 17:30",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "hit up golden gate park on saturday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hanging at whole foods",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "my credit card ends in 1234",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "set an alarm for 5 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "hey set a good example",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "are we even",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "mixed_money",
+    "split": "test"
+  },
+  {
+    "text": "wire me the about $80",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "bro I lent you $100.99 remember",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "set a timer for 10 mins",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "poke me in 20 min for call the plumber",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "driving to cafe coffee day",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "ur funny",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "deadass pls",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "5 min timer plz fr",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "anjali just changed his number to +1 701 463 6957",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "send the address - 6531 polk st apt 7",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "sharing my pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "interview at 3AM today",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "i sent you my locaton",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "yo what's good tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "ROOM 9876",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "btw meet up at times square",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "i'm 25 years old",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "whats the way to blue bottle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "quick sync at 5pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "team sync tuesday 8:00",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "going to cafe coffee day haha",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "lets go",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "class fri at 12 pm fr",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "never forget",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meet at whole foods, remind me tonight",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "squad gym session fri 3AM plz",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "what's the route to bandra bandstand",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "start a timer 30 mins lol",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "wake me up at 8:15AM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "wait on my way to blue bottle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "set alarm for midnight",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "boston sports are trash",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "lunch on tonight?",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "dropped by starbucks on market this morning",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "I can't rn",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "fyi we're meeting at cafe coffee day",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "wake me at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "so pull up cyber hub on maps",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "can we schedule haircut tuesday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "don't let me miss client call at 0:00",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "zip code 94110 lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "45 minuts timer plz",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "aditi's wedding 27/6, his number +1 327 270 8597 tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "you free for run tue",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "party at my place tuesday at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "save my number 352.916.5414",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "just a heads up you still owe me",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "figures",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "btw meeting at 7 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "rohit take this number down +1 231 989 2772",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "ping me 9:00 pm about submit the form",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "save my number 8818804428",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "HERE'S THE ADDRESS 9072 BROADWAY",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "emma save this, rachel's number +91 84303 49189",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "also this is my number (529) 874-4730",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "wanna go halfsies?",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "save my contact - 662-400-3666",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "yo my $15??",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "what's the route to academy of sciences",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "I'm so broke lately",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "akash phone: +91 6476044090",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "money doesn't grow on trees",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wake me tomorrow first thing",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "group meet at coffee shop on 5th plz",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "I need around $200 from you",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "i'm at union square, ping me in 10 min fr",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "won 10-0 last night",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "emma save this, rachel's number +91 7946209355",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "I'm so broke lately",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meeting with jessica at tonight",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "remind me to pay rent wed",
+    "labels": {
+      "money": 1,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "dude the about $5",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "new york pizza is the best",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hey that's rich coming from you",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "fyi been sitting at blue bottle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "send it through venmo asap",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "the wedding was last month",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "I only have venmo and cashapp",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "sharing my live location",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "on god",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "don't let me miss 1:1 at 2 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "so let's grab workout at 9 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "morning already feels long",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "MY CELL 9783342474",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "making my way to phoenix mall",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "you gonna pay me or what",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "pin is 1234",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "timer went off plz",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "he's loaded with work",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "how do i get to the sushi spot",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "give me a 20 mins heads up",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "btw heading to hauz khas village",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "pay me back the about $25 you borrowed",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "flight wed at 11 am, wake me at 3 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "wake me up tomorrow at 12:00",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "wait can you remind me to start the laundry 4:45",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "address for the party: 9989 7th st, ny",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "group dinner monday at 9 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "sf is wild",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "it's 3pm already??",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "btw saw sarah yesterday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "accept my venmo request",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "wedding on 8/7/26 at costco",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "weekends are the best haha",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "credit card last 4 is 9876 tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "alert me at 2PM",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "making my way to my place",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "pay up already",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "OMG SAME I WAS THINKING THAT",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "set the table please",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "whats the way to starbucks banra",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "check my pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "I'll think about it",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "deadass",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "I can't believe it",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "headed over to chipotle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "good night everyone",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "only 10am and im drained",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "ill drop a pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "born in 1998 tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "we're meeting at chipotle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "what time is it",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "sharing my live location",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "here's my digits 08898803153",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "never been to tokyo",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "no cap that's wild fr",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "the guy's number who does the painting is +1-404-469-4930",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "paris hilton lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "this weather is insane tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "the guy's number who does the painting is 3852258293",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "saw sarah yesterday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "also born in chicago",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "waiting at indiranagar",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "remind me later to water the plants",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "hey meet up at dolores park",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "hey im outside forum mall",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "new york pizza is the best",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "that'll be like $5",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "direct_amount",
+    "split": "test"
+  },
+  {
+    "text": "distance to chipotle",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "save my contact - 9252293774",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "I got you on the tab",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "mixed_money",
+    "split": "test"
+  },
+  {
+    "text": "FEEL FREE TO CALL ME AT +91-64743-97429",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "tat's crazy",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "ill drop a pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "I CAN'T BELIEVE IT",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "birthday at brooklyn bridge on 13 june",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "samyak add aunty to contacts +1 999 926 4654",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "sup bro",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "check my pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "just got paid finally",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meeting at forum mall 4 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "hanging at your place",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "quick sync at tonight",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "cab driver's number +1 747 279 2119 plz",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "wake me at 11 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "btw my cell 8535461470",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "cant believe its friday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meet me at equinox",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "seattle rain though tbh",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "my new number is 07435885379",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "fyi ping me when it's 5 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "hey save my number 981.395.9215",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "build 9.8.7",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "he said what?! lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "fire alarm was a drill",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hey dinner tue 3PM - splitting $45.50 each",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "miami is too humid",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wake me before 3pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "check my pin",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "hey save my number (214) 544-3830",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "emma this is emma from work +919813675009",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "yo let's just split it",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "cab driver's number 2859942124",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "reception desk - (471) 952-4505 ngl",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "eh maybe",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wait never been to tokyo",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "apple pay me 200 bucks",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "lemme cashapp you real quick",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "drove by starbucks ealier",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "meeting at 6:00 am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "drove by starbucks bandra earlier",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "dentist's office +91 85021 30609",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "alert me at 12 am fr",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "wait sharing my live location",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_pin",
+    "split": "test"
+  },
+  {
+    "text": "hey pull up cafe coffee day on maps",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "set the table please",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "SPOT IS 1770 BROADWAY APT 13",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "save my contact - +91-62058-69507",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "see you tomorrow ngl",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "you can reach rohan at 4632316290",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "venmo'd you 200 bucks just now fr",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "pls remind me to check the oven at 6 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "also good night everyone",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "need a 5 min timer",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "WILD",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wedding on 2/1/26",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "lemme cashapp you real quick",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "please wake me at 2 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "EVERYONE IN FOR DINNER WEDNESDAY AT 8AM",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "need my money back asap",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "hey dave, meera's cell is +91 76595 20149",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "reception desk - 6518638581",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_business",
+    "split": "test"
+  },
+  {
+    "text": "I CALCULATED YOUR SHARE - IT'S LIKE $30",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "remind me at 5am to pick up groceries",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "this place is packed",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "dentist at 15:45 mon",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "hell yeah",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "schedule a meeting sat 1am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_schedule",
+    "split": "test"
+  },
+  {
+    "text": "the airbnb is at 119 hyde st, la",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "need a 30 min timer",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "zelle'd you like $25",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "navigate to academy of sciences",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "don't remind me of tht",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "remember the good old days",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "can someone wake me up at 1pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "hey save my number (734) 934-9762 rn",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "in 10 min remind me",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "@samyak save priya's number 931-750-4184",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "you owe me 100 bucks from last week",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "alarm already rang",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "paris hilton lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "someone wake me up at 3 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_wakeup",
+    "split": "test"
+  },
+  {
+    "text": "party at the usual spot fri at 5PM",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "hey venmo'd you like $15 just now",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "group dinner this weekend at 11:30",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_multi_person",
+    "split": "test"
+  },
+  {
+    "text": "3.14 is pi",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "fyi need my money back asap",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "also ping mom on +91-78123-71067",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_other",
+    "split": "test"
+  },
+  {
+    "text": "set the record straight",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "hanging at the gym on mission",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "ok so you owe me an explanation",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "im parked at target",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "chilling at koramangala",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "making my way to the rooftop",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "meeting at indiranagar first thing",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "text me at 7 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_ping",
+    "split": "test"
+  },
+  {
+    "text": "gimme my around $15 back",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "nudge me 1:00 about go to the gym",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  },
+  {
+    "text": "what's everyone's share",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "priya save this, mike's number (365) 156-6424",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "what's the route to that ramen place",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_directions",
+    "split": "test"
+  },
+  {
+    "text": "im at 9560 5th ave apt 1 rn",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "paris hilton lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "lunch with kiran at times square 5 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "this place is packed",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "class saturday at 15:00 ngl",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "here's my digits 819-609-1023",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_self",
+    "split": "test"
+  },
+  {
+    "text": "I remember that",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "just got paid finally",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "gym with rachel at oberoi 9 pm, remind me 2 hour before",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "remind me to pay rent fri",
+    "labels": {
+      "money": 1,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "born in chicago",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "so waiting at phoenix mall",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_im_at",
+    "split": "test"
+  },
+  {
+    "text": "emma take this number down (366) 159-8356",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "zelle me if you have it plz",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "time flies",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "group meet at academy of sciences",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_meet_at",
+    "split": "test"
+  },
+  {
+    "text": "standup saturday at 10:30 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "en route to trader joe's",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "PICK UP FROM 5610 3RD AVE APT 12, DRIVER'S NO +91 7811050228",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "fyi heard sweetgreen is nice",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "yo samyak, aunty's number is +1-482-881-2474",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "dunno lol",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "standup thursday at afternoon",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "got a meeting at tonight",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "team sync thursday 7am",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_meeting",
+    "split": "test"
+  },
+  {
+    "text": "i'm 25 years old",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "anjali's place is at 3570 5th ave apt 9, his number +1-487-820-8755",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "also what do I owe for dinner",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "I need to wake up at 11:00 pm, alarm please",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_set",
+    "split": "test"
+  },
+  {
+    "text": "ig so",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "coffee with dave friday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "here's the address 3474 larkin st #12 asap",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_address",
+    "split": "test"
+  },
+  {
+    "text": "coffee with rohan sunday",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_event",
+    "split": "test"
+  },
+  {
+    "text": "yo dentist at 8:15, remind me",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "build 9.8.7",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "wait remind me in 10 mins",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_timer",
+    "split": "test"
+  },
+  {
+    "text": "it's 2026 already",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "none",
+    "split": "test"
+  },
+  {
+    "text": "WEDDING ON 1/10/26 AT GOLDEN GATE PARK",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 1
+    },
+    "category": "multi_intent",
+    "split": "test"
+  },
+  {
+    "text": "alex save this, nikhil's number 559-675-1966",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 1,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "contact_addressed",
+    "split": "test"
+  },
+  {
+    "text": "going halves on the pizza? ngl",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "bill_splitting",
+    "split": "test"
+  },
+  {
+    "text": "wire me the around $5",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "venmo_cashapp",
+    "split": "test"
+  },
+  {
+    "text": "settle up with me when you can",
+    "labels": {
+      "money": 1,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "owing_debt",
+    "split": "test"
+  },
+  {
+    "text": "on my way to starbucks",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 1
+    },
+    "category": "maps_heading",
+    "split": "test"
+  },
+  {
+    "text": "up for train at 12:00 pm",
+    "labels": {
+      "money": 0,
+      "alarm": 0,
+      "contact": 0,
+      "calendar": 1,
+      "maps": 0
+    },
+    "category": "cal_invite",
+    "split": "test"
+  },
+  {
+    "text": "set a reminder for go to the gym at 8 am",
+    "labels": {
+      "money": 0,
+      "alarm": 1,
+      "contact": 0,
+      "calendar": 0,
+      "maps": 0
+    },
+    "category": "alarm_remind_me",
+    "split": "test"
+  }
+]

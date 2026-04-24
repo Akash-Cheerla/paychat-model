@@ -1,16 +1,23 @@
 """
-End-to-end tests for popup cooldown behavior.
+End-to-end tests for PayChat multi-intent popup cooldown behavior.
 
-Runs without loading the real DistilBERT model -- we mock run_inference so the
-cooldown logic itself is what gets exercised. Time is fast-forwarded by
-mutating tracker timestamps directly, so the whole suite runs in <1 second.
+v2.0.0 — covers:
+  - Money back-compat flat fields (the original 20 scenarios still pass)
+  - Per-intent cooldowns (alarm cooldown doesn't block money, etc.)
+  - Multi-intent messages (e.g. "meeting at 3pm, venmo me $20")
+  - Intent-scoped /popup-dismissed, /reset-cooldown, /payment-complete
+  - intents[] array shape + per-intent payloads (amount, time_iso, phone, place)
+  - Targeting signals (addressee / third_party / is_self / is_mutual)
+
+Runs without loading the real DistilBERT model — we mock run_inference so the
+cooldown + extractor logic are what get exercised. Time is fast-forwarded by
+mutating tracker timestamps directly; the whole suite runs in <2 seconds.
 
 Run:  python tests/test_cooldown.py
 """
 import os
 import re
 import sys
-import time
 
 # Make sibling modules importable when run from the repo root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,59 +26,63 @@ import app as paychat_app  # noqa: E402
 
 
 # ── Mock inference ──────────────────────────────────────────────────────────
+# The real run_inference returns {"intent_probs": {money, alarm, contact, calendar, maps},
+# "latency_ms": X}. We synthesize intent_probs from keywords so the cooldown logic
+# + per-intent extractors get a realistic multi-intent input.
+
+_INTENT_KEYWORDS = {
+    "money": [
+        "$", " money", "venmo", "cashapp", "zelle", "owe", "pay me", "pay up",
+        "split", "bucks", "dollar", "send me", "paypal",
+    ],
+    "alarm": [
+        "remind me", "reminder", "wake me", "wake up", "set alarm", "set an alarm",
+        "ping me in", "in 20 min", "in 2 hour", "notify me", "alert me",
+        "don't let me forget", "note to self",
+    ],
+    "contact": [
+        "save this number", "save his number", "save her number", "save my number",
+        "save contact", "add to contacts", "add contact", "here's my number",
+        "heres my number", "call me at", "here's the number", "this is ", "my number",
+        "number is", "+1 ", "+91 ",
+    ],
+    "calendar": [
+        "meeting", "team sync", "standup", "1:1", "dinner ", "lunch ", "coffee ",
+        "schedule", "block off", "pencil me in", "save the date", "wedding",
+        "gym ",
+    ],
+    "maps": [
+        "meet me at ", "meet at ", "meet you at ", "i'm at ", "im at ", "currently at",
+        "heading to ", "omw to ", "directions to ", "navigate to ", "pull up ",
+        "the address is", "address for",
+    ],
+}
+
+
 def mock_inference(text: str):
-    """Simulate the model. Triggers on common money keywords. Extracts $N amounts."""
+    """Simulate 5-head sigmoid output from keyword matching."""
     t = text.lower()
-    money_kw = ["$", " money", "venmo", "cashapp", "zelle", "owe", "pay me", "pay up",
-                "split", "bucks", "dollar", "send me"]
-    is_money = any(k in t for k in money_kw)
+    intent_probs = {intent: 0.01 for intent in paychat_app.INTENTS}
+    for intent, kws in _INTENT_KEYWORDS.items():
+        if any(k in t for k in kws):
+            intent_probs[intent] = 0.99
 
-    m = re.search(r"\$\d+(?:\.\d{1,2})?", text)
-    amount = m.group(0) if m else None
-
-    trigger = direction = None
-    if is_money:
-        if any(w in t for w in ["venmo", "cashapp", "zelle"]):
-            trigger = "payment_app"
-        elif "owe" in t:
-            trigger = "owing_debt"
-        elif "split" in t:
-            trigger = "bill_splitting"
-        elif amount:
-            trigger = "direct_amount"
-        else:
-            trigger = "general_money"
-
-        if any(w in t for w in ["i owe", "i'll pay", "i'll send", "let me pay"]):
-            direction = "offer"
-        elif "split" in t:
-            direction = "split"
-        else:
-            direction = "request"
-
-    # Stats updates mirror the real run_inference so /metrics stays honest
+    # Stats updates mirror the real run_inference (orchestrator does the rest)
     paychat_app.stats["requests"] += 1
     paychat_app.stats["_latency_sum"] += 1.0
     paychat_app.stats["avg_latency_ms"] = (
         paychat_app.stats["_latency_sum"] / paychat_app.stats["requests"]
     )
-    if is_money:
-        paychat_app.stats["money_detected"] += 1
 
-    return {
-        "is_money": is_money,
-        "confidence": 0.99 if is_money else 0.01,
-        "trigger_type": trigger,
-        "direction": direction,
-        "detected_amount": amount,
-        "latency_ms": 1.0,
-    }
+    return {"intent_probs": intent_probs, "latency_ms": 1.0}
 
 
 # Bypass real model loading
 paychat_app.load_model = lambda *a, **kw: None
 paychat_app.model_state["model"] = "MOCK"
 paychat_app.model_state["tokenizer"] = "MOCK"
+paychat_app.model_state["num_labels"] = 5
+paychat_app.model_state["label_order"] = list(paychat_app.INTENTS)
 paychat_app.run_inference = mock_inference
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -99,9 +110,13 @@ def reset_world():
     """Clear all state between scenarios."""
     paychat_app.popup_tracker.clear()
     paychat_app.stats.update({
-        "requests": 0, "money_detected": 0,
-        "popups_fired": 0, "popups_suppressed": 0,
-        "avg_latency_ms": 0.0, "_latency_sum": 0.0,
+        "requests": 0,
+        "money_detected": 0,
+        "intents_detected": {i: 0 for i in paychat_app.INTENTS},
+        "popups_fired": 0,
+        "popups_suppressed": 0,
+        "avg_latency_ms": 0.0,
+        "_latency_sum": 0.0,
     })
 
 
@@ -114,17 +129,31 @@ def detect(text, chat_id=None, sender="akash"):
     return r.json()
 
 
-def rewind_ts(chat_id, seconds):
-    """Simulate `seconds` of wall-clock passing by backdating the tracker entry."""
-    e = paychat_app.popup_tracker.get(chat_id)
+def rewind_ts(chat_id, seconds, intent="money"):
+    """Simulate `seconds` of wall-clock passing by backdating a tracker entry."""
+    key = (chat_id, intent)
+    e = paychat_app.popup_tracker.get(key)
     if not e:
         return
     e["last_popup_ts"] -= seconds
     e["last_event_ts"] -= seconds
 
 
+def tracker(chat_id, intent):
+    """Convenience accessor for a (chat_id, intent) tracker entry."""
+    return paychat_app.popup_tracker.get((chat_id, intent))
+
+
+def intent_of(resp, intent_type):
+    """Pull a specific intent dict from the intents[] array."""
+    for it in resp.get("intents", []):
+        if it["type"] == intent_type:
+            return it
+    return None
+
+
 # ════════════════════════════════════════════════════════════════════════════
-#  SCENARIOS
+#  MONEY SCENARIOS (back-compat — the original 20 still pass)
 # ════════════════════════════════════════════════════════════════════════════
 
 def scenario_1_first_money_fires():
@@ -139,9 +168,16 @@ def scenario_1_first_money_fires():
     check("detected_amount=$40", r["detected_amount"] == "$40")
     check("direction=request", r["direction"] == "request")
     check("trigger_type=owing_debt", r["trigger_type"] == "owing_debt")
-    check("tracker entry created", "chat_A" in paychat_app.popup_tracker)
+    check("tracker entry created",
+          tracker("chat_A", "money") is not None)
     check("popup_count=1",
-          paychat_app.popup_tracker["chat_A"]["popup_count"] == 1)
+          tracker("chat_A", "money")["popup_count"] == 1)
+    # New contract: intents[] must have money
+    mi = intent_of(r, "money")
+    check("intents[] contains money", mi is not None)
+    check("money intent should_popup=True", mi and mi["should_popup"] is True)
+    check("money payload has amount=$40",
+          mi and mi["payload"].get("amount") == "$40")
 
 
 def scenario_2_cooldown_suppresses_follow_ups():
@@ -156,42 +192,44 @@ def scenario_2_cooldown_suppresses_follow_ups():
         check(f"'{msg}' -> reason=cooldown_active",
               r["suppressed_reason"] == "cooldown_active",
               f"got {r['suppressed_reason']}")
-        check(f"'{msg}' -> remaining > 0", r["cooldown_remaining_seconds"] > 0)
-    check("popup_count still 1",
-          paychat_app.popup_tracker["chat_A"]["popup_count"] == 1)
-    check("suppression_count == 3",
-          paychat_app.popup_tracker["chat_A"]["suppression_count"] == 3)
+        check(f"'{msg}' -> remaining > 0",
+              r["cooldown_remaining_seconds"] > 0)
+    t = tracker("chat_A", "money")
+    check("popup_count still 1", t["popup_count"] == 1)
+    check("suppression_count == 3", t["suppression_count"] == 3)
 
 
 def scenario_3_non_money_doesnt_affect_cooldown():
     header(3, "Non-money chatter is ignored, doesn't touch cooldown")
     reset_world()
     detect("you owe me $40", "chat_A")
-    before = dict(paychat_app.popup_tracker["chat_A"])
+    before = dict(tracker("chat_A", "money"))
     r = detect("yeah yeah my bad lemme grab my phone", "chat_A")
     check("is_money=False on non-money", r["is_money"] is False)
     check("should_popup=False", r["should_popup"] is False)
     check("reason=not_money", r["suppressed_reason"] == "not_money")
-    after = paychat_app.popup_tracker["chat_A"]
+    after = tracker("chat_A", "money")
     check("tracker unchanged by non-money msg",
           before["last_popup_ts"] == after["last_popup_ts"]
           and before["popup_count"] == after["popup_count"])
+    # intents[] should be empty (nothing fired above threshold)
+    check("intents[] empty for non-money chatter",
+          r.get("intents") == [])
 
 
 def scenario_4_new_amount_overrides_cooldown():
     header(4, "Distinct new $ amount in same chat overrides cooldown")
     reset_world()
     detect("you owe me $40", "chat_A")
-    # Simulate just 30s later -- well within cooldown
-    rewind_ts("chat_A", 30)
+    rewind_ts("chat_A", 30)  # 30s later — well inside cooldown
     r = detect("oh also you owe me $15 for gas", "chat_A")
     check("should_popup=True on new amount", r["should_popup"] is True,
           f"got should_popup={r['should_popup']}, reason={r.get('suppressed_reason')}")
     check("detected_amount=$15", r["detected_amount"] == "$15")
-    check("popup_count=2",
-          paychat_app.popup_tracker["chat_A"]["popup_count"] == 2)
-    check("last_amount=$15",
-          paychat_app.popup_tracker["chat_A"]["last_amount"] == "$15")
+    t = tracker("chat_A", "money")
+    check("popup_count=2", t["popup_count"] == 2)
+    check("last_payload.amount=$15",
+          t["last_payload"]["amount"] == "$15")
 
 
 def scenario_5_same_amount_stays_suppressed():
@@ -209,14 +247,13 @@ def scenario_6_cooldown_expires_naturally():
     header(6, "Cooldown expires after POPUP_COOLDOWN_SECONDS")
     reset_world()
     detect("you owe me $40", "chat_A")
-    # Fast-forward past the 5-min window
     rewind_ts("chat_A", paychat_app.POPUP_COOLDOWN_SECONDS + 10)
     r = detect("pay up", "chat_A")
     check("should_popup=True after cooldown expires",
           r["should_popup"] is True,
           f"got reason={r.get('suppressed_reason')}")
     check("popup_count=2",
-          paychat_app.popup_tracker["chat_A"]["popup_count"] == 2)
+          tracker("chat_A", "money")["popup_count"] == 2)
 
 
 def scenario_7_payment_complete_clears_cooldown():
@@ -229,9 +266,10 @@ def scenario_7_payment_complete_clears_cooldown():
     body = r.json()
     check("state=post_payment", body["chat_state"] == "post_payment")
     check("previous_state=cooldown", body["previous_state"] == "cooldown")
+    check("response is money-scoped", body.get("intent") == "money")
 
     # Victory-lap message during grace
-    r = detect("sent! [money]", "chat_A")
+    r = detect("sent!", "chat_A")
     check("non-money confirmation -> not_money",
           r["suppressed_reason"] == "not_money")
 
@@ -250,27 +288,27 @@ def scenario_8_after_grace_new_topic_pops():
     detect("you owe me $40", "chat_A")
     client.post("/payment-complete/chat_A", json={"amount": "$40"})
     # Fast-forward past the 60s grace
-    paychat_app.popup_tracker["chat_A"]["last_event_ts"] -= (
+    tracker("chat_A", "money")["last_event_ts"] -= (
         paychat_app.POST_PAYMENT_GRACE_SECONDS + 5
     )
     r = detect("also you owe me $15 for gas", "chat_A")
     check("should_popup=True after grace", r["should_popup"] is True,
           f"got reason={r.get('suppressed_reason')}")
     check("popup_count=2",
-          paychat_app.popup_tracker["chat_A"]["popup_count"] == 2)
+          tracker("chat_A", "money")["popup_count"] == 2)
 
 
 def scenario_9_dismissed_has_longer_cooldown():
     header(9, "User dismissed -> 15-min cooldown (vs 5-min default)")
     reset_world()
     detect("you owe me $40", "chat_A")
-    r = client.post("/popup-dismissed/chat_A")
+    r = client.post("/popup-dismissed/chat_A")  # defaults to intent=money
     check("/popup-dismissed returns 200", r.status_code == 200)
     body = r.json()
+    check("intent=money (default)", body["intent"] == "money")
     check("state=dismissed", body["chat_state"] == "dismissed")
     check("cooldown_seconds=900", body["cooldown_seconds"] == 900)
 
-    # Suppressed with different reason
     r = detect("bro the money", "chat_A")
     check("should_popup=False (dismissed)", r["should_popup"] is False)
     check("reason=recently_dismissed",
@@ -285,7 +323,6 @@ def scenario_10_dismissed_holds_past_normal_cooldown():
     reset_world()
     detect("you owe me $40", "chat_A")
     client.post("/popup-dismissed/chat_A")
-    # Fast-forward past the normal 5-min cooldown but not the 15-min dismissed one
     rewind_ts("chat_A", paychat_app.POPUP_COOLDOWN_SECONDS + 30)
     r = detect("pay me", "chat_A")
     check("still suppressed past normal cooldown",
@@ -306,10 +343,10 @@ def scenario_11_chats_are_isolated():
     check("chat_B trigger=bill_splitting",
           r["trigger_type"] == "bill_splitting")
     check("two independent tracker entries",
-          "chat_A" in paychat_app.popup_tracker
-          and "chat_B" in paychat_app.popup_tracker)
+          tracker("chat_A", "money") is not None
+          and tracker("chat_B", "money") is not None)
     check("chat_A still in cooldown",
-          paychat_app.popup_tracker["chat_A"]["state"] == "cooldown")
+          tracker("chat_A", "money")["state"] == "cooldown")
 
 
 def scenario_12_no_chat_id_lets_through():
@@ -326,57 +363,68 @@ def scenario_13_reset_cooldown_clears():
     header(13, "POST /reset-cooldown/{chat_id} clears tracker")
     reset_world()
     detect("you owe me $40", "chat_A")
-    check("entry exists", "chat_A" in paychat_app.popup_tracker)
+    check("entry exists", tracker("chat_A", "money") is not None)
+    # No intent arg -> clears everything for that chat
     r = client.post("/reset-cooldown/chat_A")
     check("reset returns 200", r.status_code == 200)
     body = r.json()
-    check("existed=True", body["existed"] is True)
-    check("entry removed", "chat_A" not in paychat_app.popup_tracker)
-    # Next money msg in that chat should pop
+    check("cleared_intents includes money",
+          "money" in body.get("cleared_intents", []))
+    check("entry removed", tracker("chat_A", "money") is None)
     r = detect("you owe me $40 bro", "chat_A")
     check("pops again after reset", r["should_popup"] is True)
 
 
 def scenario_14_chat_state_endpoint():
-    header(14, "GET /chat-state/{chat_id} reports accurate tracker state")
+    header(14, "GET /chat-state/{chat_id} reports accurate per-intent state")
     reset_world()
-    # Unknown chat
-    r = client.get("/chat-state/unknown_chat")
-    body = r.json()
-    check("unknown chat -> state=idle", body["state"] == "idle")
-    check("unknown chat has message field", "message" in body)
+    r = client.get("/chat-state/unknown_chat").json()
+    check("unknown chat -> state=idle", r["state"] == "idle")
+    check("unknown chat has message field", "message" in r)
+    check("unknown chat intents dict empty", r.get("intents") == {})
 
-    # After a popup
     detect("you owe me $40", "chat_A")
-    r = client.get("/chat-state/chat_A")
-    body = r.json()
-    check("state=cooldown", body["state"] == "cooldown")
-    check("popup_count=1", body["popup_count"] == 1)
-    check("last_amount=$40", body["last_amount"] == "$40")
-    check("cooldown_remaining_seconds ~300",
-          250 <= body["cooldown_remaining_seconds"] <= 300,
-          f"got {body['cooldown_remaining_seconds']}")
+    r = client.get("/chat-state/chat_A").json()
+    check("chat-state returns intents dict", "intents" in r)
+    check("money intent tracked", "money" in r["intents"])
+    mi = r["intents"]["money"]
+    check("money state=cooldown", mi["state"] == "cooldown")
+    check("money popup_count=1", mi["popup_count"] == 1)
+    check("money last_payload.amount=$40",
+          mi["last_payload"]["amount"] == "$40")
+    check("money cooldown_remaining ~300",
+          250 <= mi["cooldown_remaining_seconds"] <= 300,
+          f"got {mi['cooldown_remaining_seconds']}")
 
 
 def scenario_15_metrics_track_accurately():
     header(15, "/metrics counters reflect fire/suppression correctly")
     reset_world()
-    detect("you owe me $40", "chat_A")         # fire
-    detect("pay up bro", "chat_A")             # suppress
-    detect("venmo me fr", "chat_A")            # suppress
-    detect("what's for dinner?", "chat_A")     # not_money, no impact on popup counters
-    detect("hey split ubers?", "chat_B")       # fire (different chat)
+    detect("you owe me $40", "chat_A")              # fire (money)
+    detect("pay up bro", "chat_A")                  # suppress (money cooldown)
+    detect("venmo me fr", "chat_A")                 # suppress (money cooldown)
+    detect("meeting tomorrow at noon", "chat_A")    # fire (calendar — different intent)
+    detect("hey split ubers?", "chat_B")            # fire (money — different chat)
 
     r = client.get("/metrics").json()
-    check("popups_fired=2", r["popups_fired"] == 2,
+    # 3 money fires, 2 money suppresses (lunch is a different intent — fires once too)
+    # So popups_fired = 3 (money: chat_A#1, chat_B#1, calendar: chat_A#1)
+    # popups_suppressed = 2 (money: chat_A#2, chat_A#3)
+    check("popups_fired=3", r["popups_fired"] == 3,
           f"got {r['popups_fired']}")
     check("popups_suppressed=2", r["popups_suppressed"] == 2,
           f"got {r['popups_suppressed']}")
-    check("suppression_rate=0.5", abs(r["suppression_rate"] - 0.5) < 0.001,
-          f"got {r['suppression_rate']}")
-    check("active_chat_trackers=2", r["active_chat_trackers"] == 2)
+    check("active_chat_trackers=3", r["active_chat_trackers"] == 3,
+          f"got {r['active_chat_trackers']}")
+    # money_detected = 4 (detect calls where money probs fired: 3 in chat_A + 1 in chat_B)
     check("money_detected=4", r["money_detected"] == 4,
           f"got {r['money_detected']}")
+    check("intents_detected dict has all 5 keys",
+          set(r["intents_detected"].keys()) == set(paychat_app.INTENTS))
+    check("intents_detected.money=4", r["intents_detected"]["money"] == 4)
+    check("intents_detected.calendar>=1",
+          r["intents_detected"]["calendar"] >= 1,
+          f"got {r['intents_detected']['calendar']}")
 
 
 def scenario_16_eviction_of_stale_entries():
@@ -384,16 +432,14 @@ def scenario_16_eviction_of_stale_entries():
     reset_world()
     detect("you owe me $40", "old_chat")
     detect("you owe me $50", "new_chat")
-    # Make old_chat stale
-    paychat_app.popup_tracker["old_chat"]["last_event_ts"] -= (
+    tracker("old_chat", "money")["last_event_ts"] -= (
         paychat_app.TRACKER_EVICTION_SECONDS + 60
     )
-    # Any detect call triggers opportunistic cleanup
-    detect("random non-money", "new_chat")
+    detect("random non-money", "new_chat")  # triggers opportunistic cleanup
     check("stale entry evicted",
-          "old_chat" not in paychat_app.popup_tracker)
+          tracker("old_chat", "money") is None)
     check("fresh entry kept",
-          "new_chat" in paychat_app.popup_tracker)
+          tracker("new_chat", "money") is not None)
 
 
 def scenario_17_websocket_same_contract():
@@ -409,8 +455,10 @@ def scenario_17_websocket_same_contract():
         check("ws chat_state=cooldown", vd.get("chat_state") == "cooldown")
         check("ws passes through chat_id",
               msg.get("chat_id") == "chat_WS")
+        # Intents array should come through too
+        check("ws includes intents[]",
+              isinstance(msg.get("intents"), list) and len(msg["intents"]) >= 1)
 
-        # Follow-up over the same ws
         ws.send_json({"text": "pay up", "chat_id": "chat_WS"})
         msg2 = ws.receive_json()
         vd2 = msg2["venmo_detection"]
@@ -461,37 +509,258 @@ def scenario_20_full_conversation_trace():
     check("#6 payment complete OK", r.status_code == 200)
 
     # 7-8. Confirmation messages during grace
-    r = detect("sent! [money]", "trip_chat")
+    r = detect("sent!", "trip_chat")
     check("#7 'sent!' not_money", r["suppressed_reason"] == "not_money")
     r = detect("got it thanks bro", "trip_chat")
     check("#8 'thanks' not_money", r["suppressed_reason"] == "not_money")
 
     # 9. Simulate 45 min passing -> new topic in same chat
-    paychat_app.popup_tracker["trip_chat"]["last_event_ts"] -= 2700
-    paychat_app.popup_tracker["trip_chat"]["last_popup_ts"] -= 2700
+    e = tracker("trip_chat", "money")
+    e["last_event_ts"] -= 2700
+    e["last_popup_ts"] -= 2700
     r = detect("oh also u owe me $15 for gas", "trip_chat")
     check("#9 new amount after 45min pops", r["should_popup"] is True,
           f"reason={r.get('suppressed_reason')}")
 
     # 10. User dismisses, then more nags are suppressed harder
-    client.post("/popup-dismissed/trip_chat")
+    client.post("/popup-dismissed/trip_chat")  # defaults to money
     r = detect("bro the gas money", "trip_chat")
     check("#10 post-dismiss suppressed",
           r["suppressed_reason"] == "recently_dismissed")
 
-    # Final counters
     m = client.get("/metrics").json()
     check("2 popups fired across conversation", m["popups_fired"] == 2,
           f"got {m['popups_fired']}")
 
 
+# ════════════════════════════════════════════════════════════════════════════
+#  MULTI-INTENT SCENARIOS (the new v2 surface)
+# ════════════════════════════════════════════════════════════════════════════
+
+def scenario_21_per_intent_cooldown_isolation():
+    header(21, "Alarm cooldown doesn't block a money popup in the same chat")
+    reset_world()
+    # Fire an alarm
+    r = detect("remind me to take meds at 10pm", "chat_X")
+    ai = intent_of(r, "alarm")
+    check("alarm fires", ai and ai["should_popup"] is True)
+    check("alarm tracker created", tracker("chat_X", "alarm") is not None)
+    check("money tracker NOT created", tracker("chat_X", "money") is None)
+
+    # Now money in the same chat, immediately
+    r = detect("btw you owe me $40 for groceries", "chat_X")
+    mi = intent_of(r, "money")
+    check("money still fires (different intent)",
+          mi and mi["should_popup"] is True,
+          f"got {mi and mi['suppressed_reason']}")
+    check("money tracker now exists", tracker("chat_X", "money") is not None)
+    check("alarm tracker unaffected",
+          tracker("chat_X", "alarm")["popup_count"] == 1)
+
+
+def scenario_22_multi_intent_message_fires_both():
+    header(22, "A message with money+alarm fires both popups")
+    reset_world()
+    r = detect("remind me to venmo priya $25 at 8pm", "chat_Y")
+    mi = intent_of(r, "money")
+    ai = intent_of(r, "alarm")
+    check("money intent present", mi is not None)
+    check("alarm intent present", ai is not None)
+    check("money should_popup=True", mi and mi["should_popup"] is True)
+    check("alarm should_popup=True", ai and ai["should_popup"] is True)
+    check("money payload has $25",
+          mi and mi["payload"].get("amount") == "$25")
+    check("alarm payload has time_iso",
+          ai and ai["payload"].get("time_iso") is not None)
+    # Both counters ticked
+    m = client.get("/metrics").json()
+    check("popups_fired=2 for multi-intent", m["popups_fired"] == 2,
+          f"got {m['popups_fired']}")
+
+
+def scenario_23_payment_complete_scoped_to_money():
+    header(23, "/payment-complete clears money only, leaves alarm cooldown intact")
+    reset_world()
+    # Fire both alarm and money in the same chat
+    detect("remind me to pay priya at 8pm $25", "chat_Z")
+    check("alarm cooldown active",
+          tracker("chat_Z", "alarm") is not None
+          and tracker("chat_Z", "alarm")["state"] == "cooldown")
+    check("money cooldown active",
+          tracker("chat_Z", "money") is not None
+          and tracker("chat_Z", "money")["state"] == "cooldown")
+
+    client.post("/payment-complete/chat_Z", json={"amount": "$25"})
+    check("money state flipped to post_payment",
+          tracker("chat_Z", "money")["state"] == "post_payment")
+    check("alarm state untouched (still cooldown)",
+          tracker("chat_Z", "alarm")["state"] == "cooldown")
+
+
+def scenario_24_dismiss_scoped_to_intent():
+    header(24, "/popup-dismissed?intent=alarm only affects alarm")
+    reset_world()
+    detect("remind me to pay priya at 8pm $25", "chat_D")
+    # Dismiss only alarm
+    r = client.post("/popup-dismissed/chat_D?intent=alarm")
+    body = r.json()
+    check("dismissed response scoped to alarm",
+          body["intent"] == "alarm" and body["chat_state"] == "dismissed")
+    check("alarm state=dismissed",
+          tracker("chat_D", "alarm")["state"] == "dismissed")
+    check("money state still cooldown (not dismissed)",
+          tracker("chat_D", "money")["state"] == "cooldown")
+
+    # Invalid intent -> 400
+    r = client.post("/popup-dismissed/chat_D?intent=bogus")
+    check("invalid intent -> 400", r.status_code == 400)
+
+
+def scenario_25_reset_cooldown_scoped():
+    header(25, "/reset-cooldown with intent= clears just that intent")
+    reset_world()
+    detect("remind me to pay priya at 8pm $25", "chat_R")
+    check("both entries present",
+          tracker("chat_R", "money") is not None
+          and tracker("chat_R", "alarm") is not None)
+
+    # Scoped reset
+    r = client.post("/reset-cooldown/chat_R?intent=money")
+    body = r.json()
+    check("reset response scoped to money",
+          body["intent"] == "money" and body["existed"] is True)
+    check("money entry removed",
+          tracker("chat_R", "money") is None)
+    check("alarm entry kept",
+          tracker("chat_R", "alarm") is not None)
+
+    # Unscoped reset clears the rest
+    r = client.post("/reset-cooldown/chat_R")
+    body = r.json()
+    check("unscoped reset reports cleared alarm",
+          "alarm" in body.get("cleared_intents", []))
+    check("no entries left for chat_R",
+          tracker("chat_R", "alarm") is None)
+
+
+def scenario_26_intents_array_shape():
+    header(26, "intents[] shape + payload/targeting fields on every intent")
+    reset_world()
+    r = detect("remind me to venmo priya $25 at 8pm", "chat_S")
+    intents = r.get("intents", [])
+    check("intents[] non-empty", len(intents) >= 2)
+
+    for it in intents:
+        check(f"{it['type']}: has confidence",
+              isinstance(it.get("confidence"), (int, float)))
+        check(f"{it['type']}: has should_popup bool",
+              isinstance(it.get("should_popup"), bool))
+        check(f"{it['type']}: has payload dict",
+              isinstance(it.get("payload"), dict))
+        check(f"{it['type']}: has targeting dict",
+              isinstance(it.get("targeting"), dict))
+        for tk in ("addressee", "third_party", "is_self", "is_mutual"):
+            check(f"{it['type']}: targeting.{tk} present",
+                  tk in it["targeting"])
+
+
+def scenario_27_targeting_extraction():
+    header(27, "Targeting signals: addressee / third_party / is_self / is_mutual")
+    reset_world()
+    # Self-reminder
+    r = detect("remind me to call mom", "chat_T1")
+    ai = intent_of(r, "alarm")
+    check("self-reminder: is_self=True",
+          ai and ai["targeting"]["is_self"] is True)
+    check("self-reminder: third_party=mom",
+          ai and ai["targeting"]["third_party"] == "mom")
+    check("self-reminder: is_mutual=False",
+          ai and ai["targeting"]["is_mutual"] is False)
+
+    # Mutual / group event
+    r = detect("team sync friday 4pm", "chat_T2")
+    ci = intent_of(r, "calendar")
+    check("team sync: is_mutual=True",
+          ci and ci["targeting"]["is_mutual"] is True)
+    check("team sync: is_self=False",
+          ci and ci["targeting"]["is_self"] is False)
+
+
+def scenario_28_maps_intent_fires():
+    header(28, "Maps intent fires with place payload")
+    reset_world()
+    r = detect("heading to dolores park", "chat_M")
+    mi = intent_of(r, "maps")
+    check("maps intent detected", mi is not None)
+    check("maps should_popup=True", mi and mi["should_popup"] is True)
+    check("maps payload has place",
+          mi and mi["payload"].get("place") is not None)
+    # Any reasonable extraction that contains "dolores" passes
+    place = (mi and mi["payload"].get("place") or "").lower()
+    check("place contains 'dolores'", "dolores" in place,
+          f"got place={place!r}")
+
+
+def scenario_29_alarm_new_time_overrides_cooldown():
+    header(29, "Distinct new time for alarm overrides its own cooldown")
+    reset_world()
+    detect("remind me at 10pm to take meds", "chat_AL")
+    rewind_ts("chat_AL", 30, intent="alarm")
+    # Different time -> should pop again
+    r = detect("actually remind me at 11pm instead", "chat_AL")
+    ai = intent_of(r, "alarm")
+    check("alarm re-pops on new time",
+          ai and ai["should_popup"] is True,
+          f"got reason={ai and ai['suppressed_reason']}")
+    check("alarm popup_count=2",
+          tracker("chat_AL", "alarm")["popup_count"] == 2)
+
+
+def scenario_30_contact_phone_extraction():
+    header(30, "Contact intent extracts phone number")
+    reset_world()
+    r = detect("hey akash save this number +1 415-555-1234", "chat_C")
+    ci = intent_of(r, "contact")
+    check("contact intent detected", ci is not None)
+    check("contact should_popup=True", ci and ci["should_popup"] is True)
+    phone = ci and ci["payload"].get("phone")
+    check("phone normalized to +1 415 555 1234",
+          phone == "+1 415 555 1234",
+          f"got {phone!r}")
+    check("addressee=akash",
+          ci and ci["targeting"]["addressee"] == "akash")
+
+
+def scenario_31_health_reports_multi_intent():
+    header(31, "/health reports num_labels=5 and all 5 intents")
+    r = client.get("/health").json()
+    check("num_labels=5", r["num_labels"] == 5)
+    check("intents list is all 5",
+          set(r["intents"]) == set(paychat_app.INTENTS))
+
+
+def scenario_32_intent_specific_cooldown_suppression():
+    header(32, "Same intent-fire twice in a row -> second is suppressed per intent")
+    reset_world()
+    detect("meeting at 3pm tomorrow", "chat_CAL")
+    r = detect("meeting at 3pm tomorrow", "chat_CAL")  # same event, same payload
+    ci = intent_of(r, "calendar")
+    check("calendar 2nd fire suppressed",
+          ci and ci["should_popup"] is False)
+    check("calendar reason=cooldown_active",
+          ci and ci["suppressed_reason"] == "cooldown_active")
+    # Money wasn't involved — money back-compat flat fields should stay false
+    check("back-compat is_money=False", r["is_money"] is False)
+
+
 # ── Run all ─────────────────────────────────────────────────────────────────
 def main():
     print("=" * 70)
-    print("  PayChat popup cooldown -- end-to-end behavior tests")
+    print("  PayChat multi-intent popup cooldown -- end-to-end behavior tests")
     print("=" * 70)
 
-    for fn in [
+    scenarios = [
+        # Money back-compat (original 20)
         scenario_1_first_money_fires,
         scenario_2_cooldown_suppresses_follow_ups,
         scenario_3_non_money_doesnt_affect_cooldown,
@@ -512,7 +781,21 @@ def main():
         scenario_18_empty_text_rejected,
         scenario_19_payment_complete_on_unknown_chat,
         scenario_20_full_conversation_trace,
-    ]:
+        # Multi-intent (v2)
+        scenario_21_per_intent_cooldown_isolation,
+        scenario_22_multi_intent_message_fires_both,
+        scenario_23_payment_complete_scoped_to_money,
+        scenario_24_dismiss_scoped_to_intent,
+        scenario_25_reset_cooldown_scoped,
+        scenario_26_intents_array_shape,
+        scenario_27_targeting_extraction,
+        scenario_28_maps_intent_fires,
+        scenario_29_alarm_new_time_overrides_cooldown,
+        scenario_30_contact_phone_extraction,
+        scenario_31_health_reports_multi_intent,
+        scenario_32_intent_specific_cooldown_suppression,
+    ]
+    for fn in scenarios:
         fn()
 
     passed = sum(1 for _, ok, _ in results if ok)

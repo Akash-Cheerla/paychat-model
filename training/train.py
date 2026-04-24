@@ -1,14 +1,17 @@
 """
-PayChat Money Detector — Training Script
-Model: DistilBERT fine-tuned for binary classification
-Task: Detect money-related messages in casual/transactional chat
+PayChat Multi-Intent Detector - Training Script
+
+Model: DistilBERT fine-tuned for multi-label classification.
+Task: detect which of 5 intents a chat message fires (one message can fire multiple).
+
+Intents (independent sigmoid heads):
+  money | alarm | contact | calendar | maps
 
 What this does:
-  - Loads your generated training data
-  - Fine-tunes DistilBERT (67MB, fast, accurate)
-  - Evaluates with precision/recall/F1 per category
-  - Saves model + tokenizer for API use
-  - Exports accuracy report so you know exactly how good it is
+  - Loads the multi-label dataset from generate_data.py
+  - Fine-tunes DistilBERT with BCEWithLogitsLoss (5 heads, independent)
+  - Per-intent precision/recall/F1 and ROC-AUC
+  - Saves model + tokenizer + training_report.json
 """
 
 import argparse
@@ -19,7 +22,6 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 
-# ── Imports (installed via requirements.txt) ──
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import (
@@ -29,13 +31,12 @@ from transformers import (
 )
 from torch.optim import AdamW
 from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
     precision_recall_fscore_support,
     roc_auc_score,
+    confusion_matrix,
 )
 
-# ── CLI args (used by continuous_learning/scheduler.py) ──
+# ── CLI ──
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--data-dir",   default=None)
 _parser.add_argument("--output-dir", default=None)
@@ -44,24 +45,34 @@ _cli, _ = _parser.parse_known_args()
 
 # ── Config ──
 MODEL_NAME = "distilbert-base-uncased"
-DATA_DIR   = Path(_cli.data_dir)   if _cli.data_dir   else Path("../data")
-OUT_DIR    = Path(_cli.output_dir) if _cli.output_dir else Path("./saved_model")
-BATCH_SIZE = 32
-EPOCHS     = _cli.epochs if _cli.epochs else 5   # increase to 8 for even better results
+DATA_DIR   = Path(_cli.data_dir)   if _cli.data_dir   else Path(".")
+OUT_DIR    = Path(_cli.output_dir) if _cli.output_dir else Path("../saved_model")
+BATCH_SIZE = 16
+EPOCHS     = _cli.epochs if _cli.epochs else 5
 LR         = 2e-5
-MAX_LEN    = 128      # chat messages are short; 128 is plenty
+MAX_LEN    = 128
 SEED       = 42
+THRESHOLD  = 0.5   # per-intent sigmoid cutoff
+
+INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+NUM_LABELS = len(INTENTS)
 
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {DEVICE}")
-print(f"Training with {EPOCHS} epochs, batch size {BATCH_SIZE}, lr {LR}")
+print(f"Intents: {INTENTS}")
+print(f"Training with {EPOCHS} epochs, batch size {BATCH_SIZE}, lr {LR}, threshold {THRESHOLD}")
 
 
-# ── Dataset ──
+# ═════════════════════════════════════════════════════════════════════
+#  Dataset
+# ═════════════════════════════════════════════════════════════════════
+
 class ChatDataset(Dataset):
+    """Multi-label chat dataset. Each item returns a float label vector of size NUM_LABELS."""
+
     def __init__(self, items, tokenizer):
         self.items = items
         self.tokenizer = tokenizer
@@ -78,151 +89,163 @@ class ChatDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
+        # labels dict -> float vector [money, alarm, contact, calendar, maps]
+        label_vec = [float(item["labels"][intent]) for intent in INTENTS]
         return {
             "input_ids":      enc["input_ids"].squeeze(0),
             "attention_mask": enc["attention_mask"].squeeze(0),
-            "label":          torch.tensor(item["label"], dtype=torch.long),
-            "category":       item.get("category", "unknown"),
+            "labels":         torch.tensor(label_vec, dtype=torch.float),
             "text":           item["text"],
+            "category":       item.get("category", "unknown"),
         }
 
 
 def load_split(split_name):
     path = DATA_DIR / f"{split_name}.json"
     if not path.exists():
-        raise FileNotFoundError(f"Data not found: {path}\nRun data/generate_data.py first!")
-    with open(path) as f:
+        raise FileNotFoundError(f"Data not found: {path}\nRun generate_data.py first!")
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-# ── Training ──
+# ═════════════════════════════════════════════════════════════════════
+#  Train / Eval
+# ═════════════════════════════════════════════════════════════════════
+
 def train_epoch(model, loader, optimizer, scheduler):
     model.train()
     total_loss = 0
-    correct = 0
-    total = 0
-
     for batch in loader:
         input_ids      = batch["input_ids"].to(DEVICE)
         attention_mask = batch["attention_mask"].to(DEVICE)
-        labels         = batch["label"].to(DEVICE)
+        labels         = batch["labels"].to(DEVICE)
 
         optimizer.zero_grad()
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         loss = outputs.loss
         loss.backward()
-
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         scheduler.step()
 
         total_loss += loss.item()
-        preds = outputs.logits.argmax(dim=-1)
-        correct += (preds == labels).sum().item()
-        total += labels.size(0)
-
-    return total_loss / len(loader), correct / total
+    return total_loss / len(loader)
 
 
-# ── Evaluation ──
-def evaluate(model, loader, split_name="val"):
+def evaluate(model, loader):
     model.eval()
-    all_preds  = []
+    all_logits = []
     all_labels = []
-    all_probs  = []
-    all_cats   = []
     all_texts  = []
+    all_cats   = []
     total_loss = 0
 
     with torch.no_grad():
         for batch in loader:
             input_ids      = batch["input_ids"].to(DEVICE)
             attention_mask = batch["attention_mask"].to(DEVICE)
-            labels         = batch["label"].to(DEVICE)
+            labels         = batch["labels"].to(DEVICE)
 
             outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
             total_loss += outputs.loss.item()
 
-            probs = torch.softmax(outputs.logits, dim=-1)[:, 1].cpu().numpy()
-            preds = outputs.logits.argmax(dim=-1).cpu().numpy()
-
-            all_preds.extend(preds)
-            all_labels.extend(labels.cpu().numpy())
-            all_probs.extend(probs)
-            all_cats.extend(batch["category"])
+            all_logits.append(outputs.logits.cpu().numpy())
+            all_labels.append(labels.cpu().numpy())
             all_texts.extend(batch["text"])
+            all_cats.extend(batch["category"])
 
-    acc = np.mean(np.array(all_preds) == np.array(all_labels))
-    auc = roc_auc_score(all_labels, all_probs)
+    all_logits = np.concatenate(all_logits, axis=0)    # (N, 5)
+    all_labels = np.concatenate(all_labels, axis=0)    # (N, 5)
+    all_probs  = 1.0 / (1.0 + np.exp(-all_logits))     # sigmoid
+    all_preds  = (all_probs >= THRESHOLD).astype(int)
+
+    # Exact-match accuracy: all 5 intents match
+    exact_match = np.all(all_preds == all_labels, axis=1).mean()
+    # Hamming accuracy: fraction of (example, intent) pairs correct
+    hamming_acc = (all_preds == all_labels).mean()
     avg_loss = total_loss / len(loader)
 
     return {
-        "loss":     avg_loss,
-        "accuracy": acc,
-        "auc":      auc,
-        "preds":    all_preds,
-        "labels":   all_labels,
-        "probs":    all_probs,
-        "cats":     all_cats,
-        "texts":    all_texts,
+        "loss":        avg_loss,
+        "exact_match": exact_match,
+        "hamming_acc": hamming_acc,
+        "probs":       all_probs,
+        "preds":       all_preds,
+        "labels":      all_labels,
+        "texts":       all_texts,
+        "cats":        all_cats,
     }
 
 
-def per_category_report(results):
-    """Breakdown accuracy per money category (only for positive examples)."""
-    from collections import defaultdict
-    cat_stats = defaultdict(lambda: {"correct": 0, "total": 0})
+def per_intent_report(results):
+    """Precision/Recall/F1/AUC for each intent."""
+    print("\n  Per-Intent Metrics (threshold = {:.2f}):".format(THRESHOLD))
+    print(f"    {'intent':<10} {'precision':>10} {'recall':>8} {'f1':>8} {'auc':>8}  {'support'}")
 
-    for pred, label, cat in zip(results["preds"], results["labels"], results["cats"]):
-        if label == 1:  # only positives
-            cat_stats[cat]["total"] += 1
-            if pred == label:
-                cat_stats[cat]["correct"] += 1
+    summary = {}
+    for i, intent in enumerate(INTENTS):
+        y_true = results["labels"][:, i].astype(int)
+        y_pred = results["preds"][:, i].astype(int)
+        y_prob = results["probs"][:, i]
 
-    print("\n  Per-Category Accuracy (positive examples only):")
-    for cat, stats in sorted(cat_stats.items()):
-        if stats["total"] > 0:
-            acc = stats["correct"] / stats["total"]
-            bar = "#" * int(acc * 20)
-            print(f"    {cat:<20} {acc:.1%}  {bar}  ({stats['correct']}/{stats['total']})", flush=True)
+        if y_true.sum() == 0:
+            p = r = f = auc = 0.0
+        else:
+            p, r, f, _ = precision_recall_fscore_support(y_true, y_pred, average="binary", zero_division=0)
+            try:
+                auc = roc_auc_score(y_true, y_prob) if y_true.sum() > 0 and y_true.sum() < len(y_true) else 0.0
+            except ValueError:
+                auc = 0.0
+
+        support = int(y_true.sum())
+        print(f"    {intent:<10} {p:>9.1%} {r:>7.1%} {f:>7.1%} {auc:>7.4f}    {support}")
+        summary[intent] = {
+            "precision": float(p),
+            "recall":    float(r),
+            "f1":        float(f),
+            "auc":       float(auc),
+            "support":   support,
+        }
+    return summary
 
 
-def find_errors(results, n=10):
-    """Surface the worst prediction errors for analysis."""
+def find_errors(results, n=15):
+    """Surface hardest errors — examples where the predicted set doesn't match the true set."""
     errors = []
-    for text, pred, label, prob, cat in zip(
-        results["texts"], results["preds"], results["labels"], results["probs"], results["cats"]
-    ):
-        if pred != label:
+    for i, (text, cat) in enumerate(zip(results["texts"], results["cats"])):
+        pred_set = set(INTENTS[j] for j, v in enumerate(results["preds"][i]) if v == 1)
+        true_set = set(INTENTS[j] for j, v in enumerate(results["labels"][i]) if v == 1)
+        if pred_set != true_set:
             errors.append({
-                "text":       text,
-                "true":       "MONEY" if label == 1 else "NOT_MONEY",
-                "predicted":  "MONEY" if pred  == 1 else "NOT_MONEY",
-                "confidence": prob,
-                "category":   cat,
+                "text": text,
+                "true": sorted(true_set) or ["none"],
+                "predicted": sorted(pred_set) or ["none"],
+                "probs": {INTENTS[j]: float(results["probs"][i][j]) for j in range(NUM_LABELS)},
+                "category": cat,
             })
-    errors.sort(key=lambda x: abs(x["confidence"] - 0.5))  # closest to decision boundary
+    # sort by ambiguity (probs closest to 0.5)
+    errors.sort(key=lambda e: min(abs(p - 0.5) for p in e["probs"].values()))
     return errors[:n]
 
 
-# ── Main ──
-def main():
-    print("\n" + "="*60)
-    print("  PayChat Money Detector — Training")
-    print("="*60 + "\n")
+# ═════════════════════════════════════════════════════════════════════
+#  Main
+# ═════════════════════════════════════════════════════════════════════
 
-    # Load data
+def main():
+    print("\n" + "=" * 60)
+    print("  PayChat Multi-Intent Detector - Training")
+    print("=" * 60 + "\n")
+
     print("Loading data...")
     train_items = load_split("train")
     val_items   = load_split("val")
     test_items  = load_split("test")
     print(f"  Train: {len(train_items)} | Val: {len(val_items)} | Test: {len(test_items)}")
 
-    # Tokenizer
     print(f"\nLoading {MODEL_NAME}...")
     tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_NAME)
 
-    # Datasets + loaders
     train_ds = ChatDataset(train_items, tokenizer)
     val_ds   = ChatDataset(val_items,   tokenizer)
     test_ds  = ChatDataset(test_items,  tokenizer)
@@ -231,11 +254,16 @@ def main():
     val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    # Model
-    model = DistilBertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    # Multi-label model: HF applies BCEWithLogitsLoss automatically when problem_type is set
+    model = DistilBertForSequenceClassification.from_pretrained(
+        MODEL_NAME,
+        num_labels=NUM_LABELS,
+        problem_type="multi_label_classification",
+        id2label={i: intent for i, intent in enumerate(INTENTS)},
+        label2id={intent: i for i, intent in enumerate(INTENTS)},
+    )
     model = model.to(DEVICE)
 
-    # Optimizer + scheduler
     optimizer = AdamW(model.parameters(), lr=LR, weight_decay=0.01)
     total_steps = len(train_loader) * EPOCHS
     scheduler = get_linear_schedule_with_warmup(
@@ -244,89 +272,75 @@ def main():
         num_training_steps=total_steps,
     )
 
-    # Training loop
     print(f"\nTraining for {EPOCHS} epochs...\n", flush=True)
-    best_val_acc = 0
+    best_val_hamming = 0
     history = []
 
     for epoch in range(1, EPOCHS + 1):
         t0 = time.time()
         print(f"  Epoch {epoch}/{EPOCHS} starting...", flush=True)
-        train_loss, train_acc = train_epoch(model, train_loader, optimizer, scheduler)
-        val_results = evaluate(model, val_loader, "val")
-
+        train_loss = train_epoch(model, train_loader, optimizer, scheduler)
+        val_results = evaluate(model, val_loader)
         elapsed = time.time() - t0
+
         print(f"Epoch {epoch}/{EPOCHS} | "
-              f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1%} | "
-              f"Val Acc: {val_results['accuracy']:.1%} | Val AUC: {val_results['auc']:.4f} | "
+              f"Train Loss: {train_loss:.4f} | Val Loss: {val_results['loss']:.4f} | "
+              f"Val Exact: {val_results['exact_match']:.1%} | "
+              f"Val Hamming: {val_results['hamming_acc']:.1%} | "
               f"Time: {elapsed:.1f}s", flush=True)
 
         history.append({
             "epoch": epoch,
             "train_loss": train_loss,
-            "train_acc": train_acc,
-            "val_acc": val_results["accuracy"],
-            "val_auc": val_results["auc"],
+            "val_loss": val_results["loss"],
+            "val_exact_match": val_results["exact_match"],
+            "val_hamming": val_results["hamming_acc"],
         })
 
-        # Save best model
-        if val_results["accuracy"] > best_val_acc:
-            best_val_acc = val_results["accuracy"]
+        if val_results["hamming_acc"] > best_val_hamming:
+            best_val_hamming = val_results["hamming_acc"]
             OUT_DIR.mkdir(parents=True, exist_ok=True)
             model.save_pretrained(OUT_DIR)
             tokenizer.save_pretrained(OUT_DIR)
-            print(f"  -> New best saved ({best_val_acc:.1%})", flush=True)
+            print(f"  -> New best saved (hamming {best_val_hamming:.1%})", flush=True)
 
-    # Final test evaluation
-    print("\n" + "="*60)
+    # ── Final test ──
+    print("\n" + "=" * 60)
     print("  Final Test Set Evaluation")
-    print("="*60)
-    test_results = evaluate(model, test_loader, "test")
+    print("=" * 60)
+    test_results = evaluate(model, test_loader)
 
-    print(f"\n  Accuracy:  {test_results['accuracy']:.2%}")
-    print(f"  AUC-ROC:   {test_results['auc']:.4f}")
+    print(f"\n  Exact-match accuracy (all 5 intents right): {test_results['exact_match']:.2%}")
+    print(f"  Hamming accuracy    (per-cell correctness): {test_results['hamming_acc']:.2%}")
 
-    labels     = test_results["labels"]
-    preds      = test_results["preds"]
-    p, r, f, _ = precision_recall_fscore_support(labels, preds, average="binary")
-    print(f"  Precision: {p:.2%}")
-    print(f"  Recall:    {r:.2%}")
-    print(f"  F1:        {f:.2%}")
+    intent_summary = per_intent_report(test_results)
 
-    print("\n  Confusion Matrix:")
-    cm = confusion_matrix(labels, preds)
-    print(f"    True Neg: {cm[0][0]:4d}  False Pos: {cm[0][1]:4d}")
-    print(f"    False Neg: {cm[1][0]:3d}  True Pos:  {cm[1][1]:4d}")
+    print("\n  Hardest errors (most ambiguous):")
+    for err in find_errors(test_results, n=12):
+        probs_str = ", ".join(f"{k}={v:.2f}" for k, v in err["probs"].items())
+        print(f"    [true={err['true']} pred={err['predicted']}] \"{err['text'][:60]}\"")
+        print(f"       probs: {probs_str}")
 
-    per_category_report(test_results)
-
-    print("\n  Worst Errors (closest to decision boundary):")
-    for err in find_errors(test_results):
-        conf = err["confidence"]
-        print(f"    [{err['true']} → {err['predicted']} | conf={conf:.2f}] \"{err['text'][:60]}\"")
-
-    # Save report
     report = {
-        "trained_at": datetime.utcnow().isoformat(),
-        "model": MODEL_NAME,
-        "epochs": EPOCHS,
-        "test_accuracy": test_results["accuracy"],
-        "test_auc": test_results["auc"],
-        "test_precision": p,
-        "test_recall": r,
-        "test_f1": f,
-        "confusion_matrix": cm.tolist(),
+        "trained_at":     datetime.utcnow().isoformat(),
+        "model":          MODEL_NAME,
+        "epochs":         EPOCHS,
+        "intents":        INTENTS,
+        "threshold":      THRESHOLD,
+        "test_exact_match": test_results["exact_match"],
+        "test_hamming":     test_results["hamming_acc"],
+        "per_intent":       intent_summary,
         "training_history": history,
     }
     with open(OUT_DIR / "training_report.json", "w") as f:
         json.dump(report, f, indent=2)
 
-    print(f"\n✓ Model saved to {OUT_DIR}/")
-    print(f"✓ Training report saved to {OUT_DIR}/training_report.json")
-    print(f"\n{'='*60}")
-    print(f"  FINAL ACCURACY: {test_results['accuracy']:.2%}")
-    print(f"  FINAL F1:       {f:.2%}")
-    print(f"{'='*60}\n")
+    print(f"\n  Model saved to {OUT_DIR}/")
+    print(f"  Report saved to {OUT_DIR}/training_report.json")
+    print(f"\n{'=' * 60}")
+    print(f"  TEST EXACT-MATCH: {test_results['exact_match']:.2%}")
+    print(f"  TEST HAMMING:     {test_results['hamming_acc']:.2%}")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":
