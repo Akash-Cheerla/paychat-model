@@ -37,6 +37,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import torch
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
 
@@ -1220,6 +1221,20 @@ async def reload_model_endpoint():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/demo", response_class=HTMLResponse)
+async def demo_page():
+    """Voice-driven demo UI — open in Chrome on desktop or mobile."""
+    demo_dir = os.environ.get("DEMO_DIR", os.path.join(os.path.dirname(__file__), "demo"))
+    path = os.path.join(demo_dir, "voice_demo.html")
+    if not os.path.exists(path):
+        return HTMLResponse(
+            "<h1>Demo not packaged with this build</h1>"
+            f"<p>Expected file at <code>{path}</code></p>",
+            status_code=404,
+        )
+    return FileResponse(path, media_type="text/html")
+
+
 @app.get("/")
 async def root():
     return {
@@ -1228,6 +1243,7 @@ async def root():
         "intents": INTENTS,
         "docs": "/docs",
         "health": "/health",
+        "demo": "/demo",
     }
 
 

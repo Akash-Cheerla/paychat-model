@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1020" />
+<title>PayChat — Voice Demo</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #131a30;
+    --panel-2: #1a2241;
+    --line: #243056;
+    --text: #e6e9f2;
+    --muted: #9aa3bf;
+    --accent: #5b8def;
+    --money: #22c55e;
+    --alarm: #f59e0b;
+    --contact: #3b82f6;
+    --calendar: #a855f7;
+    --maps: #ef4444;
+    --speakerA: #5b8def;
+    --speakerB: #ef9a3a;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: linear-gradient(180deg, #0a1024 0%, #0b1020 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(11, 16, 32, 0.85);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .logo { font-weight: 700; font-size: 18px; }
+  .logo .v { color: var(--accent); }
+  .tag {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  header .right { margin-left: auto; }
+  .status {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+  .status.ok { color: #4ade80; border-color: rgba(74,222,128,0.4); }
+  .status.error { color: #fca5a5; border-color: rgba(252,165,165,0.4); }
+
+  /* Big mic strip */
+  .mic-bar {
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mic-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button, .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    min-height: 44px;
+    transition: transform 0.04s ease, background 0.15s, filter 0.15s;
+    user-select: none;
+  }
+  button:active, .btn:active { transform: scale(0.98); }
+  #mic {
+    flex: 1;
+    min-width: 0;
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    font-weight: 600;
+    font-size: 16px;
+    padding: 14px 18px;
+  }
+  #mic:hover { filter: brightness(1.08); }
+  #mic.recording {
+    background: #b91c1c;
+    border-color: #ef4444;
+  }
+  #mic.recording::before {
+    content: "";
+    display: inline-block;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #fff;
+    margin-right: 9px;
+    vertical-align: middle;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity: 0.3 } }
+
+  .speaker-pill {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .speaker-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--speakerA); }
+  .speaker-pill.b .speaker-dot { background: var(--speakerB); }
+  .speaker-pill strong { color: var(--accent); font-weight: 700; }
+  .speaker-pill.b strong { color: var(--speakerB); }
+
+  /* Manual text input — fallback / when mic isn't great */
+  .text-row {
+    display: flex;
+    gap: 8px;
+  }
+  .text-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    min-height: 44px;
+  }
+  .text-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .text-row .send {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    font-weight: 600;
+    padding: 12px 18px;
+  }
+
+  .help {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .help code {
+    background: var(--panel-2);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* Main split */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+  @media (max-width: 880px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .col {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+  }
+  .col h2 {
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .col h2 .count {
+    background: var(--panel-2);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 10px;
+  }
+  .scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 2px;
+    flex: 1;
+    min-height: 200px;
+  }
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-thumb { background: #2a3866; border-radius: 4px; }
+
+  /* Transcript */
+  .utt {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--panel-2);
+    margin-bottom: 8px;
+    border-left: 3px solid var(--speakerA);
+  }
+  .utt.b { border-left-color: var(--speakerB); }
+  .utt .who {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--speakerA);
+    margin-bottom: 4px;
+  }
+  .utt.b .who { color: var(--speakerB); }
+  .utt .txt { font-size: 14px; line-height: 1.45; word-wrap: break-word; }
+  .utt.interim { opacity: 0.55; font-style: italic; }
+  .utt .badges { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+  .badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .badge-money { background: rgba(34,197,94,0.15); color: var(--money); border: 1px solid rgba(34,197,94,0.3); }
+  .badge-alarm { background: rgba(245,158,11,0.15); color: var(--alarm); border: 1px solid rgba(245,158,11,0.3); }
+  .badge-contact { background: rgba(59,130,246,0.15); color: var(--contact); border: 1px solid rgba(59,130,246,0.3); }
+  .badge-calendar { background: rgba(168,85,247,0.15); color: var(--calendar); border: 1px solid rgba(168,85,247,0.3); }
+  .badge-maps { background: rgba(239,68,68,0.15); color: var(--maps); border: 1px solid rgba(239,68,68,0.3); }
+  .badge-muted { background: rgba(154,163,191,0.1); color: var(--muted); border: 1px solid var(--line); }
+
+  /* Cards */
+  .card {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    animation: slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card.money { border-left-color: var(--money); }
+  .card.alarm { border-left-color: var(--alarm); }
+  .card.contact { border-left-color: var(--contact); }
+  .card.calendar { border-left-color: var(--calendar); }
+  .card.maps { border-left-color: var(--maps); }
+
+  .card .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+  .card.money .head .type { color: var(--money); }
+  .card.alarm .head .type { color: var(--alarm); }
+  .card.contact .head .type { color: var(--contact); }
+  .card.calendar .head .type { color: var(--calendar); }
+  .card.maps .head .type { color: var(--maps); }
+  .card .conf {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .card .title { font-size: 16px; font-weight: 600; margin-bottom: 4px; word-wrap: break-word; }
+  .card .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; word-wrap: break-word; }
+  .card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card a.btn, .card button.btn {
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--accent);
+    color: white;
+    border: none;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card.money a.btn { background: var(--money); }
+  .card.alarm a.btn, .card.alarm button.btn { background: var(--alarm); color: #1a1100; }
+  .card.contact a.btn { background: var(--contact); }
+  .card.calendar a.btn { background: var(--calendar); }
+  .card.maps a.btn { background: var(--maps); }
+  .card.contact button.btn { background: #2a3866; color: var(--text); }
+  .card .meta { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 28px 16px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    line-height: 1.5;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: calc(20px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1c2547;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    z-index: 100;
+    animation: pop 0.2s ease-out;
+    max-width: 88vw;
+  }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  /* Mobile tweaks */
+  @media (max-width: 600px) {
+    header { padding: 12px 14px; gap: 8px; }
+    .tag { display: none; }
+    .logo { font-size: 17px; }
+    .mic-bar { padding: 14px 14px 12px; }
+    main { padding: 10px; gap: 10px; }
+    .col { padding: 12px; min-height: 200px; }
+    #mic { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Pay<span class="v">Chat</span></div>
+  <div class="tag">v2 · 5 intents</div>
+  <div class="right">
+    <span id="status" class="status">…</span>
+  </div>
+</header>
+
+<div class="mic-bar">
+  <div class="mic-row">
+    <button id="mic">🎤 Tap to talk</button>
+    <div class="speaker-pill" id="speakerPill" title="Tap to switch speaker">
+      <span class="speaker-dot"></span>
+      <span>Speaker <strong id="speakerLabel">A</strong></span>
+    </div>
+    <button id="reset" title="Clear transcript">Reset</button>
+  </div>
+
+  <div class="text-row">
+    <input id="textInput" type="text" placeholder="Or type a message and press Enter…" autocomplete="off" />
+    <button id="sendText" class="send">Send</button>
+  </div>
+
+  <div class="help" id="help">
+    Try: <code>"you owe me $40 from the airbnb"</code> · <code>"remind me to call mom at 8pm"</code> · <code>"meet at blue bottle valencia"</code> · <code>"save this number 415-555-0199"</code>
+  </div>
+</div>
+
+<main>
+  <section class="col">
+    <h2>Transcript <span class="count" id="uttCount">0</span></h2>
+    <div id="transcript" class="scroll">
+      <div class="empty" id="emptyTranscript">
+        Tap the mic to talk, or type a message below.<br>
+        Switch speakers between turns.
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>Detected actions <span class="count" id="cardCount">0</span></h2>
+    <div id="cards" class="scroll">
+      <div class="empty" id="emptyCards">
+        Action cards will appear here as PayChat detects intents in the conversation.
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API_BASE = ""; // same-origin
+  const CHAT_ID = "voice_demo_" + Math.random().toString(36).slice(2, 8);
+
+  const els = {
+    mic: document.getElementById("mic"),
+    speakerPill: document.getElementById("speakerPill"),
+    speakerLabel: document.getElementById("speakerLabel"),
+    reset: document.getElementById("reset"),
+    transcript: document.getElementById("transcript"),
+    cards: document.getElementById("cards"),
+    emptyT: document.getElementById("emptyTranscript"),
+    emptyC: document.getElementById("emptyCards"),
+    status: document.getElementById("status"),
+    uttCount: document.getElementById("uttCount"),
+    cardCount: document.getElementById("cardCount"),
+    help: document.getElementById("help"),
+    textInput: document.getElementById("textInput"),
+    sendText: document.getElementById("sendText"),
+  };
+
+  let speaker = "A";
+  let listening = false;
+  let interimNode = null;
+  let recognition = null;
+  let uttCount = 0, cardCount = 0;
+
+  // ── Health check ───────────────────────────────────
+  fetch(API_BASE + "/health").then(r => r.json()).then(h => {
+    els.status.textContent = "✓ live · " + h.num_labels + " intents";
+    els.status.classList.add("ok");
+  }).catch(() => {
+    els.status.textContent = "✗ offline";
+    els.status.classList.add("error");
+  });
+
+  // ── Web Speech API setup ───────────────────────────
+  function hasSpeechRecognition() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+  function initRecognition() {
+    if (!hasSpeechRecognition()) return null;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const r = new SR();
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = "en-US";
+    r.onresult = onResult;
+    r.onerror = (e) => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      if (e.error === "not-allowed") {
+        toast("Mic permission denied — type instead, or allow mic in browser settings");
+        stopListening();
+      } else if (e.error === "network") {
+        toast("Speech network error — type instead");
+      } else {
+        console.warn("speech error", e);
+      }
+    };
+    r.onend = () => {
+      // chrome auto-stops on silence — restart if user still wants to listen
+      if (listening) {
+        try { r.start(); } catch (_) {}
+      }
+    };
+    return r;
+  }
+
+  function onResult(event) {
+    let interim = "";
+    let final = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const res = event.results[i];
+      if (res.isFinal) final += res[0].transcript;
+      else interim += res[0].transcript;
+    }
+    if (interim) {
+      if (!interimNode) interimNode = renderUtterance(speaker, "", true);
+      interimNode.querySelector(".txt").textContent = interim.trim();
+    }
+    if (final.trim()) {
+      if (interimNode) { interimNode.remove(); interimNode = null; }
+      const node = renderUtterance(speaker, final.trim(), false);
+      detect(final.trim(), node);
+    }
+  }
+
+  function startListening() {
+    if (!recognition) recognition = initRecognition();
+    if (!recognition) {
+      toast("This browser doesn't support voice input — type instead");
+      els.textInput.focus();
+      return;
+    }
+    try {
+      recognition.start();
+      listening = true;
+      els.mic.classList.add("recording");
+      els.mic.textContent = "Stop listening";
+    } catch (e) {
+      console.warn(e);
+      toast("Couldn't start mic — try again");
+    }
+  }
+  function stopListening() {
+    listening = false;
+    try { if (recognition) recognition.stop(); } catch (_) {}
+    els.mic.classList.remove("recording");
+    els.mic.textContent = "🎤 Tap to talk";
+    if (interimNode) { interimNode.remove(); interimNode = null; }
+  }
+
+  // ── Detect call ───────────────────────────────────
+  async function detect(text, uttNode) {
+    try {
+      const resp = await fetch(API_BASE + "/detect", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          text,
+          chat_id: CHAT_ID,
+          sender: speaker === "A" ? "person_a" : "person_b",
+        }),
+      });
+      const data = await resp.json();
+      const intents = data.intents || [];
+      if (intents.length === 0) {
+        addBadge(uttNode, "no intent", "muted");
+        return;
+      }
+      for (const intent of intents) {
+        addBadge(uttNode, intent.type, intent.type);
+        renderCard(intent, text, speaker);
+      }
+    } catch (e) {
+      console.error("detect failed", e);
+      addBadge(uttNode, "api error", "muted");
+    }
+  }
+
+  // ── Rendering ─────────────────────────────────────
+  function renderUtterance(spk, text, interim) {
+    if (els.emptyT) { els.emptyT.remove(); els.emptyT = null; }
+    const div = document.createElement("div");
+    div.className = "utt" + (spk === "B" ? " b" : "") + (interim ? " interim" : "");
+    div.innerHTML = `
+      <div class="who">${spk === "A" ? "Person A" : "Person B"}</div>
+      <div class="txt"></div>
+      <div class="badges"></div>
+    `;
+    div.querySelector(".txt").textContent = text;
+    els.transcript.appendChild(div);
+    div.scrollIntoView({behavior: "smooth", block: "end"});
+    if (!interim) {
+      uttCount++;
+      els.uttCount.textContent = uttCount;
+    }
+    return div;
+  }
+
+  function addBadge(uttNode, label, kind) {
+    if (!uttNode) return;
+    const span = document.createElement("span");
+    span.className = "badge badge-" + kind;
+    span.textContent = label;
+    uttNode.querySelector(".badges").appendChild(span);
+  }
+
+  function renderCard(intent, text, spk) {
+    if (els.emptyC) { els.emptyC.remove(); els.emptyC = null; }
+    const div = document.createElement("div");
+    div.className = "card " + intent.type;
+    const conf = (intent.confidence * 100).toFixed(0) + "%";
+    div.innerHTML = `
+      <div class="head">
+        <span class="type">${intent.type}</span>
+        <span>· ${spk === "A" ? "Person A" : "Person B"}</span>
+        <span class="conf">${conf}</span>
+      </div>
+      ${cardBody(intent, text)}
+    `;
+    els.cards.prepend(div);
+    cardCount++;
+    els.cardCount.textContent = cardCount;
+  }
+
+  function esc(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function cardBody(intent, text) {
+    const p = intent.payload || {};
+    const t = intent.targeting || {};
+    const recipient = t.third_party || t.addressee || "";
+    switch (intent.type) {
+      case "money": {
+        const amount = p.amount || "—";
+        const note = recipient ? `to ${recipient}` : "";
+        const venmoUrl = "https://venmo.com/?txn=pay" +
+          (p.amount ? "&amount=" + encodeURIComponent(p.amount.replace(/^\$/, "")) : "") +
+          (recipient ? "&recipients=" + encodeURIComponent(recipient) : "");
+        return `
+          <div class="title">Send ${esc(amount)} ${esc(note)}</div>
+          <div class="sub">${esc(text)}</div>
+          <div class="actions">
+            <a class="btn" href="${venmoUrl}" target="_blank" rel="noopener">Open Venmo</a>
+          </div>
+          <div class="meta">trigger: ${esc(p.trigger_type || "—")} · direction: ${esc(p.direction || "—")}</div>
+        `;
+      }
+      case "alarm": {
+        const label = p.label || "Reminder";
+        const when = p.time_phrase || (p.time_iso ? new Date(p.time_iso).toLocaleString() : "—");
+        return `
+          <div class="title">Set alarm: ${esc(label)}</div>
+          <div class="sub">${esc(when)}</div>
+          <div class="actions">
+            <button class="btn" onclick="toast('Alarm set ✓')">Set alarm</button>
+          </div>
+          <div class="meta">${esc(text)}</div>
+        `;
+      }
+      case "contact": {
+        const phone = p.phone || "—";
+        const name = p.name_hint || recipient || "New contact";
+        return `
+          <div class="title">Save ${esc(name)}</div>
+          <div class="sub">${esc(phone)}</div>
+          <div class="actions">
+            <a class="btn" href="tel:${esc(phone)}">Call</a>
+            <button class="btn" onclick="toast('Contact saved ✓')">Save contact</button>
+          </div>
+          <div class="meta">${esc(text)}</div>
+        `;
+      }
+      case "calendar": {
+        const title = p.title || "Event";
+        const start = p.start_iso;
+        let calUrl = "https://calendar.google.com/calendar/u/0/r/eventedit";
+        const params = ["text=" + encodeURIComponent(title)];
+        if (start) {
+          try {
+            const s = new Date(start).toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+            const dur = (p.duration_minutes || 30) * 60 * 1000;
+            const endDate = new Date(new Date(start).getTime() + dur);
+            const e = endDate.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+            params.push("dates=" + s + "/" + e);
+          } catch (_) {}
+        }
+        calUrl += "?" + params.join("&");
+        return `
+          <div class="title">${esc(title)}</div>
+          <div class="sub">${esc(p.start_phrase || start || "—")}</div>
+          <div class="actions">
+            <a class="btn" href="${calUrl}" target="_blank" rel="noopener">Add to Google Calendar</a>
+          </div>
+          <div class="meta">${esc(text)}</div>
+        `;
+      }
+      case "maps": {
+        const place = p.place || "—";
+        const url = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place);
+        return `
+          <div class="title">${esc(place)}</div>
+          <div class="sub">Open in maps</div>
+          <div class="actions">
+            <a class="btn" href="${url}" target="_blank" rel="noopener">Open Google Maps</a>
+          </div>
+          <div class="meta">${esc(text)}</div>
+        `;
+      }
+    }
+    return `<div class="title">${esc(intent.type)}</div><div class="sub">${esc(text)}</div>`;
+  }
+
+  // ── Controls ─────────────────────────────────────
+  els.mic.addEventListener("click", () => {
+    if (!listening) startListening();
+    else stopListening();
+  });
+
+  function switchSpeaker() {
+    speaker = (speaker === "A") ? "B" : "A";
+    els.speakerLabel.textContent = speaker;
+    els.speakerPill.classList.toggle("b", speaker === "B");
+    if (interimNode) { interimNode.remove(); interimNode = null; }
+  }
+  els.speakerPill.addEventListener("click", switchSpeaker);
+
+  els.reset.addEventListener("click", async () => {
+    els.transcript.innerHTML = "";
+    els.cards.innerHTML = "";
+    uttCount = 0; cardCount = 0;
+    els.uttCount.textContent = "0";
+    els.cardCount.textContent = "0";
+    els.emptyT = document.createElement("div");
+    els.emptyT.className = "empty";
+    els.emptyT.id = "emptyTranscript";
+    els.emptyT.innerHTML = "Tap the mic to talk, or type a message below.<br>Switch speakers between turns.";
+    els.transcript.appendChild(els.emptyT);
+    els.emptyC = document.createElement("div");
+    els.emptyC.className = "empty";
+    els.emptyC.id = "emptyCards";
+    els.emptyC.textContent = "Action cards will appear here as PayChat detects intents in the conversation.";
+    els.cards.appendChild(els.emptyC);
+    try { await fetch(API_BASE + "/reset-cooldown/" + CHAT_ID, {method: "POST"}); } catch (_) {}
+    toast("Reset");
+  });
+
+  // Manual text input — works on every browser
+  function sendTyped() {
+    const text = els.textInput.value.trim();
+    if (!text) return;
+    els.textInput.value = "";
+    const node = renderUtterance(speaker, text, false);
+    detect(text, node);
+  }
+  els.sendText.addEventListener("click", sendTyped);
+  els.textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendTyped(); }
+  });
+
+  // Hide the mic button if the browser doesn't support speech (iOS Safari etc)
+  if (!hasSpeechRecognition()) {
+    els.mic.textContent = "Voice not supported — type below";
+    els.mic.disabled = true;
+    els.mic.style.opacity = "0.6";
+    els.mic.style.cursor = "not-allowed";
+  }
+
+  // ── Toast ────────────────────────────────────────
+  let toastTimer = null;
+  function toast(msg) {
+    let t = document.querySelector(".toast");
+    if (t) t.remove();
+    t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    document.body.appendChild(t);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.remove(), 2200);
+  }
+  window.toast = toast;
+</script>
+</body>
+</html>

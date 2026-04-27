@@ -14,11 +14,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # API code
 COPY app.py .
 
+# Demo UI
+COPY demo/ ./demo/
+
 # Trained model
 COPY saved_model/ ./saved_model/
 
 # Environment
 ENV MODEL_DIR=/app/saved_model
+ENV DEMO_DIR=/app/demo
 ENV CONFIDENCE_THRESHOLD=0.65
 
 # Non-root user
