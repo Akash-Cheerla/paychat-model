@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b1020" />
-<title>PayChat — Voice Demo</title>
+<title>FYOE — Voice Demo</title>
 <style>
   :root {
     --bg: #0b1020;
@@ -14,6 +14,8 @@
     --text: #e6e9f2;
     --muted: #9aa3bf;
     --accent: #5b8def;
+    --green: #22c55e;
+    --red:   #ef4444;
     --money: #22c55e;
     --alarm: #f59e0b;
     --contact: #3b82f6;
@@ -47,7 +49,7 @@
     top: 0;
     z-index: 5;
   }
-  .logo { font-weight: 700; font-size: 18px; }
+  .logo { font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
   .logo .v { color: var(--accent); }
   .tag {
     font-size: 11px;
@@ -68,7 +70,7 @@
   .status.ok { color: #4ade80; border-color: rgba(74,222,128,0.4); }
   .status.error { color: #fca5a5; border-color: rgba(252,165,165,0.4); }
 
-  /* Big mic strip */
+  /* Call control bar */
   .mic-bar {
     padding: 18px 18px 14px;
     border-bottom: 1px solid var(--line);
@@ -78,6 +80,7 @@
     gap: 10px;
   }
   .mic-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
   button, .btn {
     background: var(--panel-2);
     color: var(--text);
@@ -93,27 +96,29 @@
     user-select: none;
   }
   button:active, .btn:active { transform: scale(0.98); }
-  #mic {
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #callBtn {
     flex: 1;
     min-width: 0;
-    background: var(--accent);
+    background: var(--green);
     color: white;
-    border-color: var(--accent);
-    font-weight: 600;
+    border-color: var(--green);
+    font-weight: 700;
     font-size: 16px;
     padding: 14px 18px;
+    letter-spacing: 0.3px;
   }
-  #mic:hover { filter: brightness(1.08); }
-  #mic.recording {
-    background: #b91c1c;
-    border-color: #ef4444;
+  #callBtn.in-call {
+    background: var(--red);
+    border-color: var(--red);
   }
-  #mic.recording::before {
+  #callBtn.in-call::before {
     content: "";
     display: inline-block;
-    width: 9px; height: 9px; border-radius: 50%;
+    width: 10px; height: 10px; border-radius: 50%;
     background: #fff;
-    margin-right: 9px;
+    margin-right: 10px;
     vertical-align: middle;
     animation: pulse 1s infinite;
   }
@@ -131,12 +136,14 @@
     min-height: 44px;
     cursor: pointer;
   }
+  .speaker-pill[disabled],
+  .speaker-pill.disabled { opacity: 0.45; pointer-events: none; }
   .speaker-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--speakerA); }
   .speaker-pill.b .speaker-dot { background: var(--speakerB); }
   .speaker-pill strong { color: var(--accent); font-weight: 700; }
   .speaker-pill.b strong { color: var(--speakerB); }
 
-  /* Manual text input — fallback / when mic isn't great */
+  /* Manual text input */
   .text-row {
     display: flex;
     gap: 8px;
@@ -154,6 +161,7 @@
     min-height: 44px;
   }
   .text-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .text-row input:disabled { opacity: 0.5; }
   .text-row .send {
     background: var(--accent);
     color: white;
@@ -173,6 +181,60 @@
     border-radius: 5px;
     font-size: 11px;
     color: var(--text);
+  }
+
+  /* Call indicator (live during call) */
+  .call-indicator {
+    background: linear-gradient(180deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%);
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+  .call-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
+    animation: ring 1.4s infinite;
+  }
+  @keyframes ring {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+    70% { box-shadow: 0 0 0 14px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  .call-text { display: flex; flex-direction: column; }
+  .call-text .top { font-weight: 600; font-size: 14px; }
+  .call-text .bottom { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .call-time { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: var(--green); }
+
+  /* Summary banner */
+  .summary-banner {
+    background: linear-gradient(180deg, rgba(91,141,239,0.1) 0%, rgba(91,141,239,0.04) 100%);
+    border: 1px solid rgba(91,141,239,0.3);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .summary-banner .head {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .summary-banner .title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .summary-banner .stats {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
   }
 
   /* Main split */
@@ -305,17 +367,18 @@
   .card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .card a.btn, .card button.btn {
     text-decoration: none;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
     background: var(--accent);
     color: white;
     border: none;
-    min-height: 40px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    letter-spacing: 0.2px;
   }
   .card.money a.btn { background: var(--money); }
   .card.alarm a.btn, .card.alarm button.btn { background: var(--alarm); color: #1a1100; }
@@ -362,14 +425,14 @@
     .mic-bar { padding: 14px 14px 12px; }
     main { padding: 10px; gap: 10px; }
     .col { padding: 12px; min-height: 200px; }
-    #mic { font-size: 15px; }
+    #callBtn { font-size: 15px; }
   }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">Pay<span class="v">Chat</span></div>
-  <div class="tag">v2 · 5 intents</div>
+  <div class="logo">FY<span class="v">OE</span> demo</div>
+  <div class="tag">v2 · 5 intents · voice</div>
   <div class="right">
     <span id="status" class="status">…</span>
   </div>
@@ -377,21 +440,20 @@
 
 <div class="mic-bar">
   <div class="mic-row">
-    <button id="mic">🎤 Tap to talk</button>
+    <button id="callBtn">📞 Start call</button>
     <div class="speaker-pill" id="speakerPill" title="Tap to switch speaker">
       <span class="speaker-dot"></span>
       <span>Speaker <strong id="speakerLabel">A</strong></span>
     </div>
-    <button id="reset" title="Clear transcript">Reset</button>
   </div>
 
   <div class="text-row">
-    <input id="textInput" type="text" placeholder="Or type a message and press Enter…" autocomplete="off" />
+    <input id="textInput" type="text" placeholder="Or type a line and press Enter (works during a call)…" autocomplete="off" />
     <button id="sendText" class="send">Send</button>
   </div>
 
   <div class="help" id="help">
-    Try: <code>"you owe me $40 from the airbnb"</code> · <code>"remind me to call mom at 8pm"</code> · <code>"meet at blue bottle valencia"</code> · <code>"save this number 415-555-0199"</code>
+    Try a back-and-forth: <code>"hey, you owe me $40 from the airbnb"</code> → switch speaker → <code>"got it, remind me to pay you at 8pm"</code> → <code>"meet at blue bottle valencia tomorrow at 3?"</code>
   </div>
 </div>
 
@@ -400,17 +462,17 @@
     <h2>Transcript <span class="count" id="uttCount">0</span></h2>
     <div id="transcript" class="scroll">
       <div class="empty" id="emptyTranscript">
-        Tap the mic to talk, or type a message below.<br>
-        Switch speakers between turns.
+        Tap <strong>📞 Start call</strong> to begin.<br>
+        Switch the speaker pill between turns to label who's talking.
       </div>
     </div>
   </section>
 
   <section class="col">
-    <h2>Detected actions <span class="count" id="cardCount">0</span></h2>
-    <div id="cards" class="scroll">
+    <h2 id="rightHeader">Detected actions <span class="count" id="cardCount">0</span></h2>
+    <div id="rightPane" class="scroll">
       <div class="empty" id="emptyCards">
-        Action cards will appear here as PayChat detects intents in the conversation.
+        Action cards will appear here when the call ends.
       </div>
     </div>
   </section>
@@ -421,12 +483,12 @@
   const CHAT_ID = "voice_demo_" + Math.random().toString(36).slice(2, 8);
 
   const els = {
-    mic: document.getElementById("mic"),
+    callBtn: document.getElementById("callBtn"),
     speakerPill: document.getElementById("speakerPill"),
     speakerLabel: document.getElementById("speakerLabel"),
-    reset: document.getElementById("reset"),
     transcript: document.getElementById("transcript"),
-    cards: document.getElementById("cards"),
+    rightPane: document.getElementById("rightPane"),
+    rightHeader: document.getElementById("rightHeader"),
     emptyT: document.getElementById("emptyTranscript"),
     emptyC: document.getElementById("emptyCards"),
     status: document.getElementById("status"),
@@ -437,11 +499,16 @@
     sendText: document.getElementById("sendText"),
   };
 
+  // State machine: 'idle' | 'in_call' | 'summary'
+  let phase = "idle";
   let speaker = "A";
-  let listening = false;
   let interimNode = null;
   let recognition = null;
-  let uttCount = 0, cardCount = 0;
+  let uttCount = 0;
+  let collectedIntents = [];   // { intent, text, speaker } accumulated during the call
+  let callStartTs = 0;
+  let callTimerInt = null;
+  let pendingDetections = 0;   // outstanding detect() calls when ending
 
   // ── Health check ───────────────────────────────────
   fetch(API_BASE + "/health").then(r => r.json()).then(h => {
@@ -452,7 +519,7 @@
     els.status.classList.add("error");
   });
 
-  // ── Web Speech API setup ───────────────────────────
+  // ── Web Speech API ───────────────────────────────
   function hasSpeechRecognition() {
     return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }
@@ -467,8 +534,8 @@
     r.onerror = (e) => {
       if (e.error === "no-speech" || e.error === "aborted") return;
       if (e.error === "not-allowed") {
-        toast("Mic permission denied — type instead, or allow mic in browser settings");
-        stopListening();
+        toast("Mic permission denied — type instead");
+        endCall();
       } else if (e.error === "network") {
         toast("Speech network error — type instead");
       } else {
@@ -476,8 +543,7 @@
       }
     };
     r.onend = () => {
-      // chrome auto-stops on silence — restart if user still wants to listen
-      if (listening) {
+      if (phase === "in_call") {
         try { r.start(); } catch (_) {}
       }
     };
@@ -485,6 +551,7 @@
   }
 
   function onResult(event) {
+    if (phase !== "in_call") return;
     let interim = "";
     let final = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -503,33 +570,9 @@
     }
   }
 
-  function startListening() {
-    if (!recognition) recognition = initRecognition();
-    if (!recognition) {
-      toast("This browser doesn't support voice input — type instead");
-      els.textInput.focus();
-      return;
-    }
-    try {
-      recognition.start();
-      listening = true;
-      els.mic.classList.add("recording");
-      els.mic.textContent = "Stop listening";
-    } catch (e) {
-      console.warn(e);
-      toast("Couldn't start mic — try again");
-    }
-  }
-  function stopListening() {
-    listening = false;
-    try { if (recognition) recognition.stop(); } catch (_) {}
-    els.mic.classList.remove("recording");
-    els.mic.textContent = "🎤 Tap to talk";
-    if (interimNode) { interimNode.remove(); interimNode = null; }
-  }
-
-  // ── Detect call ───────────────────────────────────
+  // ── Detect ───────────────────────────────────────
   async function detect(text, uttNode) {
+    pendingDetections++;
     try {
       const resp = await fetch(API_BASE + "/detect", {
         method: "POST",
@@ -544,15 +587,21 @@
       const intents = data.intents || [];
       if (intents.length === 0) {
         addBadge(uttNode, "no intent", "muted");
-        return;
-      }
-      for (const intent of intents) {
-        addBadge(uttNode, intent.type, intent.type);
-        renderCard(intent, text, speaker);
+      } else {
+        for (const intent of intents) {
+          addBadge(uttNode, intent.type, intent.type);
+          collectedIntents.push({ intent, text, speaker });
+          updateLiveCount();
+        }
       }
     } catch (e) {
       console.error("detect failed", e);
       addBadge(uttNode, "api error", "muted");
+    } finally {
+      pendingDetections--;
+      if (pendingDetections === 0 && phase === "summary_pending") {
+        renderSummary();
+      }
     }
   }
 
@@ -584,8 +633,71 @@
     uttNode.querySelector(".badges").appendChild(span);
   }
 
+  function updateLiveCount() {
+    const n = collectedIntents.length;
+    const live = document.getElementById("liveCount");
+    if (live) live.textContent = n;
+    els.cardCount.textContent = n;
+  }
+
+  function showInCallIndicator() {
+    els.rightPane.innerHTML = `
+      <div class="call-indicator">
+        <span class="call-dot"></span>
+        <div class="call-text">
+          <span class="top">Call in progress</span>
+          <span class="bottom"><span id="liveCount">0</span> action${collectedIntents.length === 1 ? "" : "s"} detected so far</span>
+        </div>
+        <span class="call-time" id="callTimer">0:00</span>
+      </div>
+      <div class="empty">
+        Action cards will appear here the moment you tap <strong>End call</strong>.
+      </div>
+    `;
+    els.emptyC = null;
+  }
+
+  function renderSummary() {
+    phase = "summary";
+    els.callBtn.disabled = false;
+    els.callBtn.textContent = "🔄 Start new call";
+    els.callBtn.classList.remove("in-call");
+    els.callBtn.style.background = "var(--accent)";
+    els.callBtn.style.borderColor = "var(--accent)";
+
+    const dur = Math.floor((Date.now() - callStartTs) / 1000);
+    const mm = Math.floor(dur / 60);
+    const ss = String(dur % 60).padStart(2, "0");
+
+    els.rightPane.innerHTML = "";
+    const banner = document.createElement("div");
+    banner.className = "summary-banner";
+    banner.innerHTML = `
+      <div class="head">📞 Call ended</div>
+      <div class="title">${collectedIntents.length} action${collectedIntents.length === 1 ? "" : "s"} to follow up on</div>
+      <div class="stats">${uttCount} message${uttCount === 1 ? "" : "s"} · ${mm}:${ss} duration</div>
+    `;
+    els.rightPane.appendChild(banner);
+
+    if (collectedIntents.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No actionable intents detected in this call.";
+      els.rightPane.appendChild(empty);
+    } else {
+      // Stable order: by intent priority, preserving insertion order for ties
+      const order = { money: 1, alarm: 2, calendar: 3, contact: 4, maps: 5 };
+      const sorted = [...collectedIntents].sort((a, b) => {
+        return (order[a.intent.type] || 99) - (order[b.intent.type] || 99);
+      });
+      for (const item of sorted) {
+        renderCard(item.intent, item.text, item.speaker);
+      }
+    }
+    els.cardCount.textContent = collectedIntents.length;
+  }
+
   function renderCard(intent, text, spk) {
-    if (els.emptyC) { els.emptyC.remove(); els.emptyC = null; }
     const div = document.createElement("div");
     div.className = "card " + intent.type;
     const conf = (intent.confidence * 100).toFixed(0) + "%";
@@ -597,9 +709,7 @@
       </div>
       ${cardBody(intent, text)}
     `;
-    els.cards.prepend(div);
-    cardCount++;
-    els.cardCount.textContent = cardCount;
+    els.rightPane.appendChild(div);
   }
 
   function esc(s) {
@@ -620,7 +730,7 @@
           (recipient ? "&recipients=" + encodeURIComponent(recipient) : "");
         return `
           <div class="title">Send ${esc(amount)} ${esc(note)}</div>
-          <div class="sub">${esc(text)}</div>
+          <div class="sub">"${esc(text)}"</div>
           <div class="actions">
             <a class="btn" href="${venmoUrl}" target="_blank" rel="noopener">Open Venmo</a>
           </div>
@@ -636,7 +746,7 @@
           <div class="actions">
             <button class="btn" onclick="toast('Alarm set ✓')">Set alarm</button>
           </div>
-          <div class="meta">${esc(text)}</div>
+          <div class="meta">"${esc(text)}"</div>
         `;
       }
       case "contact": {
@@ -649,7 +759,7 @@
             <a class="btn" href="tel:${esc(phone)}">Call</a>
             <button class="btn" onclick="toast('Contact saved ✓')">Save contact</button>
           </div>
-          <div class="meta">${esc(text)}</div>
+          <div class="meta">"${esc(text)}"</div>
         `;
       }
       case "calendar": {
@@ -673,7 +783,7 @@
           <div class="actions">
             <a class="btn" href="${calUrl}" target="_blank" rel="noopener">Add to Google Calendar</a>
           </div>
-          <div class="meta">${esc(text)}</div>
+          <div class="meta">"${esc(text)}"</div>
         `;
       }
       case "maps": {
@@ -685,51 +795,111 @@
           <div class="actions">
             <a class="btn" href="${url}" target="_blank" rel="noopener">Open Google Maps</a>
           </div>
-          <div class="meta">${esc(text)}</div>
+          <div class="meta">"${esc(text)}"</div>
         `;
       }
     }
     return `<div class="title">${esc(intent.type)}</div><div class="sub">${esc(text)}</div>`;
   }
 
+  // ── Call lifecycle ───────────────────────────────
+  function startCall() {
+    if (phase === "summary") clearAll(/*resetCooldown*/ true);
+    phase = "in_call";
+    callStartTs = Date.now();
+    collectedIntents = [];
+    els.callBtn.classList.add("in-call");
+    els.callBtn.textContent = "End call";
+    els.rightHeader.firstChild.textContent = "Detected actions ";
+    showInCallIndicator();
+
+    // start mic
+    if (hasSpeechRecognition()) {
+      if (!recognition) recognition = initRecognition();
+      try { recognition.start(); }
+      catch (e) { console.warn(e); }
+    } else {
+      // fallback to typing only
+      const note = document.createElement("div");
+      note.style.color = "var(--muted)";
+      note.style.fontSize = "12px";
+      note.style.marginTop = "8px";
+      note.textContent = "Voice not supported in this browser — type lines below.";
+      const ind = els.rightPane.querySelector(".call-indicator");
+      if (ind) ind.appendChild(note);
+    }
+
+    // call timer
+    callTimerInt = setInterval(() => {
+      const dur = Math.floor((Date.now() - callStartTs) / 1000);
+      const mm = Math.floor(dur / 60);
+      const ss = String(dur % 60).padStart(2, "0");
+      const t = document.getElementById("callTimer");
+      if (t) t.textContent = `${mm}:${ss}`;
+    }, 1000);
+  }
+
+  function endCall() {
+    if (phase !== "in_call") return;
+    if (callTimerInt) { clearInterval(callTimerInt); callTimerInt = null; }
+    try { if (recognition) recognition.stop(); } catch (_) {}
+    if (interimNode) { interimNode.remove(); interimNode = null; }
+
+    els.callBtn.disabled = true;
+    els.callBtn.textContent = "Wrapping up…";
+
+    if (pendingDetections > 0) {
+      phase = "summary_pending";
+    } else {
+      renderSummary();
+    }
+  }
+
+  function clearAll(resetCooldown) {
+    els.transcript.innerHTML = "";
+    els.rightPane.innerHTML = "";
+    uttCount = 0;
+    collectedIntents = [];
+    els.uttCount.textContent = "0";
+    els.cardCount.textContent = "0";
+
+    els.emptyT = document.createElement("div");
+    els.emptyT.className = "empty";
+    els.emptyT.id = "emptyTranscript";
+    els.emptyT.innerHTML = "Tap <strong>📞 Start call</strong> to begin.<br>Switch the speaker pill between turns to label who's talking.";
+    els.transcript.appendChild(els.emptyT);
+
+    els.emptyC = document.createElement("div");
+    els.emptyC.className = "empty";
+    els.emptyC.id = "emptyCards";
+    els.emptyC.textContent = "Action cards will appear here when the call ends.";
+    els.rightPane.appendChild(els.emptyC);
+
+    if (resetCooldown) {
+      try { fetch(API_BASE + "/reset-cooldown/" + CHAT_ID, {method: "POST"}); } catch (_) {}
+    }
+  }
+
   // ── Controls ─────────────────────────────────────
-  els.mic.addEventListener("click", () => {
-    if (!listening) startListening();
-    else stopListening();
+  els.callBtn.addEventListener("click", () => {
+    if (phase === "idle" || phase === "summary") startCall();
+    else if (phase === "in_call") endCall();
   });
 
-  function switchSpeaker() {
+  els.speakerPill.addEventListener("click", () => {
     speaker = (speaker === "A") ? "B" : "A";
     els.speakerLabel.textContent = speaker;
     els.speakerPill.classList.toggle("b", speaker === "B");
     if (interimNode) { interimNode.remove(); interimNode = null; }
-  }
-  els.speakerPill.addEventListener("click", switchSpeaker);
-
-  els.reset.addEventListener("click", async () => {
-    els.transcript.innerHTML = "";
-    els.cards.innerHTML = "";
-    uttCount = 0; cardCount = 0;
-    els.uttCount.textContent = "0";
-    els.cardCount.textContent = "0";
-    els.emptyT = document.createElement("div");
-    els.emptyT.className = "empty";
-    els.emptyT.id = "emptyTranscript";
-    els.emptyT.innerHTML = "Tap the mic to talk, or type a message below.<br>Switch speakers between turns.";
-    els.transcript.appendChild(els.emptyT);
-    els.emptyC = document.createElement("div");
-    els.emptyC.className = "empty";
-    els.emptyC.id = "emptyCards";
-    els.emptyC.textContent = "Action cards will appear here as PayChat detects intents in the conversation.";
-    els.cards.appendChild(els.emptyC);
-    try { await fetch(API_BASE + "/reset-cooldown/" + CHAT_ID, {method: "POST"}); } catch (_) {}
-    toast("Reset");
   });
 
-  // Manual text input — works on every browser
   function sendTyped() {
     const text = els.textInput.value.trim();
     if (!text) return;
+    if (phase !== "in_call") {
+      // implicit: tapping "Send" before starting also starts a call so it feels natural
+      startCall();
+    }
     els.textInput.value = "";
     const node = renderUtterance(speaker, text, false);
     detect(text, node);
@@ -738,14 +908,6 @@
   els.textInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); sendTyped(); }
   });
-
-  // Hide the mic button if the browser doesn't support speech (iOS Safari etc)
-  if (!hasSpeechRecognition()) {
-    els.mic.textContent = "Voice not supported — type below";
-    els.mic.disabled = true;
-    els.mic.style.opacity = "0.6";
-    els.mic.style.cursor = "not-allowed";
-  }
 
   // ── Toast ────────────────────────────────────────
   let toastTimer = null;
