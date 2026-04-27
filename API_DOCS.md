@@ -2,15 +2,15 @@
 
 Base URL: `http://<your-server>:8000`
 
-PayChat detects **five actionable intents** in chat messages and tells your Android app exactly when to surface a popup for each one:
+PayChat detects **five actionable intents** in chat messages and tells the client app exactly when to surface a popup for each one:
 
-| Intent | What it catches | Android action |
-|--------|-----------------|----------------|
-| `money` | "you owe me $20", "venmo me", "split the uber" | Open Venmo / CashApp / UPI flow |
-| `alarm` | "remind me at 10pm", "wake me up at 6am tomorrow" | `AlarmClock.ACTION_SET_ALARM` |
-| `contact` | "save this number +1 415-555-1234" | `ContactsContract.Intents.Insert` |
-| `calendar` | "meeting at 3pm tomorrow", "dinner sat 8pm" | `CalendarContract.Events` insert |
-| `maps` | "meet me at blue bottle", "heading to SFO" | `geo:` URI / Google Maps search |
+| Intent | What it catches | Suggested action |
+|--------|-----------------|------------------|
+| `money` | "you owe me $20", "venmo me", "split the uber" | Open a payment app (Venmo, CashApp, UPI, etc.) |
+| `alarm` | "remind me at 10pm", "wake me up at 6am tomorrow" | Set a system alarm |
+| `contact` | "save this number +1 415-555-1234" | Save number to contacts |
+| `calendar` | "meeting at 3pm tomorrow", "dinner sat 8pm" | Add calendar event |
+| `maps` | "meet me at blue bottle", "heading to SFO" | Open location in a maps app |
 
 All five run through the **same popup-cooldown policy, per chat, per intent** — so an alarm cooldown never blocks a money popup in the same conversation.
 
@@ -105,7 +105,7 @@ Send a chat message, get back an array of detected intents and whether each shou
 | Field | Type | Description |
 |-------|------|-------------|
 | `intents` | array | **The v2 contract.** One entry per intent that cleared the confidence threshold. Empty array = nothing actionable detected. |
-| `is_money`, `confidence`, `trigger_type`, `direction`, `detected_amount`, `should_popup`, `suppressed_reason`, `cooldown_remaining_seconds`, `chat_state` | mixed | **v1 back-compat.** Flat fields mirror the `money` intent if present (same values as `intents[type=money]`). New Android code should read `intents[]`; existing v1 code keeps working unchanged. |
+| `is_money`, `confidence`, `trigger_type`, `direction`, `detected_amount`, `should_popup`, `suppressed_reason`, `cooldown_remaining_seconds`, `chat_state` | mixed | **v1 back-compat.** Flat fields mirror the `money` intent if present (same values as `intents[type=money]`). New code should read `intents[]`; existing v1 code keeps working unchanged. |
 | `latency_ms` | float | Model inference time in milliseconds |
 | `chat_id`, `message_id`, `sender` | string or null | Passed through from the request |
 
@@ -119,7 +119,7 @@ Send a chat message, get back an array of detected intents and whether each shou
 | `suppressed_reason` | string or null | Why the popup was suppressed. One of: `cooldown_active`, `recently_dismissed`, `post_payment_grace`. Null when `should_popup` is true. |
 | `cooldown_remaining_seconds` | int | Seconds until a popup for this intent would be allowed again |
 | `chat_state` | string | Tracker state for this (chat, intent). One of: `idle`, `cooldown`, `dismissed`, `post_payment`, `untracked` |
-| `payload` | object | Android-ready data for this intent. Shape varies per `type` — see below. |
+| `payload` | object | Data ready to drive a UI action for this intent. Shape varies per `type` — see below. |
 | `targeting` | object | Who this message is addressed to. Shape below. |
 
 ### `payload` schemas per intent
@@ -137,7 +137,7 @@ Send a chat message, get back an array of detected intents and whether each shou
 { "label": "take meds", "time_iso": "2026-04-24T22:00", "time_phrase": "at 10pm", "seconds_from_now": 1200 }
 ```
 - `label` — the task portion ("take meds"). May be null if not extractable.
-- `time_iso` — ISO-8601 local time for `AlarmClock.EXTRA_HOUR`/`EXTRA_MINUTES`
+- `time_iso` — ISO-8601 local time. Use to set a system alarm.
 - `time_phrase` — raw phrase that was parsed
 - `seconds_from_now` — only present for relative times ("in 20 min")
 
@@ -153,14 +153,14 @@ Send a chat message, get back an array of detected intents and whether each shou
 { "title": "meeting", "start_iso": "2026-04-25T15:00", "start_phrase": "at 3pm tomorrow", "duration_minutes": 30 }
 ```
 - `title` — event title
-- `start_iso` — ISO-8601 start time for `CalendarContract.EXTRA_EVENT_BEGIN_TIME`
+- `start_iso` — ISO-8601 start time. Use to create a calendar event.
 - `duration_minutes` — 30 for meetings/calls/standups, 60 for dinners/events
 
 #### `maps`
 ```json
 { "place": "blue bottle on valencia" }
 ```
-- `place` — free-text place string. Pass directly to `geo:0,0?q=<url-encoded place>` or Maps Places search.
+- `place` — free-text place string. Pass to a maps search.
 
 ### `targeting` schema (all intents)
 
@@ -207,63 +207,6 @@ Your app needs to tell the server when UI events happen so the cooldown state st
 | Manual reset (admin/testing) | `POST /reset-cooldown/{chat_id}[?intent=<intent>]` | omit `intent` to clear all intents for the chat |
 
 If you don't wire these up, the system still works — it falls back to timer-only behavior (5 min cooldown). Wiring them up is what makes it feel smart.
-
----
-
-## Android integration — one example per intent
-
-### `money` → Venmo / CashApp / UPI
-```kotlin
-val uri = Uri.parse("venmo://paycharge?txn=charge&amount=${payload.amount.drop(1)}&note=")
-startActivity(Intent(Intent.ACTION_VIEW, uri))
-```
-
-### `alarm` → `AlarmClock.ACTION_SET_ALARM`
-```kotlin
-val hour = LocalDateTime.parse(payload.timeIso).hour
-val minute = LocalDateTime.parse(payload.timeIso).minute
-val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
-    putExtra(AlarmClock.EXTRA_HOUR, hour)
-    putExtra(AlarmClock.EXTRA_MINUTES, minute)
-    putExtra(AlarmClock.EXTRA_MESSAGE, payload.label ?: "Reminder")
-    putExtra(AlarmClock.EXTRA_SKIP_UI, false)  // let user confirm
-}
-startActivity(intent)
-```
-
-### `contact` → `ContactsContract.Intents.Insert`
-```kotlin
-val intent = Intent(ContactsContract.Intents.Insert.ACTION).apply {
-    type = ContactsContract.RawContacts.CONTENT_TYPE
-    putExtra(ContactsContract.Intents.Insert.PHONE, payload.phone)
-    putExtra(ContactsContract.Intents.Insert.NAME, payload.nameHint ?: "")
-}
-startActivity(intent)
-```
-
-### `calendar` → `CalendarContract.Events` insert
-```kotlin
-val start = LocalDateTime.parse(payload.startIso)
-    .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-val intent = Intent(Intent.ACTION_INSERT).apply {
-    data = CalendarContract.Events.CONTENT_URI
-    putExtra(CalendarContract.Events.TITLE, payload.title)
-    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
-    putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
-             start + payload.durationMinutes * 60_000L)
-}
-startActivity(intent)
-```
-
-### `maps` → `geo:` URI
-```kotlin
-val place = Uri.encode(payload.place)
-val uri = Uri.parse("geo:0,0?q=$place")
-val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-    setPackage("com.google.android.apps.maps")  // optional — force Google Maps
-}
-startActivity(intent)
-```
 
 ---
 
@@ -512,59 +455,3 @@ Real-time detection. Same logic as `POST /detect` but over a persistent connecti
 ```
 
 The `venmo_detection` object is the v1-back-compat mirror of the money intent. New code should read `intents[]`.
-
----
-
-## Server Recommendations
-
-| Scale | Instance | Specs | Cost | Latency |
-|-------|----------|-------|------|---------|
-| MVP (<500 users) | AWS `t3.medium` / GCP `e2-medium` | 2 vCPU, 4GB RAM | ~$30/mo | ~200–300ms |
-| Growing (500–2000) | AWS `t3.large` / GCP `e2-standard-2` | 2 vCPU, 8GB RAM | ~$60/mo | ~150–250ms |
-| Scale (2000+) | GPU instance or multi-CPU behind LB | varies | varies | ~20–50ms (GPU) |
-
-CPU is fine for MVP. The multi-intent model is still ~67M parameters (DistilBERT base with a 5-head classifier) — no GPU needed.
-
-### Docker deployment
-
-```bash
-docker build -t paychat-model .
-docker run -d -p 8000:8000 --name paychat paychat-model
-```
-
-### Environment variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MODEL_DIR` | `./saved_model` | Path to model files |
-| `CONFIDENCE_THRESHOLD` | `0.5` | Min per-intent sigmoid to trigger (0.0–1.0) |
-| `POPUP_COOLDOWN_SECONDS` | `300` | Quiet window after a popup fires (default 5 min) |
-| `DISMISSED_COOLDOWN_SECONDS` | `900` | Longer quiet window after a user dismissal (default 15 min) |
-| `POST_PAYMENT_GRACE_SECONDS` | `60` | Brief suppression right after `/payment-complete` so confirmation messages don't re-pop |
-| `TRACKER_EVICTION_SECONDS` | `1800` | Drop in-memory chat tracker entries after this much idle time (default 30 min) |
-
-### A note on scale
-
-The cooldown tracker lives in-memory on a single server, keyed by `(chat_id, intent)` tuples. For MVP (single instance) this is fine and fast — no Redis dependency. If you scale to multiple API instances behind a load balancer, swap the in-memory `popup_tracker` dict for Redis with keys like `paychat:{chat_id}:{intent}` and you're done.
-
----
-
-## Quick test
-
-```bash
-# Single intent
-curl -X POST http://localhost:8000/detect \
-  -H "Content-Type: application/json" \
-  -d '{"text": "you owe me $20", "chat_id": "test123"}'
-
-# Multi-intent
-curl -X POST http://localhost:8000/detect \
-  -H "Content-Type: application/json" \
-  -d '{"text": "remind me to venmo priya $25 at 8pm", "chat_id": "test123"}'
-
-# Dismiss alarm popup only
-curl -X POST "http://localhost:8000/popup-dismissed/test123?intent=alarm"
-
-# Inspect all tracker state for a chat
-curl http://localhost:8000/chat-state/test123
-```
