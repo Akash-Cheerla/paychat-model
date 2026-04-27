@@ -170,6 +170,15 @@
     padding: 12px 18px;
   }
 
+  .mic-status {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 2px 0;
+    min-height: 18px;
+  }
+  .mic-status.ok { color: #4ade80; }
+  .mic-status.err { color: #fca5a5; }
+
   .help {
     font-size: 12px;
     color: var(--muted);
@@ -452,6 +461,8 @@
     <button id="sendText" class="send">Send</button>
   </div>
 
+  <div id="micStatusLine" class="mic-status">tap “Start call” to begin</div>
+
   <div class="help" id="help">
     Try a back-and-forth: <code>"hey, you owe me $40 from the airbnb"</code> → switch speaker → <code>"got it, remind me to pay you at 8pm"</code> → <code>"meet at blue bottle valencia tomorrow at 3?"</code>
   </div>
@@ -499,7 +510,7 @@
     sendText: document.getElementById("sendText"),
   };
 
-  // State machine: 'idle' | 'in_call' | 'summary'
+  // State machine: 'idle' | 'in_call' | 'summary_pending' | 'summary'
   let phase = "idle";
   let speaker = "A";
   let interimNode = null;
@@ -509,6 +520,13 @@
   let callStartTs = 0;
   let callTimerInt = null;
   let pendingDetections = 0;   // outstanding detect() calls when ending
+
+  // Recognition restart back-off — Chrome silently drops recognition on long
+  // sessions; we retry, but with a cap so we never tight-loop on permanent
+  // failure (which is what crashes desktop chrome).
+  let restartAttempts = 0;
+  const MAX_RESTART_ATTEMPTS = 6;
+  let restartTimer = null;
 
   // ── Health check ───────────────────────────────────
   fetch(API_BASE + "/health").then(r => r.json()).then(h => {
@@ -523,31 +541,75 @@
   function hasSpeechRecognition() {
     return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }
+  function setMicStatus(text, kind) {
+    const ind = document.getElementById("micStatusLine");
+    if (!ind) return;
+    ind.textContent = text;
+    ind.className = "mic-status " + (kind || "");
+  }
+
   function initRecognition() {
     if (!hasSpeechRecognition()) return null;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const r = new SR();
     r.continuous = true;
     r.interimResults = true;
+    r.maxAlternatives = 1;
     r.lang = "en-US";
     r.onresult = onResult;
+    r.onstart = () => {
+      restartAttempts = 0;
+      setMicStatus("🎙 listening…", "ok");
+    };
     r.onerror = (e) => {
+      // benign — Chrome fires these constantly during a session
       if (e.error === "no-speech" || e.error === "aborted") return;
-      if (e.error === "not-allowed") {
-        toast("Mic permission denied — type instead");
-        endCall();
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setMicStatus("✗ mic blocked — type below", "err");
+        toast("Mic permission denied — type lines instead");
+      } else if (e.error === "audio-capture") {
+        setMicStatus("✗ no mic found — type below", "err");
+        toast("No microphone — type instead");
       } else if (e.error === "network") {
-        toast("Speech network error — type instead");
+        setMicStatus("✗ stt offline — type below", "err");
       } else {
         console.warn("speech error", e);
       }
     };
     r.onend = () => {
-      if (phase === "in_call") {
-        try { r.start(); } catch (_) {}
+      // Chrome drops recognition silently on long sessions. Restart with
+      // back-off so we don't tight-loop if the failure is permanent.
+      if (phase !== "in_call") return;
+      if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+        setMicStatus("⚠ mic dropped — type to continue", "err");
+        return;
       }
+      restartAttempts++;
+      const delay = Math.min(150 * restartAttempts, 1500);
+      if (restartTimer) clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => {
+        if (phase !== "in_call" || !recognition) return;
+        try { recognition.start(); }
+        catch (err) { /* will end-loop again, capped by MAX_RESTART_ATTEMPTS */ }
+      }, delay);
     };
     return r;
+  }
+
+  // Split a long final into per-sentence chunks so each "turn" surfaces as
+  // its own transcript line + its own /detect call. Web Speech often glues
+  // 3-4 sentences into one final, which makes back-and-forth conversations
+  // look like the model "missed" turns even though it didn't.
+  function splitIntoUtterances(text) {
+    if (!text) return [];
+    const trimmed = text.trim();
+    // If there's actual sentence punctuation with text on both sides, split on it.
+    if (/[.!?].+/.test(trimmed)) {
+      const parts = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [trimmed];
+      const cleaned = parts.map(s => s.trim()).filter(s => s.length >= 3);
+      if (cleaned.length > 1) return cleaned;
+    }
+    return [trimmed];
   }
 
   function onResult(event) {
@@ -565,8 +627,10 @@
     }
     if (final.trim()) {
       if (interimNode) { interimNode.remove(); interimNode = null; }
-      const node = renderUtterance(speaker, final.trim(), false);
-      detect(final.trim(), node);
+      for (const sentence of splitIntoUtterances(final)) {
+        const node = renderUtterance(speaker, sentence, false);
+        detect(sentence, node);
+      }
     }
   }
 
@@ -803,7 +867,22 @@
   }
 
   // ── Call lifecycle ───────────────────────────────
+  function teardownRecognition() {
+    if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+    if (recognition) {
+      try { recognition.onend = null; } catch (_) {}
+      try { recognition.onerror = null; } catch (_) {}
+      try { recognition.onresult = null; } catch (_) {}
+      try { recognition.stop(); } catch (_) {}
+      try { recognition.abort(); } catch (_) {}
+      recognition = null;
+    }
+    restartAttempts = 0;
+  }
+
   function startCall() {
+    // Guard against double-clicks during transitions
+    if (phase === "in_call" || phase === "summary_pending") return;
     if (phase === "summary") clearAll(/*resetCooldown*/ true);
     phase = "in_call";
     callStartTs = Date.now();
@@ -813,20 +892,19 @@
     els.rightHeader.firstChild.textContent = "Detected actions ";
     showInCallIndicator();
 
-    // start mic
+    // Always start mic with a fresh recognition object — reusing a stale one
+    // is the #1 cause of "started but no audio" crashes on desktop chrome.
+    teardownRecognition();
     if (hasSpeechRecognition()) {
-      if (!recognition) recognition = initRecognition();
+      recognition = initRecognition();
+      setMicStatus("requesting mic permission…", "");
       try { recognition.start(); }
-      catch (e) { console.warn(e); }
+      catch (e) {
+        console.warn("recognition.start failed", e);
+        setMicStatus("⚠ couldn't start mic — type below", "err");
+      }
     } else {
-      // fallback to typing only
-      const note = document.createElement("div");
-      note.style.color = "var(--muted)";
-      note.style.fontSize = "12px";
-      note.style.marginTop = "8px";
-      note.textContent = "Voice not supported in this browser — type lines below.";
-      const ind = els.rightPane.querySelector(".call-indicator");
-      if (ind) ind.appendChild(note);
+      setMicStatus("voice not supported in this browser — type below", "err");
     }
 
     // call timer
@@ -842,8 +920,9 @@
   function endCall() {
     if (phase !== "in_call") return;
     if (callTimerInt) { clearInterval(callTimerInt); callTimerInt = null; }
-    try { if (recognition) recognition.stop(); } catch (_) {}
+    teardownRecognition();
     if (interimNode) { interimNode.remove(); interimNode = null; }
+    setMicStatus("call ended", "");
 
     els.callBtn.disabled = true;
     els.callBtn.textContent = "Wrapping up…";
