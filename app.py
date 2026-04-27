@@ -316,10 +316,20 @@ _TIME_WORDS = {
 
 
 def _is_valid_time_match(phrase: str) -> bool:
-    """Reject dateparser garbage like 'me', 'set', 'on'."""
+    """Reject dateparser garbage like 'me', 'set', 'on', and phone-number-like phrases."""
     if not phrase or len(phrase) < 3:
         return False
-    low = phrase.lower()
+    p = phrase.strip()
+    low = p.lower()
+
+    # ── Phone-number rejection ──────────────────────────────────────
+    # Country-code style: "+91", "+1", "+44 1234..." — these were being parsed as years.
+    if re.match(r"^\+\d", p):
+        return False
+    # Long digit runs (7+ consecutive digits) — phone numbers, not dates.
+    if re.search(r"\d{7,}", p):
+        return False
+
     # Must have a digit OR a known time word
     if any(c.isdigit() for c in low):
         return True
@@ -327,6 +337,86 @@ def _is_valid_time_match(phrase: str) -> bool:
         if re.search(rf"\b{re.escape(w)}\b", low):
             return True
     return False
+
+
+# Normalize "10 a.m." / "10 a.m" / "10 P.M." → "10am" / "10pm" before dateparser sees it.
+# dateparser's tokenizer often chokes on the periods, returning no match.
+_AMPM_NORMALIZE_RE = re.compile(r"\b([apAP])\.?\s*([mM])\.?(?=\W|$)")
+
+# "5 in the morning" / "7 in the evening" / "9 in the night" → "5am" / "7pm" / "9pm"
+# dateparser doesn't grok the "N in the X" idiom and silently drops the time.
+_TIME_OF_DAY_RE = re.compile(
+    r"\b(\d{1,2})(?:\s*:\s*(\d{2}))?\s+in\s+the\s+(morning|afternoon|evening|night)\b",
+    re.IGNORECASE,
+)
+
+
+def _time_of_day_repl(m: "re.Match") -> str:
+    h = m.group(1)
+    mn = m.group(2)
+    period = m.group(3).lower()
+    suffix = "am" if period == "morning" else "pm"
+    return f"{h}:{mn}{suffix}" if mn else f"{h}{suffix}"
+
+
+def _normalize_for_datetime(text: str) -> str:
+    """Tighten common ASR/typing artifacts before feeding dateparser."""
+    out = _AMPM_NORMALIZE_RE.sub(lambda m: m.group(1).lower() + m.group(2).lower(), text)
+    # "5 in the morning" → "5am"
+    out = _TIME_OF_DAY_RE.sub(_time_of_day_repl, out)
+    # Collapse "10 : 45" or "10 :45" → "10:45"
+    out = re.sub(r"(\d)\s*:\s*(\d)", r"\1:\2", out)
+    return out
+
+
+# dateparser sometimes drops or mis-parses the time portion of a phrase
+# like "the 27th at 10 a.m" or "wake me up at 6am tomorrow" — we get the
+# date right but the time wrong. If the matched phrase clearly contains an
+# explicit clock time (e.g. "at 10am", "10:45 pm", "6am"), patch hour/minute
+# to match what the user actually said.
+_EXPLICIT_TIME_RE = re.compile(
+    r"(?:\bat\s+)?\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
+    re.IGNORECASE,
+)
+
+# Words/patterns that anchor a date to a specific day. If the phrase
+# contains any of these, dateparser's date is trustworthy. Otherwise
+# (bare "5am" with no day context), we force date = today (or tomorrow
+# if the hour has already passed).
+_DATE_CONTEXT_RE = re.compile(
+    r"\b(?:tomorrow|today|tonight|tmrw|yesterday|"
+    r"mon|tue|wed|thu|fri|sat|sun|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|"
+    r"january|february|march|april|june|july|august|september|october|november|december|"
+    r"next|this|last|"
+    r"\d{1,2}(?:st|nd|rd|th)|"  # ordinals like "27th"
+    r"\d{1,2}/\d{1,2}|"          # explicit dates like 4/28
+    r"\d{4})\b",
+    re.IGNORECASE,
+)
+
+
+def _patch_iso_hour(iso: str, phrase: str) -> str:
+    m = _EXPLICIT_TIME_RE.search(phrase)
+    if not m:
+        return iso
+    hour = int(m.group(1)) % 12
+    if m.group(3).lower() == "pm":
+        hour += 12
+    minute = int(m.group(2) or 0)
+
+    # If the phrase has NO real date anchor (no day-name, month, ordinal,
+    # etc.), dateparser sometimes misreads the hour digit as month-of-year
+    # (e.g. "5am" → 2026-05-DD). Force the date to today/tomorrow.
+    if not _DATE_CONTEXT_RE.search(phrase):
+        now = datetime.now()
+        candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate <= now:
+            candidate = candidate + timedelta(days=1)
+        return candidate.strftime("%Y-%m-%dT") + f"{hour:02d}:{minute:02d}"
+
+    return iso[:11] + f"{hour:02d}:{minute:02d}"
 
 
 def _parse_datetime(text: str) -> Tuple[Optional[str], Optional[str]]:
@@ -338,8 +428,9 @@ def _parse_datetime(text: str) -> Tuple[Optional[str], Optional[str]]:
     if not _HAS_DATEPARSER:
         return None, None
     try:
+        normalized = _normalize_for_datetime(text)
         results = _dp_search_dates(
-            text,
+            normalized,
             languages=["en"],
             settings={
                 "PREFER_DATES_FROM": "future",
@@ -352,7 +443,9 @@ def _parse_datetime(text: str) -> Tuple[Optional[str], Optional[str]]:
         # Take the first valid (non-garbage) match
         for raw_phrase, dt in results:
             if _is_valid_time_match(raw_phrase):
-                return dt.isoformat(timespec="minutes"), raw_phrase
+                iso = dt.isoformat(timespec="minutes")
+                iso = _patch_iso_hour(iso, raw_phrase)
+                return iso, raw_phrase
         return None, None
     except Exception as e:
         logger.debug(f"dateparser failed: {e}")
@@ -374,8 +467,17 @@ def _extract_duration_seconds(text: str) -> Optional[int]:
 def _strip_date_phrase(text: str, phrase: Optional[str]) -> str:
     if not phrase:
         return text
-    # Replace with single space so mid-string removals don't leave "foo  bar"
-    out = text.replace(phrase, " ")
+    # The phrase may have come from a normalized version of `text` (e.g.
+    # "10 am" parsed from text containing "10 a.m"). Try the original first,
+    # then normalize and try again so the strip succeeds either way.
+    if phrase in text:
+        out = text.replace(phrase, " ")
+    else:
+        normalized = _normalize_for_datetime(text)
+        if phrase in normalized:
+            out = normalized.replace(phrase, " ")
+        else:
+            out = text
     # Collapse runs of whitespace
     out = re.sub(r"\s+", " ", out)
     return out.strip(" ,.-")
@@ -421,6 +523,64 @@ def _extract_alarm_payload(text: str) -> Dict[str, Any]:
     return payload
 
 
+# ─── Calendar title helpers ─────────────────────────────────────────────
+_CALENDAR_PREFIXES = [
+    # mark / put / add to calendar
+    "mark the event on the calendar ", "mark the event on my calendar ",
+    "mark the event ", "mark an event ", "mark event ",
+    "put the event on the calendar ", "put it on the calendar ",
+    "put on the calendar ", "put on my calendar ",
+    "add the event to the calendar ", "add the event to my calendar ",
+    "add to the calendar ", "add to my calendar ", "add to calendar ",
+    "add an event ", "add event ",
+    # create / schedule
+    "create an event ", "create event ", "create a calendar event ",
+    "make an event ", "make event ",
+    "schedule a meeting ", "schedule a call ", "schedule a sync ",
+    "schedule the ", "schedule an ", "schedule a ", "schedule ",
+    "let's schedule ", "lets schedule ",
+    # set up / setup
+    "i would like to set up ", "i'd like to set up ", "i want to set up ",
+    "let me set up ", "let's set up ", "lets set up ",
+    "set up a meeting ", "set up a call ", "set up an event ", "set up ",
+    # book / block
+    "book a ", "book the ", "book ", "block off ", "block my calendar for ",
+    "block my calendar ",
+    # save the date
+    "pencil me in ", "save the date for ", "save the date ",
+    "remind me of ", "remind me about ",
+    # short
+    "put ", "add ",
+]
+
+# Strip these *anywhere* (mid-string is fine) — they are calendar housekeeping noise.
+_CALENDAR_NOISE_PATTERNS = [
+    r"\bon\s+(?:the\s+)?calendar\b",
+    r"\bin\s+(?:the\s+|my\s+)?calendar\b",
+    r"\bto\s+(?:the\s+|my\s+)?calendar\b",
+    r"\bfor\s+(?:the\s+|my\s+)?calendar\b",
+    r"\bas\s+said\s+\w+",                  # "as said meeting"
+    r"\bas\s+(?:a|an|the)\s+",              # "as a meeting" -> drop the "as a "
+]
+
+# If after cleanup the title is empty/junk, fall back to the event noun mentioned.
+_EVENT_NOUNS = [
+    "interview", "1:1", "1on1", "standup", "stand-up",
+    "happy hour", "catch up", "catchup", "catch-up", "coffee chat",
+    "meeting", "call", "sync", "conference", "review", "demo",
+    "lunch", "dinner", "brunch", "breakfast", "drinks", "coffee",
+    "appointment", "party", "session", "workshop", "presentation",
+]
+
+
+def _fallback_event_noun(text: str) -> Optional[str]:
+    low = text.lower()
+    for noun in sorted(_EVENT_NOUNS, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(noun)}\b", low):
+            return noun.capitalize() if " " not in noun else noun.title()
+    return None
+
+
 def _extract_calendar_payload(text: str) -> Dict[str, Any]:
     """
     Calendar payload: { title, start_iso, start_phrase, duration_minutes? }
@@ -428,25 +588,39 @@ def _extract_calendar_payload(text: str) -> Dict[str, Any]:
     iso, phrase = _parse_datetime(text)
 
     title = text
-    for prefix in [
-        "schedule a meeting ", "schedule ", "let's schedule ",
-        "put ", "add ", "book ", "block my calendar ", "block off ",
-        "pencil me in ", "save the date ", "save the date for ",
-    ]:
-        if title.lower().startswith(prefix):
+    title_low = title.lower()
+    for prefix in sorted(_CALENDAR_PREFIXES, key=len, reverse=True):
+        if title_low.startswith(prefix):
             title = title[len(prefix):]
             break
+
+    # Drop the date phrase from the title
     title = _strip_date_phrase(title, phrase)
-    # Clean up common filler
-    title = re.sub(r'\b(at|on|for|to|from)\s*$', '', title).strip(" ,.-")
-    title = re.sub(r'^\s*(hey|yo|btw|fyi|ok so|so|also|wait)\s+', '', title, flags=re.IGNORECASE).strip()
+
+    # Drop calendar housekeeping noise ("on the calendar", "as a meeting", etc.)
+    for pat in _CALENDAR_NOISE_PATTERNS:
+        title = re.sub(pat, " ", title, flags=re.IGNORECASE)
+
+    # Collapse + clean trailing/leading filler words
+    title = re.sub(r"\s+", " ", title).strip(" ,.-")
+    title = re.sub(r"\b(at|on|for|to|from|the|a|an|of|with|about)\s*$", "", title, flags=re.IGNORECASE).strip(" ,.-")
+    title = re.sub(r"^\s*(hey|yo|btw|fyi|ok so|so|also|wait|please)\s+", "", title, flags=re.IGNORECASE).strip()
+    title = re.sub(r"^(the|a|an|for|to|of|on|at|with|about)\s+", "", title, flags=re.IGNORECASE).strip()
+
+    # If we ended up with junk or nothing, fall back to a known event noun.
+    junk_titles = {"the", "a", "an", "for", "to", "of", "on", "at", "with", "about"}
+    if not title or len(title) <= 2 or title.lower() in junk_titles:
+        title = _fallback_event_noun(text) or title
+    # Single-word event nouns get title-cased ("meeting" -> "Meeting")
+    if title and " " not in title and title.lower() in {n.lower() for n in _EVENT_NOUNS}:
+        title = title.capitalize()
 
     payload = {"title": title or None}
     if iso:
         payload["start_iso"] = iso
         payload["start_phrase"] = phrase
         # Rough default: 30 min for meetings/calls, 60 min for dinner/lunch/events
-        if re.search(r'\b(meeting|call|sync|standup|1:1|interview)\b', text, re.IGNORECASE):
+        if re.search(r"\b(meeting|call|sync|standup|1:1|interview|review|demo|presentation)\b", text, re.IGNORECASE):
             payload["duration_minutes"] = 30
         else:
             payload["duration_minutes"] = 60
@@ -466,10 +640,38 @@ _MAPS_PREFIX_VERBS = [
     "pulling up to ", "pulling into ", "headed over to ", "going to ",
     "making my way to ", "en route to ",
     "directions to ", "how do i get to ", "navigate to ", "map me to ",
+    "drive to ", "take me to ", "ride to ",
     "open ", "find ", "pull up ",
     "the address is ", "spot is ", "address for ", "venue is ",
     "here's the address ", "event location: ", "event location is ",
 ]
+
+
+# Trailing junk that should NEVER be part of a place query.
+# These all appear AFTER the actual place in chat: "at 5pm", "for dinner", "tomorrow", etc.
+_PLACE_TRAILING_JUNK = [
+    # event suffixes — "for the meeting", "for dinner", "for said meeting"
+    r"\s+for\s+(?:the\s+|a\s+|an\s+|said\s+|our\s+|this\s+|that\s+)?\w+(?:\s+\w+){0,2}\s*$",
+    # day-of-week / temporal anchors at end
+    r"\s+(?:tomorrow|today|tonight|tmrw|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|next\s+\w+|this\s+\w+)\s*$",
+]
+
+
+def _strip_place_trailers(place: str) -> str:
+    """Remove trailing date/event/temporal junk from a candidate place string."""
+    out = place
+    # NOTE: we deliberately do NOT call _parse_datetime here — it eats real
+    # address pieces like "1600" (year 1600) and "5th" (5th of month) that
+    # are part of the street, not a date. The trailing-junk regex below
+    # already handles concrete day-of-week / "tomorrow" suffixes.
+    # Strip event/day suffixes (run twice — sometimes layered: "for dinner tonight")
+    for _ in range(2):
+        for pat in _PLACE_TRAILING_JUNK:
+            out = re.sub(pat, "", out, flags=re.IGNORECASE)
+    # Trailing connectors and whitespace cleanup
+    out = re.sub(r"\s+", " ", out).strip(" ,.-!?")
+    out = re.sub(r"\b(at|on|for|to|from)\s*$", "", out, flags=re.IGNORECASE).strip(" ,.-!?")
+    return out
 
 
 def _extract_place(text: str) -> Optional[str]:
@@ -482,16 +684,17 @@ def _extract_place(text: str) -> Optional[str]:
     low = t.lower()
     for verb in sorted(_MAPS_PREFIX_VERBS, key=len, reverse=True):
         if low.startswith(verb):
-            return t[len(verb):].strip(" ,.-!?")
+            tail = t[len(verb):]
+            return _strip_place_trailers(tail) or None
 
     # Didn't match a prefix — try to grab whatever follows "at/to" after a known verb mid-sentence.
     m = re.search(r'\b(?:at|to|from)\s+(.+?)(?:\s+(?:at|tomorrow|today|tonight|tmrw|mon|tue|wed|thu|fri|sat|sun)\b|$)',
                   t, re.IGNORECASE)
     if m:
-        return m.group(1).strip(" ,.-!?")
+        return _strip_place_trailers(m.group(1)) or None
 
     # Last resort: use the full text as the search query (Maps will handle it).
-    return t.strip(" ,.-!?") or None
+    return _strip_place_trailers(t) or None
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -540,6 +743,68 @@ def _extract_addressee(text: str) -> Optional[str]:
         if cand in _COMMON_NAMES_LOWER:
             return cand
     return None
+
+
+# ─── Contact-specific: pull the name to save the number AS ──────────────
+_CONTACT_NAME_PATTERNS = [
+    # "under (the) name X"  /  "with (the) name X"  /  "using name X"
+    re.compile(r"(?:under|with|using)\s+(?:the\s+)?name\s+(?:of\s+)?(?:'|\")?([A-Za-z][A-Za-z0-9 .'\-]{0,40})", re.IGNORECASE),
+    # "named X"
+    re.compile(r"\bnamed\s+(?:'|\")?([A-Za-z][A-Za-z0-9 .'\-]{0,40})", re.IGNORECASE),
+    # "save X's number" / "save X number" / "save the X's number"  -> X
+    re.compile(r"\bsave\s+(?:the\s+)?(?:my\s+)?([A-Za-z][A-Za-z0-9'\-]{1,40}?)(?:'?s)?\s+(?:phone\s+)?(?:number|contact|cell|details|info)\b", re.IGNORECASE),
+    # "add X's number" / "add X to (my) contacts"
+    re.compile(r"\badd\s+(?:the\s+)?([A-Za-z][A-Za-z0-9'\-]{1,40}?)(?:'?s)?\s+(?:phone\s+|contact\s+)?(?:number|contact|cell|details|info)\b", re.IGNORECASE),
+    re.compile(r"\badd\s+([A-Za-z][A-Za-z0-9 .'\-]{1,40}?)\s+to\s+(?:my\s+|the\s+)?contacts?\b", re.IGNORECASE),
+    # "save X as Y" / "save NUMBER as Y"
+    re.compile(r"\bsave\s+(?:\+?\d[\d\s\-().]{6,}|[A-Za-z][A-Za-z0-9'\-]{0,40})\s+as\s+(?:'|\")?([A-Za-z][A-Za-z0-9 .'\-]{0,40})", re.IGNORECASE),
+    # "call them X in (my) contacts"
+    re.compile(r"\bcall\s+(?:them\s+|it\s+)?([A-Za-z][A-Za-z0-9 .'\-]{0,40}?)\s+in\s+(?:my\s+|the\s+)?contacts?\b", re.IGNORECASE),
+    # "X's number is ..."  (X must be a real word, not a stopword)
+    re.compile(r"^\s*([A-Za-z][A-Za-z'\-]{1,40})'?s\s+(?:phone\s+)?(?:number|cell|contact)\s+is\b", re.IGNORECASE),
+]
+
+# Words the regexes might catch that aren't really names.
+_CONTACT_NAME_STOPWORDS = {
+    "the", "this", "that", "these", "those", "my", "his", "her", "our", "their", "your",
+    "a", "an", "some", "any", "no", "new", "saved", "phone", "contact",
+    "number", "cell", "details", "info", "person", "people",
+    # short fragments left over when an optional `'?s` swallows the trailing letter
+    "th", "thi", "tha", "thes", "thos",
+}
+
+
+def _extract_contact_name(text: str) -> Optional[str]:
+    """
+    Best-effort name to save a contact under. Tries explicit "save X's number" /
+    "under the name X" patterns first, then falls back to the chat-style
+    addressee extractor ("hey NAME save this number").
+    """
+    for pat in _CONTACT_NAME_PATTERNS:
+        m = pat.search(text)
+        if not m:
+            continue
+        name = m.group(1).strip(" ,.-'?!\"")
+        if not name:
+            continue
+        # Reject digit-bearing or stopword captures
+        if any(c.isdigit() for c in name):
+            continue
+        if len(name) > 50:
+            continue
+        low = name.lower()
+        # Reject if the captured chunk OR the chunk + 's' is a stopword
+        # (the optional `'?s` group in our patterns sometimes eats the trailing
+        # 's' of words like "this"/"that", leaving "thi"/"tha")
+        if low in _CONTACT_NAME_STOPWORDS or (low + "s") in _CONTACT_NAME_STOPWORDS:
+            continue
+        # Drop trailing 's if accidentally captured ("akash's" -> "akash")
+        name = re.sub(r"['\u2019]s$", "", name).strip()
+        if name:
+            return name
+
+    # Fall back: catches "hey NAME save this number..."
+    return _extract_addressee(text)
 
 
 def _extract_third_party(text: str, addressee: Optional[str], sender: Optional[str]) -> Optional[str]:
@@ -819,10 +1084,10 @@ def build_intent_payload(intent: str, text: str) -> Dict[str, Any]:
         return _extract_alarm_payload(text)
     if intent == "contact":
         phone = _extract_phone(text)
-        addressee = _extract_addressee(text)
+        name_hint = _extract_contact_name(text)
         return {
             "phone": phone,
-            "name_hint": addressee,  # best-effort; android picks up from chat context
+            "name_hint": name_hint,  # best-effort; client picks up from chat context
         }
     if intent == "calendar":
         return _extract_calendar_payload(text)
