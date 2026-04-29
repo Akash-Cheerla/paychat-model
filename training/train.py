@@ -72,6 +72,12 @@ _parser.add_argument(
     help="Disable per-class pos_weight in BCE loss. By default the trainer "
          "computes pos_weight from class frequencies to fight imbalance.",
 )
+_parser.add_argument(
+    "--force-lr",
+    action="store_true",
+    help="Skip the DeBERTa lr safety cap. Only use this if you know what "
+         "you're doing — DeBERTa-v3 diverges to NaN above ~1e-5.",
+)
 _cli, _ = _parser.parse_known_args()
 
 # ── Config ──
@@ -81,10 +87,17 @@ OUT_DIR    = Path(_cli.output_dir) if _cli.output_dir else Path("../saved_model"
 BATCH_SIZE = _cli.batch_size if _cli.batch_size else 32
 EPOCHS     = _cli.epochs     if _cli.epochs     else 5
 # DeBERTa-v3 is much more LR-sensitive than BERT/DistilBERT — at 2e-5 it diverges
-# to NaN. Auto-pick a gentler default unless the user passes --lr explicitly.
+# to NaN. Auto-pick a gentler default, AND hard-cap any user-supplied --lr for
+# DeBERTa, unless --force-lr is passed (escape hatch for experiments).
+_DEBERTA = "deberta" in MODEL_NAME.lower()
+_DEBERTA_LR_CAP = 1e-5
 if _cli.lr is not None:
     LR = _cli.lr
-elif "deberta" in MODEL_NAME.lower():
+    if _DEBERTA and LR > _DEBERTA_LR_CAP and not _cli.force_lr:
+        print(f"[lr-guard] --lr {LR} is too high for DeBERTa-v3 (NaN risk). "
+              f"Clamping to {_DEBERTA_LR_CAP}. Pass --force-lr to override.")
+        LR = _DEBERTA_LR_CAP
+elif _DEBERTA:
     LR = 5e-6
 else:
     LR = 2e-5
