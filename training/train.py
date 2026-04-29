@@ -351,9 +351,9 @@ def main():
         # pos_weight = (N - pos) / pos, clipped so a near-zero class doesn't blow up
         with np.errstate(divide="ignore"):
             raw = (N - pos_counts) / np.maximum(pos_counts, 1.0)
-        # Clip aggressively. Values >5 combined with a high LR cause gradient
-        # explosion / NaN on transformer models like DeBERTa-v3.
-        pos_weight = torch.tensor(np.clip(raw, 0.5, 5.0), dtype=torch.float, device=DEVICE)
+        # Clip very tightly. Values >3 combined with random-init classifier heads
+        # caused gradient explosion / NaN on DeBERTa-v3 even at lr=5e-6.
+        pos_weight = torch.tensor(np.clip(raw, 0.5, 3.0), dtype=torch.float, device=DEVICE)
         print("\nClass balance (train positives / pos_weight):")
         for j, intent in enumerate(INTENTS):
             print(f"  {intent:<12} pos={int(pos_counts[j]):<5} weight={pos_weight[j].item():.2f}")
