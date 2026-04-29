@@ -80,7 +80,14 @@ DATA_DIR   = Path(_cli.data_dir)   if _cli.data_dir   else Path(".")
 OUT_DIR    = Path(_cli.output_dir) if _cli.output_dir else Path("../saved_model")
 BATCH_SIZE = _cli.batch_size if _cli.batch_size else 32
 EPOCHS     = _cli.epochs     if _cli.epochs     else 5
-LR         = _cli.lr         if _cli.lr         else 2e-5
+# DeBERTa-v3 is much more LR-sensitive than BERT/DistilBERT — at 2e-5 it diverges
+# to NaN. Auto-pick a gentler default unless the user passes --lr explicitly.
+if _cli.lr is not None:
+    LR = _cli.lr
+elif "deberta" in MODEL_NAME.lower():
+    LR = 5e-6
+else:
+    LR = 2e-5
 MAX_LEN    = _cli.max_len    if _cli.max_len    else 128
 SEED       = 42
 THRESHOLD  = 0.5   # per-intent sigmoid cutoff
@@ -166,6 +173,16 @@ def train_epoch(model, loader, optimizer, scheduler, pos_weight=None):
         optimizer.zero_grad()
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         loss = _compute_loss(outputs, labels, pos_weight)
+
+        # Hard guard: if training has diverged to NaN/Inf, abort immediately
+        # rather than burning 30 min producing a useless saved_model.
+        if not torch.isfinite(loss):
+            raise RuntimeError(
+                f"Loss became {loss.item()} — training diverged. "
+                f"Lower --lr (try 5e-6 for DeBERTa, 1e-5 for BERT) or "
+                f"pass --no-pos-weight, then retry."
+            )
+
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -321,7 +338,9 @@ def main():
         # pos_weight = (N - pos) / pos, clipped so a near-zero class doesn't blow up
         with np.errstate(divide="ignore"):
             raw = (N - pos_counts) / np.maximum(pos_counts, 1.0)
-        pos_weight = torch.tensor(np.clip(raw, 0.5, 20.0), dtype=torch.float, device=DEVICE)
+        # Clip aggressively. Values >5 combined with a high LR cause gradient
+        # explosion / NaN on transformer models like DeBERTa-v3.
+        pos_weight = torch.tensor(np.clip(raw, 0.5, 5.0), dtype=torch.float, device=DEVICE)
         print("\nClass balance (train positives / pos_weight):")
         for j, intent in enumerate(INTENTS):
             print(f"  {intent:<12} pos={int(pos_counts[j]):<5} weight={pos_weight[j].item():.2f}")
