@@ -109,6 +109,10 @@ def header(n, title):
 def reset_world():
     """Clear all state between scenarios."""
     paychat_app.popup_tracker.clear()
+    # v3: also clear the per-chat rolling context window so terse follow-ups
+    # like "thanks" don't inherit prior turns across scenarios.
+    if hasattr(paychat_app, "chat_history"):
+        paychat_app.chat_history.clear()
     paychat_app.stats.update({
         "requests": 0,
         "money_detected": 0,

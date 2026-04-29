@@ -1,15 +1,18 @@
 """
-PayChat Multi-Intent Detector - Training Script
+FYOE Multi-Intent Detector - Training Script (v3 super-app)
 
 Model: DistilBERT fine-tuned for multi-label classification.
-Task: detect which of 5 intents a chat message fires (one message can fire multiple).
+Task: detect which intents a chat message fires (one message can fire multiple).
 
-Intents (independent sigmoid heads):
-  money | alarm | contact | calendar | maps
+Intents are imported from training/v3_intents.py (single source of truth across
+the data generator, the API, and this trainer). v3 covers 18 intents:
+  money | alarm | contact | calendar | maps | food_order | ride | travel |
+  shopping | music | video | tickets | reservation | task | note | bills |
+  health | weather
 
 What this does:
   - Loads the multi-label dataset from generate_data.py
-  - Fine-tunes DistilBERT with BCEWithLogitsLoss (5 heads, independent)
+  - Fine-tunes DistilBERT with BCEWithLogitsLoss (N independent sigmoid heads)
   - Per-intent precision/recall/F1 and ROC-AUC
   - Saves model + tokenizer + training_report.json
 """
@@ -17,14 +20,18 @@ What this does:
 import argparse
 import json
 import os
+import sys
 import time
 import numpy as np
 from pathlib import Path
 from datetime import datetime
 
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
     DistilBertTokenizerFast,
     DistilBertForSequenceClassification,
     get_linear_schedule_with_warmup,
@@ -36,25 +43,49 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+# Make sibling v3_intents importable whether the script is run from the repo
+# root or from inside training/.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v3_intents import INTENTS_V3  # noqa: E402
+
 # ── CLI ──
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--data-dir",   default=None)
 _parser.add_argument("--output-dir", default=None)
 _parser.add_argument("--epochs",     type=int, default=None)
+_parser.add_argument("--batch-size", type=int, default=None)
+_parser.add_argument("--lr",         type=float, default=None)
+_parser.add_argument("--max-len",    type=int, default=None)
+_parser.add_argument(
+    "--model",
+    default=None,
+    help=(
+        "Base model name on HuggingFace. Defaults to distilbert-base-uncased "
+        "for a fast CPU-friendly baseline. For best-in-market quality try "
+        "'microsoft/deberta-v3-base' (English) or "
+        "'microsoft/mdeberta-v3-base' (multilingual, ~270MB)."
+    ),
+)
+_parser.add_argument(
+    "--no-pos-weight",
+    action="store_true",
+    help="Disable per-class pos_weight in BCE loss. By default the trainer "
+         "computes pos_weight from class frequencies to fight imbalance.",
+)
 _cli, _ = _parser.parse_known_args()
 
 # ── Config ──
-MODEL_NAME = "distilbert-base-uncased"
+MODEL_NAME = _cli.model if _cli.model else "distilbert-base-uncased"
 DATA_DIR   = Path(_cli.data_dir)   if _cli.data_dir   else Path(".")
 OUT_DIR    = Path(_cli.output_dir) if _cli.output_dir else Path("../saved_model")
-BATCH_SIZE = 16
-EPOCHS     = _cli.epochs if _cli.epochs else 5
-LR         = 2e-5
-MAX_LEN    = 128
+BATCH_SIZE = _cli.batch_size if _cli.batch_size else 32
+EPOCHS     = _cli.epochs     if _cli.epochs     else 5
+LR         = _cli.lr         if _cli.lr         else 2e-5
+MAX_LEN    = _cli.max_len    if _cli.max_len    else 128
 SEED       = 42
 THRESHOLD  = 0.5   # per-intent sigmoid cutoff
 
-INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+INTENTS = list(INTENTS_V3)
 NUM_LABELS = len(INTENTS)
 
 torch.manual_seed(SEED)
@@ -62,8 +93,10 @@ np.random.seed(SEED)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {DEVICE}")
-print(f"Intents: {INTENTS}")
-print(f"Training with {EPOCHS} epochs, batch size {BATCH_SIZE}, lr {LR}, threshold {THRESHOLD}")
+print(f"Intents ({NUM_LABELS}): {INTENTS}")
+print(f"Training with {EPOCHS} epochs, batch size {BATCH_SIZE}, lr {LR}, max_len {MAX_LEN}, threshold {THRESHOLD}")
+if DEVICE.type == "cuda":
+    print(f"GPU: {torch.cuda.get_device_name(0)}  |  CUDA: {torch.version.cuda}")
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -89,8 +122,9 @@ class ChatDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
-        # labels dict -> float vector [money, alarm, contact, calendar, maps]
-        label_vec = [float(item["labels"][intent]) for intent in INTENTS]
+        # labels dict -> float vector aligned with INTENTS order
+        label_dict = item["labels"]
+        label_vec = [float(label_dict.get(intent, 0)) for intent in INTENTS]
         return {
             "input_ids":      enc["input_ids"].squeeze(0),
             "attention_mask": enc["attention_mask"].squeeze(0),
@@ -112,7 +146,16 @@ def load_split(split_name):
 #  Train / Eval
 # ═════════════════════════════════════════════════════════════════════
 
-def train_epoch(model, loader, optimizer, scheduler):
+def _compute_loss(outputs, labels, pos_weight=None):
+    """When pos_weight is provided, recompute BCE with it; else use HF's default."""
+    if pos_weight is None:
+        return outputs.loss
+    return nn.functional.binary_cross_entropy_with_logits(
+        outputs.logits, labels, pos_weight=pos_weight
+    )
+
+
+def train_epoch(model, loader, optimizer, scheduler, pos_weight=None):
     model.train()
     total_loss = 0
     for batch in loader:
@@ -122,7 +165,7 @@ def train_epoch(model, loader, optimizer, scheduler):
 
         optimizer.zero_grad()
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-        loss = outputs.loss
+        loss = _compute_loss(outputs, labels, pos_weight)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -132,7 +175,7 @@ def train_epoch(model, loader, optimizer, scheduler):
     return total_loss / len(loader)
 
 
-def evaluate(model, loader):
+def evaluate(model, loader, pos_weight=None):
     model.eval()
     all_logits = []
     all_labels = []
@@ -147,19 +190,19 @@ def evaluate(model, loader):
             labels         = batch["labels"].to(DEVICE)
 
             outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-            total_loss += outputs.loss.item()
+            total_loss += _compute_loss(outputs, labels, pos_weight).item()
 
             all_logits.append(outputs.logits.cpu().numpy())
             all_labels.append(labels.cpu().numpy())
             all_texts.extend(batch["text"])
             all_cats.extend(batch["category"])
 
-    all_logits = np.concatenate(all_logits, axis=0)    # (N, 5)
-    all_labels = np.concatenate(all_labels, axis=0)    # (N, 5)
+    all_logits = np.concatenate(all_logits, axis=0)    # (N, NUM_LABELS)
+    all_labels = np.concatenate(all_labels, axis=0)    # (N, NUM_LABELS)
     all_probs  = 1.0 / (1.0 + np.exp(-all_logits))     # sigmoid
     all_preds  = (all_probs >= THRESHOLD).astype(int)
 
-    # Exact-match accuracy: all 5 intents match
+    # Exact-match accuracy: all intents match
     exact_match = np.all(all_preds == all_labels, axis=1).mean()
     # Hamming accuracy: fraction of (example, intent) pairs correct
     hamming_acc = (all_preds == all_labels).mean()
@@ -244,7 +287,7 @@ def main():
     print(f"  Train: {len(train_items)} | Val: {len(val_items)} | Test: {len(test_items)}")
 
     print(f"\nLoading {MODEL_NAME}...")
-    tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 
     train_ds = ChatDataset(train_items, tokenizer)
     val_ds   = ChatDataset(val_items,   tokenizer)
@@ -254,8 +297,9 @@ def main():
     val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    # Multi-label model: HF applies BCEWithLogitsLoss automatically when problem_type is set
-    model = DistilBertForSequenceClassification.from_pretrained(
+    # Multi-label model. AutoModelForSequenceClassification picks the right
+    # head class for the chosen base (DistilBERT, RoBERTa, DeBERTa-v3, etc.).
+    model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME,
         num_labels=NUM_LABELS,
         problem_type="multi_label_classification",
@@ -263,6 +307,24 @@ def main():
         label2id={intent: i for i, intent in enumerate(INTENTS)},
     )
     model = model.to(DEVICE)
+
+    # ── Class-imbalance: compute pos_weight from train-set frequencies ──
+    # BCEWithLogitsLoss(pos_weight=p) up-weights the positive-class loss for
+    # rare intents so the model doesn't just predict-all-zeros to win Hamming.
+    pos_weight = None
+    if not _cli.no_pos_weight:
+        pos_counts = np.zeros(NUM_LABELS, dtype=np.float64)
+        for item in train_items:
+            for j, intent in enumerate(INTENTS):
+                pos_counts[j] += float(item["labels"].get(intent, 0))
+        N = float(len(train_items))
+        # pos_weight = (N - pos) / pos, clipped so a near-zero class doesn't blow up
+        with np.errstate(divide="ignore"):
+            raw = (N - pos_counts) / np.maximum(pos_counts, 1.0)
+        pos_weight = torch.tensor(np.clip(raw, 0.5, 20.0), dtype=torch.float, device=DEVICE)
+        print("\nClass balance (train positives / pos_weight):")
+        for j, intent in enumerate(INTENTS):
+            print(f"  {intent:<12} pos={int(pos_counts[j]):<5} weight={pos_weight[j].item():.2f}")
 
     optimizer = AdamW(model.parameters(), lr=LR, weight_decay=0.01)
     total_steps = len(train_loader) * EPOCHS
@@ -279,8 +341,8 @@ def main():
     for epoch in range(1, EPOCHS + 1):
         t0 = time.time()
         print(f"  Epoch {epoch}/{EPOCHS} starting...", flush=True)
-        train_loss = train_epoch(model, train_loader, optimizer, scheduler)
-        val_results = evaluate(model, val_loader)
+        train_loss = train_epoch(model, train_loader, optimizer, scheduler, pos_weight=pos_weight)
+        val_results = evaluate(model, val_loader, pos_weight=pos_weight)
         elapsed = time.time() - t0
 
         print(f"Epoch {epoch}/{EPOCHS} | "
@@ -304,14 +366,46 @@ def main():
             tokenizer.save_pretrained(OUT_DIR)
             print(f"  -> New best saved (hamming {best_val_hamming:.1%})", flush=True)
 
+    # ── Per-intent threshold tuning on the val set ──
+    # Sweep candidate thresholds and pick the one that maximizes F1 per intent.
+    # The API can load saved_model/thresholds.json and use these values
+    # instead of a global 0.5 cutoff.
+    print("\n" + "=" * 60)
+    print("  Per-Intent Threshold Tuning (val set)")
+    print("=" * 60)
+    val_results_full = evaluate(model, val_loader, pos_weight=pos_weight)
+    optimal_thresholds: dict = {}
+    candidates = [round(0.05 * i, 2) for i in range(2, 19)]  # 0.10 .. 0.90
+    print(f"  {'intent':<12} {'best_thr':>9} {'f1':>7} {'precision':>11} {'recall':>8}")
+    for j, intent in enumerate(INTENTS):
+        y_true = val_results_full["labels"][:, j].astype(int)
+        y_prob = val_results_full["probs"][:, j]
+        if y_true.sum() == 0:
+            optimal_thresholds[intent] = 0.50
+            continue
+        best = (0.50, -1.0, 0.0, 0.0)  # (thr, f1, p, r)
+        for thr in candidates:
+            y_pred = (y_prob >= thr).astype(int)
+            p, r, f, _ = precision_recall_fscore_support(
+                y_true, y_pred, average="binary", zero_division=0
+            )
+            if f > best[1]:
+                best = (thr, f, p, r)
+        optimal_thresholds[intent] = best[0]
+        print(f"  {intent:<12} {best[0]:>8.2f} {best[1]:>7.1%} {best[2]:>10.1%} {best[3]:>7.1%}")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(OUT_DIR / "thresholds.json", "w") as f:
+        json.dump(optimal_thresholds, f, indent=2)
+    print(f"  -> Saved {OUT_DIR}/thresholds.json")
+
     # ── Final test ──
     print("\n" + "=" * 60)
     print("  Final Test Set Evaluation")
     print("=" * 60)
-    test_results = evaluate(model, test_loader)
+    test_results = evaluate(model, test_loader, pos_weight=pos_weight)
 
-    print(f"\n  Exact-match accuracy (all 5 intents right): {test_results['exact_match']:.2%}")
-    print(f"  Hamming accuracy    (per-cell correctness): {test_results['hamming_acc']:.2%}")
+    print(f"\n  Exact-match accuracy (all {NUM_LABELS} intents right): {test_results['exact_match']:.2%}")
+    print(f"  Hamming accuracy     (per-cell correctness): {test_results['hamming_acc']:.2%}")
 
     intent_summary = per_intent_report(test_results)
 
@@ -327,6 +421,8 @@ def main():
         "epochs":         EPOCHS,
         "intents":        INTENTS,
         "threshold":      THRESHOLD,
+        "optimal_thresholds": optimal_thresholds,
+        "pos_weight_used":   pos_weight is not None,
         "test_exact_match": test_results["exact_match"],
         "test_hamming":     test_results["hamming_acc"],
         "per_intent":       intent_summary,

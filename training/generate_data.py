@@ -19,9 +19,23 @@ import random
 import re
 from pathlib import Path
 
+# v3 taxonomy + new-intent template banks live in v3_intents.py.
+# Importing here keeps the intent list as a single source of truth.
+from v3_intents import (
+    INTENTS_V3,
+    TEMPLATES_V3,
+    MIXED_V3,
+    NEG_V3_GROUPS,
+    FOODS, CUISINES, DRINKS, FOOD_PROVIDERS,
+    CITIES, AIRPORTS,
+    SONGS, ARTISTS, MOVIES, SHOWS, EVENTS,
+    SHOPPING_ITEMS, BILL_KINDS, TASKS, URLS,
+)
+
 random.seed(42)
 
-INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+# Use the v3 taxonomy (18 intents). Old code referencing INTENTS still works.
+INTENTS = INTENTS_V3
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -1041,6 +1055,51 @@ def random_num4():
     return str(random.randint(1000, 9999))
 
 
+# ─── v3 token fillers ─────────────────────────────────────────────────
+
+def random_food():     return random.choice(FOODS)
+def random_food2():    return random.choice(FOODS)
+def random_cuisine():  return random.choice(CUISINES)
+def random_drink():    return random.choice(DRINKS)
+def random_provider_food(): return random.choice(FOOD_PROVIDERS)
+
+def random_city():     return random.choice(CITIES)
+def random_city2():    return random.choice(CITIES)
+def random_airport():  return random.choice(AIRPORTS)
+
+def random_song():     return random.choice(SONGS)
+def random_song2():    return random.choice(SONGS)
+def random_artist():   return random.choice(ARTISTS)
+def random_movie():    return random.choice(MOVIES)
+def random_show():     return random.choice(SHOWS)
+def random_event_v3(): return random.choice(EVENTS)
+
+def random_item():     return random.choice(SHOPPING_ITEMS)
+def random_item2():    return random.choice(SHOPPING_ITEMS)
+def random_bill_kind(): return random.choice(BILL_KINDS)
+def random_task_v3():  return random.choice(TASKS)
+def random_task_v3_2(): return random.choice(TASKS)
+def random_url():      return random.choice(URLS)
+def random_qty():      return str(random.choice([1, 2, 3, 4, 5, 6, 8, 10]))
+
+def random_place2():   return random_place()
+def random_address2(): return random_address()
+
+
+def random_date_phrase():
+    """Looser than random_date — includes day-of-week, relative phrases, etc."""
+    options = [
+        random_day, random_date,
+        lambda: f"this {random.choice(['weekend','week','friday','saturday','sunday'])}",
+        lambda: f"next {random.choice(['week','month','weekend','friday'])}",
+        lambda: f"in {random.randint(2,8)} days",
+        lambda: f"the {random.randint(1,28)}th",
+        lambda: f"{random.choice(['friday','saturday','sunday'])} night",
+        lambda: f"on {random.choice(['friday','saturday','sunday','monday','tuesday'])}",
+    ]
+    return random.choice(options)()
+
+
 _PLACES_US = [
     "blue bottle", "blue bottle coffee", "blue bottle on valencia",
     "philz coffee", "starbucks", "starbucks on market",
@@ -1106,20 +1165,46 @@ def random_task():
 # ═════════════════════════════════════════════════════════════════════
 
 _TOKEN_MAP = {
+    # v2 fillers
     "amount":    random_amount,
     "time":      random_time,
     "time2":     random_time,
     "duration":  random_duration,
     "day":       random_day,
     "date":      random_date,
-    "event":     random_event,
+    "event":         random_event,
+    "ticket_event":  random_event_v3,
     "name":      random_name,
     "addressee": random_addressee,
     "phone":     random_phone,
     "place":     random_place,
+    "place2":    random_place2,
     "address":   random_address,
+    "address2":  random_address2,
     "task":      random_task,
     "num4":      random_num4,
+
+    # v3 fillers
+    "food":          random_food,
+    "food2":         random_food2,
+    "cuisine":       random_cuisine,
+    "drink":         random_drink,
+    "provider_food": random_provider_food,
+    "city":          random_city,
+    "city2":         random_city2,
+    "airport":       random_airport,
+    "song":          random_song,
+    "song2":         random_song2,
+    "artist":        random_artist,
+    "movie":         random_movie,
+    "show":          random_show,
+    "item":          random_item,
+    "item2":         random_item2,
+    "bill_kind":     random_bill_kind,
+    "url":           random_url,
+    "qty":           random_qty,
+    "date_phrase":   random_date_phrase,
+    # task gets re-bound for v3 templates that want richer phrases
 }
 
 
@@ -1276,7 +1361,27 @@ def generate_dataset(n_per_intent=600):
             labels["maps"] = 1
             dataset.append(make_example(text, cat, labels))
 
-    # ── Cross-intent mixed ──
+    # ── v3 new intents (food / ride / travel / shopping / music / video /
+    #     tickets / reservation / task / note / bills / health / weather) ──
+    for intent_key, templates in TEMPLATES_V3.items():
+        # Each new intent gets ~n_per_intent positive examples drawn from its
+        # template bank. Templates are intentionally diverse so the model
+        # generalizes beyond exact substring matches.
+        for _ in range(n_per_intent):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            labels[intent_key] = 1
+            dataset.append(make_example(text, intent_key, labels))
+
+    # ── v3 mixed multi-intent (calendar+reservation, food+money, etc.) ──
+    for template, intent_flags in MIXED_V3:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "multi_intent_v3", labels))
+
+    # ── Cross-intent mixed (v2 originals) ──
     # Each template generates 8 augmented variants -> ~300 multi-intent examples
     for template, intent_flags in MIXED_MULTI:
         for _ in range(8):
@@ -1286,8 +1391,16 @@ def generate_dataset(n_per_intent=600):
             dataset.append(make_example(text, "multi_intent", labels))
 
     # ── Negatives ──
+    # Two flavors:
+    #   1. Generic chitchat / past-tense / tricky-shaped (v2 banks).
+    #   2. Per-intent HARD NEGATIVES (v3 banks) -- sentences that mention an
+    #      intent's keyword but should NOT fire it. This is the single biggest
+    #      lever for cutting false positives in the wild ("I love Paris" must
+    #      not fire travel; "watched Stranger Things last week" must not fire
+    #      video). Each NEG group is tagged with its category so per-intent
+    #      precision can be tracked in the eval report.
     total_pos = len(dataset)
-    neg_templates = (
+    generic_neg_templates = (
         NOT_ANYTHING_CASUAL
         + NOT_ANYTHING_PAST
         + NOT_CONTACT_TRICKY
@@ -1296,12 +1409,20 @@ def generate_dataset(n_per_intent=600):
         + NOT_MONEY_TRICKY
         + NOT_ALARM_TRICKY
     )
-    # Match 50% of positive count (we have a lot of positives, don't need 1:1)
-    n_neg = int(total_pos * 0.5)
-    for _ in range(n_neg):
-        text = augment(fill(random.choice(neg_templates)))
+    # Generic negatives: match ~40% of positive count
+    n_generic_neg = int(total_pos * 0.40)
+    for _ in range(n_generic_neg):
+        text = augment(fill(random.choice(generic_neg_templates)))
         labels = _zeros()
         dataset.append(make_example(text, "none", labels))
+
+    # Per-intent hard negatives: ~30 each across 13 v3 intents = ~390 hard
+    # negatives, all label-0. These are the high-precision drivers.
+    for cat, templates in NEG_V3_GROUPS.items():
+        for _ in range(30):
+            text = augment(fill(random.choice(templates)))
+            labels = _zeros()
+            dataset.append(make_example(text, cat, labels))
 
     # ── Shuffle + split (80/10/10) ──
     random.shuffle(dataset)

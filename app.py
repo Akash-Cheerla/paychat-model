@@ -1,34 +1,40 @@
 """
-PayChat Multi-Intent Detection API
+FYOE Multi-Intent Detection API (v3 super-app)
 
 Detects one or more actionable intents in a chat message and returns
-structured payloads for each:
-  - money    — payment/debt/split   -> Venmo / CashApp popup
-  - alarm    — reminder / wake-up   -> Android AlarmClock intent
-  - contact  — phone number share   -> ContactsContract.Insert intent
-  - calendar — meeting / event      -> CalendarContract.Events insert
-  - maps     — place / address      -> geo: intent (Google Maps)
+structured payloads + ready-to-fire deep links per intent.
+
+v3 intents (18, see training/v3_intents.py):
+  money | alarm | contact | calendar | maps |
+  food_order | ride | travel | shopping | music | video | tickets |
+  reservation | task | note | bills | health | weather
+
+The API supports legacy 2-label (money-only) and 5-label models too — any
+intents the loaded model wasn't trained on simply default to 0.0 confidence
+and never fire, so we can ship the API ahead of the model swap.
 
 Back-compat: flat is_money / should_popup / trigger_type / etc. are populated
 from the money intent (if any) so the existing Android build keeps working.
 
 Endpoints:
-  POST /detect                   single message inference
+  POST /detect                   single message inference (chat_id enables multi-turn context)
   WS   /ws/detect                real-time stream
   GET  /health                   health + model version
   GET  /metrics                  live stats
   POST /reload                   hot-reload model from disk
   POST /payment-complete/{chat_id}    signal a payment landed (money only)
   POST /popup-dismissed/{chat_id}     signal user dismissed the popup
-  POST /reset-cooldown/{chat_id}      force-clear all intent cooldowns
+  POST /reset-cooldown/{chat_id}      force-clear cooldowns for any intent
   GET  /chat-state/{chat_id}          inspect tracker (per-intent)
 """
 
 import json
 import os
 import re
+import sys
 import time
 import logging
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -40,6 +46,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
+
+# Make sibling training/v3_intents.py importable regardless of CWD.
+_TRAINING_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "training")
+if _TRAINING_DIR not in sys.path:
+    sys.path.insert(0, _TRAINING_DIR)
+try:
+    from v3_intents import INTENTS_V3, build_action_url  # type: ignore
+except Exception:  # pragma: no cover — fall back if module missing
+    INTENTS_V3 = ["money", "alarm", "contact", "calendar", "maps"]
+    def build_action_url(intent, payload, targeting=None):  # type: ignore
+        return None
 
 # Optional: dateparser is in requirements.txt but guard against import failure so
 # the server still boots if it's missing in dev.
@@ -62,6 +79,73 @@ logger = logging.getLogger("paychat")
 MODEL_DIR            = Path(os.getenv("MODEL_DIR", "./saved_model"))
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 
+# Per-intent threshold overrides. Loaded from a layered cascade:
+#   1. Hard-coded conservative defaults (this file).
+#   2. saved_model/thresholds.json if present (written by train.py after
+#      tuning F1 per intent on the val set -- this is the *learned* value).
+#   3. INTENT_THRESHOLDS_JSON env var (operator override; trumps both).
+# Later layers fully override earlier ones for a given intent.
+def _parse_thresholds_env() -> Dict[str, float]:
+    raw = os.getenv("INTENT_THRESHOLDS_JSON")
+    if not raw:
+        return {}
+    try:
+        d = json.loads(raw)
+        return {str(k): float(v) for k, v in d.items()}
+    except Exception:
+        logger.warning(f"INTENT_THRESHOLDS_JSON not parseable: {raw!r}")
+        return {}
+
+
+def _parse_thresholds_file() -> Dict[str, float]:
+    path = MODEL_DIR / "thresholds.json"
+    if not path.exists():
+        return {}
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        return {str(k): float(v) for k, v in d.items()}
+    except Exception as e:
+        logger.warning(f"{path} not parseable: {e}")
+        return {}
+
+
+PER_INTENT_THRESHOLDS: Dict[str, float] = {
+    # Conservative -- false positives are user-visible interrupts.
+    # Contact stays at 0.55 because false "save contact" popups are jarring
+    # and the v2 model is well-calibrated on contact phrasing. Money sits at
+    # 0.50 to keep recall on edge phrasings like "split the bill" / "owe you"
+    # where the model floats around 0.50-0.55 with no $ amount or app token.
+    "contact":     0.55,
+    "money":       0.50,
+    "calendar":    0.50,
+    "alarm":       0.50,
+    # Balanced
+    "maps":        0.50,
+    "food_order":  0.50,
+    "ride":        0.50,
+    "travel":      0.50,
+    "shopping":    0.50,
+    "reservation": 0.50,
+    "tickets":     0.50,
+    "bills":       0.50,
+    "health":      0.50,
+    # Looser -- these just open a search page; recall > precision
+    "music":       0.45,
+    "video":       0.45,
+    "task":        0.45,
+    "note":        0.45,
+    "weather":     0.45,
+}
+# Layer 2: learned thresholds from training (per-intent F1-optimal on val set).
+PER_INTENT_THRESHOLDS.update(_parse_thresholds_file())
+# Layer 3: explicit operator override via env.
+PER_INTENT_THRESHOLDS.update(_parse_thresholds_env())
+
+
+def _threshold_for(intent: str) -> float:
+    return PER_INTENT_THRESHOLDS.get(intent, CONFIDENCE_THRESHOLD)
+
 # Popup anti-spam windows. Stateless model stays dumb; the API holds UX policy.
 POPUP_COOLDOWN_SECONDS     = int(os.getenv("POPUP_COOLDOWN_SECONDS",     "300"))
 DISMISSED_COOLDOWN_SECONDS = int(os.getenv("DISMISSED_COOLDOWN_SECONDS", "900"))
@@ -71,7 +155,16 @@ TRACKER_EVICTION_SECONDS   = int(os.getenv("TRACKER_EVICTION_SECONDS",   "1800")
 MAX_LEN = 128
 DEVICE  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+# Canonical v3 intent list. Order is the same the trainer uses.
+INTENTS = list(INTENTS_V3)
+LEGACY_5_INTENTS = ["money", "alarm", "contact", "calendar", "maps"]
+
+# Multi-turn chat history cap (per chat_id). Older messages slide off.
+CHAT_HISTORY_LEN = int(os.getenv("CHAT_HISTORY_LEN", "4"))
+# Whether to prepend prior turns to the model input. Off by default — flipping
+# this on makes terse follow-ups ("yeah do it", "sure") inherit the prior turn's
+# intent. Cooldowns still gate the popup, so spam is prevented either way.
+USE_CHAT_CONTEXT = os.getenv("USE_CHAT_CONTEXT", "0").lower() in ("1", "true", "yes")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -110,6 +203,11 @@ stats = {
 #   }
 popup_tracker: Dict[Tuple[str, str], dict] = {}
 
+# Per-chat rolling history (multi-turn context). Keys are chat_ids; values are
+# deques of (ts, sender, text) tuples. Used to give the classifier a tiny bit
+# of context so "yeah let's do it" inherits the prior message's intent.
+chat_history: Dict[str, "deque[Tuple[float, Optional[str], str]]"] = {}
+
 
 # ─────────────────────────────────────────────────────────────────────
 #  Model Loading
@@ -117,9 +215,11 @@ popup_tracker: Dict[Tuple[str, str], dict] = {}
 def load_model(model_dir: Path = MODEL_DIR):
     """Load or hot-swap the model from disk.
 
-    Supports both:
-      - 2-label legacy models (money-only). Only the money intent fires.
-      - 5-label multi-intent models. All 5 intents are active.
+    Supports:
+      - 2-label  legacy money-only classifier (softmax)
+      - 5-label  v2 multi-intent (money/alarm/contact/calendar/maps)
+      - 18-label v3 super-app (all v3 intents)
+      - any other num_labels — derived from id2label if available
     """
     logger.info(f"Loading model from {model_dir}")
 
@@ -138,17 +238,27 @@ def load_model(model_dir: Path = MODEL_DIR):
     except (TypeError, ValueError):
         id2label_norm = id2label
 
-    if num_labels == 5:
-        # Try to use saved label order; fall back to canonical INTENTS order
-        label_order = [id2label_norm.get(i, INTENTS[i]) for i in range(5)]
-        # Sanity: if labels are just "LABEL_0"..."LABEL_4", override
-        if any(lbl.startswith("LABEL_") for lbl in label_order):
-            label_order = list(INTENTS)
-    elif num_labels == 2:
-        # Legacy money classifier — index 1 = money positive
+    def _has_real_labels(order: List[str]) -> bool:
+        return order and not any(str(lbl).startswith("LABEL_") for lbl in order)
+
+    if num_labels == 2:
         label_order = ["not_money", "money"]
+    elif num_labels == 5:
+        label_order = [id2label_norm.get(i, LEGACY_5_INTENTS[i]) for i in range(5)]
+        if not _has_real_labels(label_order):
+            label_order = list(LEGACY_5_INTENTS)
+    elif num_labels == len(INTENTS_V3):
+        label_order = [id2label_norm.get(i, INTENTS_V3[i]) for i in range(num_labels)]
+        if not _has_real_labels(label_order):
+            label_order = list(INTENTS_V3)
     else:
-        raise RuntimeError(f"Unsupported num_labels={num_labels}. Expected 2 or 5.")
+        # Unknown size — try id2label; if that fails, take the first N from the v3 list.
+        label_order = [id2label_norm.get(i) for i in range(num_labels)]
+        if not _has_real_labels(label_order):
+            label_order = (INTENTS_V3 + [f"label_{i}" for i in range(num_labels)])[:num_labels]
+        logger.warning(
+            f"Unusual num_labels={num_labels}. Derived label_order={label_order}"
+        )
 
     version = None
     report_path = model_dir / "training_report.json"
@@ -190,10 +300,15 @@ async def lifespan(app: FastAPI):
 #  FastAPI App
 # ─────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="PayChat Multi-Intent Detection API",
-    description="Detects money / alarm / contact / calendar / maps intents in chat. "
-                "Returns per-intent payloads and targeting signals for Android intent wiring.",
-    version="2.0.0",
+    title="FYOE Multi-Intent Detection API",
+    description=(
+        "Detects multiple actionable intents per chat message (money, alarm, "
+        "contact, calendar, maps, food_order, ride, travel, shopping, music, "
+        "video, tickets, reservation, task, note, bills, health, weather). "
+        "Each fired intent ships with a structured payload + a one-tap "
+        "action_url deep link. Multi-turn chat history is used for context."
+    ),
+    version="3.0.0",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -921,11 +1036,24 @@ def _payload_changed(old_payload: Optional[dict], new_payload: Optional[dict], i
     if not old_payload or not new_payload:
         return False
     keys = {
-        "money":    ["amount"],
-        "alarm":    ["time_iso", "seconds_from_now"],
-        "contact":  ["phone"],
-        "calendar": ["start_iso"],
-        "maps":     ["place"],
+        "money":       ["amount"],
+        "alarm":       ["time_iso", "seconds_from_now"],
+        "contact":     ["phone"],
+        "calendar":    ["start_iso"],
+        "maps":        ["place"],
+        "food_order":  ["item", "cuisine"],
+        "ride":        ["dropoff"],
+        "travel":      ["destination"],
+        "shopping":    ["item"],
+        "music":       ["track", "artist", "playlist"],
+        "video":       ["title"],
+        "tickets":     ["event"],
+        "reservation": ["venue"],
+        "task":        ["title"],
+        "note":        ["content", "url"],
+        "bills":       ["kind", "amount"],
+        "health":      ["need", "kind"],
+        "weather":     ["location"],
     }.get(intent, [])
     for k in keys:
         ov, nv = old_payload.get(k), new_payload.get(k)
@@ -1048,16 +1176,17 @@ def run_inference(text: str) -> dict:
         logits = outputs.logits[0].cpu().numpy()
 
     intent_probs = {i: 0.0 for i in INTENTS}
-    if num_labels == 5:
-        probs = _sigmoid(logits)  # independent sigmoids
-        for i, intent_name in enumerate(label_order):
-            if intent_name in intent_probs:
-                intent_probs[intent_name] = float(probs[i])
-    else:
+    if num_labels == 2:
         # Legacy 2-class softmax — only money
         exp = np.exp(logits - logits.max())
         softmax = exp / exp.sum()
         intent_probs["money"] = float(softmax[1])
+    else:
+        # Multi-label sigmoid heads. Map each head's output to its named intent.
+        probs = _sigmoid(logits)
+        for i, intent_name in enumerate(label_order):
+            if intent_name in intent_probs:
+                intent_probs[intent_name] = float(probs[i])
 
     latency_ms = (time.time() - t0) * 1000
 
@@ -1071,8 +1200,336 @@ def run_inference(text: str) -> dict:
     }
 
 
+# ═════════════════════════════════════════════════════════════════════
+#  v3 EXTRACTORS — small, regex+heuristic best-effort
+# ═════════════════════════════════════════════════════════════════════
+
+# Token banks (stay in sync with training/v3_intents.py — but app.py only
+# needs to *recognize* what the model already classifies, so we keep these
+# lists tight and lower-cased).
+_FOOD_TERMS = {
+    "pizza","sushi","burger","burgers","ramen","tacos","burrito","burritos",
+    "biryani","pad thai","chinese","wings","salad","sandwich","sandwiches",
+    "noodles","fried chicken","chipotle","shawarma","bbq","pho","kebab","kebabs",
+    "dim sum","dumplings","sushi roll","fish and chips","smoothie","milkshake",
+    "donut","donuts","cookies","ice cream","subway","kfc","mcdonald","pasta",
+    "tofu","poke","poke bowl","gyro","falafel","curry","dosa","paneer","thali",
+}
+_CUISINE_TERMS = {
+    "italian","indian","thai","chinese","japanese","mexican","korean",
+    "vietnamese","mediterranean","greek","american","french","ethiopian",
+    "lebanese","spanish","turkish",
+}
+_FOOD_PROVIDERS = {"doordash","uber eats","ubereats","grubhub","swiggy","zomato","postmates"}
+_RIDE_PROVIDERS = {"uber","lyft","ola","rapido","cab","taxi"}
+
+_AIRPORTS = {"jfk","lax","sfo","sea","blr","bom","del","lhr","cdg","dxb","ord","atl","ewr","lga","yyz","hkg","sin"}
+
+_BILL_TERMS = {
+    "rent","electricity","electric","internet","phone","wifi","cable","gas",
+    "water","credit card","insurance","gym","netflix","spotify","amex","comcast",
+    "apple","amazon prime","subscription","mortgage","emi","loan",
+}
+_HEALTH_KIND_PHARMACY = {"pharmacy","cvs","walgreens","1mg","apollo","medplus","drugstore","chemist"}
+_HEALTH_KIND_DOCTOR   = {"doctor","doc","appointment","dentist","ophthalmologist","physio","telehealth","urgent care","checkup","clinic"}
+_HEALTH_KIND_MEDS     = {"meds","medicine","prescription","ibuprofen","tylenol","advil","antibiotic","refill"}
+
+_VIDEO_KIND_MOVIE = {"movie","film","trailer"}
+_VIDEO_KIND_SHOW  = {"show","series","episode","season","ep","binge"}
+
+_URL_RE = re.compile(r"https?://\S+")
+_QTY_RE = re.compile(r"\b(\d+)\s+(?:people|ppl|guys|of us|persons?)\b", re.IGNORECASE)
+_PARTY_SIZE_RE = re.compile(r"\b(?:table\s+for|reservation\s+for|book(?:ing)?\s+for|party\s+of)\s+(\d+|two|three|four|five|six|seven|eight)\b", re.IGNORECASE)
+_NUMBER_WORDS = {"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10}
+_MONEY_RE_NEW = re.compile(r"\$\s?\d[\d,]*(?:\.\d{1,2})?|\b\d+\s*(?:dollars?|bucks?|rs|inr|rupees)\b", re.IGNORECASE)
+
+
+def _first_match(text: str, terms) -> Optional[str]:
+    """Return first term from `terms` (iterable of lowercased phrases) found in text."""
+    low = text.lower()
+    for t in sorted(terms, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(t)}\b", low):
+            return t
+    return None
+
+
+def _extract_food_order_payload(text: str) -> Dict[str, Any]:
+    # Quantity heuristic: "2 pizzas", "a couple of burritos", "three tacos".
+    qty = None
+    m = re.search(r"\b(\d+)\s+(?=\w+)", text)
+    if m:
+        qty = int(m.group(1))
+    else:
+        m = re.search(r"\b(one|two|three|four|five|six|couple|dozen)\s+(?=\w)", text, re.IGNORECASE)
+        if m:
+            word = m.group(1).lower()
+            if word == "one":
+                qty = 1
+            elif word == "couple":
+                qty = 2
+            elif word == "dozen":
+                qty = 12
+            else:
+                qty = _NUMBER_WORDS.get(word, None)
+    return {
+        "item":          _first_match(text, _FOOD_TERMS),
+        "cuisine":       _first_match(text, _CUISINE_TERMS),
+        "provider_hint": _first_match(text, _FOOD_PROVIDERS),
+        "qty":           qty,
+    }
+
+
+def _extract_ride_payload(text: str) -> Dict[str, Any]:
+    provider = _first_match(text, _RIDE_PROVIDERS)
+    pickup = None
+    dropoff = None
+    # "from X to Y"
+    m = re.search(r"\bfrom\s+(.+?)\s+to\s+(.+?)(?:\.|,|$)", text, re.IGNORECASE)
+    if m:
+        pickup = m.group(1).strip(" ,.!?")
+        dropoff = m.group(2).strip(" ,.!?")
+    else:
+        # "uber/lyft/ride to X"
+        m = re.search(r"\b(?:uber|lyft|ola|rapido|ride|cab|taxi)\s+(?:pool\s+)?to\s+(.+?)(?:\.|,|$)", text, re.IGNORECASE)
+        if m:
+            dropoff = m.group(1).strip(" ,.!?")
+        else:
+            # "ubering to X"
+            m = re.search(r"\b(?:ubering|lyfting)\s+to\s+(.+?)(?:\.|,|$)", text, re.IGNORECASE)
+            if m:
+                dropoff = m.group(1).strip(" ,.!?")
+    # If dropoff looks like an airport code in caps, normalize
+    if dropoff and dropoff.lower().split()[0] in _AIRPORTS:
+        dropoff = dropoff.upper().split()[0]
+    return {
+        "pickup":        pickup,
+        "dropoff":       dropoff,
+        "provider_hint": provider,
+    }
+
+
+def _extract_travel_payload(text: str) -> Dict[str, Any]:
+    iso, phrase = _parse_datetime(text)
+    # "trip/flights/flight/vacation to X" or "X trip"
+    dest = None
+    origin = None
+    m = re.search(r"\b(?:trip|flights?|flight|vacation|holiday|tickets?|hotel|airbnb|stay)\s+(?:from\s+(.+?)\s+)?to\s+(.+?)(?:\s+(?:for|on|in|next|this|tomorrow|today)\b|[,.!?]|$)", text, re.IGNORECASE)
+    if m:
+        origin = (m.group(1) or "").strip(" ,.!?") or None
+        dest = m.group(2).strip(" ,.!?") or None
+    if not dest:
+        m = re.search(r"\b(?:going|head(?:ed|ing)?|fly(?:ing)?)\s+to\s+(.+?)(?:\s+(?:for|on|in|next|this|tomorrow|today)\b|[,.!?]|$)", text, re.IGNORECASE)
+        if m:
+            dest = m.group(1).strip(" ,.!?") or None
+    trip_type = "round_trip" if "round trip" in text.lower() else (
+        "one_way" if "one way" in text.lower() else None
+    )
+    return {
+        "destination": dest,
+        "origin":      origin,
+        "trip_type":   trip_type,
+        "when_phrase": phrase,
+        "when_iso":    iso,
+    }
+
+
+def _extract_shopping_payload(text: str) -> Dict[str, Any]:
+    # "order/buy/get [QTY] [ITEM]"
+    item = None
+    qty = None
+    m = re.search(r"\b(?:order|buy|get|grab|need|pick up)\s+(?:me\s+)?(?:a\s+|an\s+|the\s+|some\s+|more\s+)?(?:(\d+)\s+)?([a-zA-Z][\w \-]{1,40}?)(?:\s+(?:from|on|at|please)\b|[,.!?]|$)", text, re.IGNORECASE)
+    if m:
+        if m.group(1):
+            qty = m.group(1)
+        item = m.group(2).strip(" ,.!?")
+    # Strip "amazon" if it ended up in the item phrase
+    if item:
+        item = re.sub(r"\b(?:from|on)?\s*amazon\b", "", item, flags=re.IGNORECASE).strip(" ,.!?")
+    return {"item": item or None, "qty": qty}
+
+
+def _extract_music_payload(text: str) -> Dict[str, Any]:
+    # "play X" / "X by Y" / "song X"
+    track = None
+    artist = None
+    m = re.search(r"\b(?:play|queue|add|listen to|stream|put on)\s+(?:the\s+)?(.+?)(?:\s+by\s+(.+?))?(?:[,.!?]|\s+on\s+(?:spotify|apple music)|$)", text, re.IGNORECASE)
+    if m:
+        track = m.group(1).strip(" ,.!?'\"")
+        if m.group(2):
+            artist = m.group(2).strip(" ,.!?'\"")
+    if not artist:
+        m = re.search(r"\b(?:by|from)\s+([A-Z][\w' \-]{1,40})\b", text)
+        if m:
+            artist = m.group(1).strip(" ,.!?'\"")
+    return {"track": track, "artist": artist, "playlist": None}
+
+
+def _extract_video_payload(text: str) -> Dict[str, Any]:
+    title = None
+    kind = None
+    low = text.lower()
+    if any(w in low for w in _VIDEO_KIND_SHOW):
+        kind = "show"
+    elif any(w in low for w in _VIDEO_KIND_MOVIE):
+        kind = "movie"
+    m = re.search(r"\b(?:watch|streaming|watching|put on|stream|binge|rewatch(?:ing)?|see)\s+(?:the\s+)?(.+?)(?:[,.!?]|\s+(?:on|tonight|tomorrow|this\s+weekend)\b|$)", text, re.IGNORECASE)
+    if m:
+        title = m.group(1).strip(" ,.!?'\"")
+        title = re.sub(r"^(movie|show|series|film)\s+", "", title, flags=re.IGNORECASE).strip()
+    return {"title": title, "kind": kind}
+
+
+def _extract_tickets_payload(text: str) -> Dict[str, Any]:
+    iso, phrase = _parse_datetime(text)
+    # "tickets to/for X"  /  "X concert/game/show"
+    event = None
+    m = re.search(r"\btickets?\s+(?:to|for)\s+(?:the\s+)?(.+?)(?:[,.!?]|\s+(?:on|for|this|next|tomorrow)\b|$)", text, re.IGNORECASE)
+    if m:
+        event = m.group(1).strip(" ,.!?")
+    if not event:
+        m = re.search(r"\b(.+?)\s+(?:concert|game|match|show|live)\b", text, re.IGNORECASE)
+        if m:
+            event = m.group(1).strip(" ,.!?")
+    venue = None
+    m = re.search(r"\b(?:at|venue\s+is)\s+([A-Z][\w' \-]{2,40})\b", text)
+    if m:
+        venue = m.group(1).strip(" ,.!?")
+    return {"event": event, "venue": venue, "when_phrase": phrase, "when_iso": iso}
+
+
+def _extract_reservation_payload(text: str) -> Dict[str, Any]:
+    iso, phrase = _parse_datetime(text)
+    venue = None
+    party = None
+    # "reservation/table/book at X" / "book X for ..."
+    m = re.search(r"\b(?:at|reserve|book(?:ing)?)\s+(?:a\s+)?(?:table\s+at\s+)?([A-Z][\w' \-]{1,50}?)(?:\s+(?:for|tonight|tomorrow|this|next|on|at\b)|[,.!?]|$)", text)
+    if m:
+        venue = m.group(1).strip(" ,.!?")
+    m = _PARTY_SIZE_RE.search(text)
+    if m:
+        raw = m.group(1).lower()
+        party = _NUMBER_WORDS.get(raw, None) or (int(raw) if raw.isdigit() else None)
+    if not party:
+        m = _QTY_RE.search(text)
+        if m:
+            party = int(m.group(1))
+    return {"venue": venue, "party_size": party, "when_phrase": phrase, "when_iso": iso}
+
+
+def _extract_task_payload(text: str) -> Dict[str, Any]:
+    iso, phrase = _parse_datetime(text)
+    title = text
+    for prefix in [
+        "i need to ", "i have to ", "i gotta ", "i should ", "ima ", "imma ",
+        "i'm supposed to ", "supposed to ", "still need to ", "still gotta ",
+        "todo: ", "to do: ", "task: ", "remember to ", "make sure to ",
+        "add it to the list -- ", "add it to the list - ", "add it to the list — ",
+        "follow up on ", "checklist: ", "homework: ",
+        "lemme add ", "i still need to ",
+        # Reminder phrasings -- super common in chat
+        "remind me to ", "please remind me to ", "can you remind me to ",
+        "don't forget to ", "dont forget to ", "don't let me forget to ",
+        "ping me to ", "nudge me to ",
+    ]:
+        if title.lower().startswith(prefix):
+            title = title[len(prefix):]
+            break
+    title = _strip_date_phrase(title, phrase)
+    title = re.sub(r"\s+", " ", title).strip(" ,.-!?")
+    return {"title": title or None, "due_phrase": phrase, "due_iso": iso}
+
+
+def _extract_note_payload(text: str) -> Dict[str, Any]:
+    url = None
+    m = _URL_RE.search(text)
+    if m:
+        url = m.group(0).rstrip(" ,.!?")
+    content = text
+    for prefix in [
+        "save this link: ", "save this: ", "note to self: ", "important: ",
+        "remember this — ", "interesting article: ", "for the records: ",
+        "snippet to save: ", "good ", "save the ",
+    ]:
+        if content.lower().startswith(prefix):
+            content = content[len(prefix):]
+            break
+    content = content.strip(" ,.-!?\"'")
+    return {"content": content or None, "url": url}
+
+
+def _extract_bills_payload(text: str) -> Dict[str, Any]:
+    # Strip $-amounts before parsing the date — otherwise "$2400" gets read as
+    # the year 2400 by dateparser.
+    text_for_date = _MONEY_RE_NEW.sub(" ", text)
+    iso, phrase = _parse_datetime(text_for_date)
+    kind = _first_match(text, _BILL_TERMS)
+    amount = None
+    m = _MONEY_RE_NEW.search(text)
+    if m:
+        amount = m.group(0)
+    return {"kind": kind, "amount": amount, "due_phrase": phrase, "due_iso": iso}
+
+
+def _extract_health_payload(text: str) -> Dict[str, Any]:
+    low = text.lower()
+    kind = None
+    if any(w in low for w in _HEALTH_KIND_PHARMACY):
+        kind = "pharmacy"
+    elif any(w in low for w in _HEALTH_KIND_DOCTOR):
+        kind = "doctor"
+    elif any(w in low for w in _HEALTH_KIND_MEDS):
+        kind = "meds"
+    need = None
+    m = re.search(r"\b(?:need|refill|order)\s+(?:my\s+|a\s+|some\s+)?(.+?)(?:[,.!?]|\s+(?:from|at|near)\b|$)", text, re.IGNORECASE)
+    if m:
+        need = m.group(1).strip(" ,.!?")
+    return {"kind": kind, "need": need}
+
+
+_WEATHER_LOC_RE = re.compile(
+    r"\b(?:weather|forecast|temperature|temp|raining|rain|sunny|snowing|snow|humid|cold|cloudy|hot|warm|chilly|windy)"
+    r"(?:\s+(?:like|going\s+to\s+be|gonna\s+be))?"
+    r"\s+(?:in|at|for|over\s+(?:in|at))\s+"
+    r"(.+?)(?:[,.!?]|\s+(?:tomorrow|today|tonight|this|next|on|at)\b|$)",
+    re.IGNORECASE,
+)
+# Fallback: "<verb> rain/snow/sun ... in <loc>" -- catches "is it gonna rain in tokyo"
+_WEATHER_LOC_RE_ALT = re.compile(
+    r"\b(?:rain|snow|sun|hail|thunderstorm|storm)\w*\s+(?:in|at|over)\s+(.+?)"
+    r"(?:[,.!?]|\s+(?:tomorrow|today|tonight|this|next|on|at)\b|$)",
+    re.IGNORECASE,
+)
+
+
+def _extract_weather_payload(text: str) -> Dict[str, Any]:
+    iso, phrase = _parse_datetime(text)
+    loc = None
+    m = _WEATHER_LOC_RE.search(text) or _WEATHER_LOC_RE_ALT.search(text)
+    if m:
+        loc = m.group(1).strip(" ,.!?")
+    return {"location": loc, "when_phrase": phrase, "when_iso": iso}
+
+
+# Dispatch table for the v3 extractors.
+_V3_EXTRACTORS = {
+    "food_order":  _extract_food_order_payload,
+    "ride":        _extract_ride_payload,
+    "travel":      _extract_travel_payload,
+    "shopping":    _extract_shopping_payload,
+    "music":       _extract_music_payload,
+    "video":       _extract_video_payload,
+    "tickets":     _extract_tickets_payload,
+    "reservation": _extract_reservation_payload,
+    "task":        _extract_task_payload,
+    "note":        _extract_note_payload,
+    "bills":       _extract_bills_payload,
+    "health":      _extract_health_payload,
+    "weather":     _extract_weather_payload,
+}
+
+
 def build_intent_payload(intent: str, text: str) -> Dict[str, Any]:
-    """Build the Android-consumable payload for a fired intent."""
+    """Build the action payload for a fired intent. Used by Android, iOS, and web clients."""
     if intent == "money":
         amount = _extract_amount(text)
         return {
@@ -1094,6 +1551,11 @@ def build_intent_payload(intent: str, text: str) -> Dict[str, Any]:
     if intent == "maps":
         place = _extract_place(text)
         return {"place": place}
+
+    # v3 intents
+    extractor = _V3_EXTRACTORS.get(intent)
+    if extractor is not None:
+        return extractor(text)
     return {}
 
 
@@ -1152,12 +1614,47 @@ class PaymentCompleteRequest(BaseModel):
 #  DETECTION ORCHESTRATOR (shared by HTTP + WS)
 # ═════════════════════════════════════════════════════════════════════
 
+def _push_history(chat_id: Optional[str], sender: Optional[str], text: str) -> None:
+    """Append a chat turn to the rolling history. No-op when chat_id is missing."""
+    if not chat_id:
+        return
+    buf = chat_history.get(chat_id)
+    if buf is None:
+        buf = deque(maxlen=CHAT_HISTORY_LEN)
+        chat_history[chat_id] = buf
+    buf.append((time.time(), sender, text))
+
+
+def _build_context_text(chat_id: Optional[str], current_text: str) -> str:
+    """
+    Build the input string we feed to the model. When `USE_CHAT_CONTEXT=1` and
+    we have prior turns for this chat, prepend the last few so terse follow-ups
+    ("yeah do it", "sure") inherit context. The current message is always the
+    last segment. With `USE_CHAT_CONTEXT=0` (default), this is a passthrough.
+    """
+    if not chat_id or not USE_CHAT_CONTEXT:
+        return current_text
+    buf = chat_history.get(chat_id)
+    if not buf:
+        return current_text
+    pieces = [t for (_, _, t) in list(buf)[-(CHAT_HISTORY_LEN - 1):]]
+    pieces.append(current_text)
+    # Use a soft separator so the tokenizer treats them as one stream.
+    return " | ".join(pieces).strip()
+
+
 def _process_message(text: str, chat_id: Optional[str], sender: Optional[str]) -> Dict[str, Any]:
     """
-    Run inference, build per-intent payloads + targeting, apply per-intent
-    cooldown policy, and return a dict ready to become a DetectResponse.
+    Run inference, build per-intent payloads + targeting, attach action_urls,
+    apply per-intent cooldown policy, and return a dict ready to become a
+    DetectResponse.
+
+    If `chat_id` is provided, the previous N messages (CHAT_HISTORY_LEN) for
+    that chat are prepended to the model input as context, and the new message
+    is appended to the history afterwards.
     """
-    infer = run_inference(text)
+    context_text = _build_context_text(chat_id, text)
+    infer = run_inference(context_text)
     probs = infer["intent_probs"]
 
     _evict_stale_trackers()
@@ -1167,11 +1664,22 @@ def _process_message(text: str, chat_id: Optional[str], sender: Optional[str]) -
     intents_list: List[Dict[str, Any]] = []
 
     for intent in INTENTS:
-        conf = probs[intent]
-        if conf < CONFIDENCE_THRESHOLD:
+        conf = probs.get(intent, 0.0)
+        if conf < _threshold_for(intent):
             continue
 
+        # Extractors run on the *current* message only — prior turns are for
+        # classification context, not field extraction.
         payload = build_intent_payload(intent, text)
+
+        # Tack on a one-tap deep link the client can fire directly.
+        try:
+            action_url = build_action_url(intent, payload, targeting_shared)
+        except Exception as e:  # never let URL-builder bugs break detection
+            logger.debug(f"build_action_url failed for {intent}: {e}")
+            action_url = None
+        if action_url:
+            payload["action_url"] = action_url
 
         # Per-intent cooldown decision
         should_popup, reason, cooldown_rem, chat_state = _should_show_popup(chat_id, intent, payload)
@@ -1184,7 +1692,7 @@ def _process_message(text: str, chat_id: Optional[str], sender: Optional[str]) -
             # Refresh chat_state to post-call truth
             chat_state = popup_tracker.get((chat_id, intent), {}).get("state", chat_state)
 
-        stats["intents_detected"][intent] += 1
+        stats["intents_detected"][intent] = stats["intents_detected"].get(intent, 0) + 1
         if intent == "money":
             stats["money_detected"] += 1
 
@@ -1198,6 +1706,10 @@ def _process_message(text: str, chat_id: Optional[str], sender: Optional[str]) -
             "payload":                    payload,
             "targeting":                  targeting_shared,
         })
+
+    # Update rolling history *after* inference (so the current turn is
+    # available to disambiguate the *next* turn).
+    _push_history(chat_id, sender, text)
 
     # ── Back-compat flat fields from the money intent ──
     money_intent = next((i for i in intents_list if i["type"] == "money"), None)
@@ -1305,16 +1817,20 @@ async def ws_detect(websocket: WebSocket):
 @app.get("/health")
 async def health():
     return {
-        "status":          "healthy" if model_state["model"] is not None else "loading",
-        "device":          str(DEVICE),
-        "model_dir":       str(MODEL_DIR),
-        "num_labels":      model_state["num_labels"],
-        "intents":         model_state["label_order"],
-        "loaded_at":       model_state["loaded_at"],
-        "version":         model_state["version"],
-        "threshold":       CONFIDENCE_THRESHOLD,
-        "total_requests":  stats["requests"],
-        "dateparser":      _HAS_DATEPARSER,
+        "status":              "healthy" if model_state["model"] is not None else "loading",
+        "device":              str(DEVICE),
+        "model_dir":           str(MODEL_DIR),
+        "num_labels":          model_state["num_labels"],
+        "intents":             model_state["label_order"],
+        "all_intents":         INTENTS,
+        "loaded_at":           model_state["loaded_at"],
+        "version":             model_state["version"],
+        "threshold":           CONFIDENCE_THRESHOLD,
+        "per_intent_thresholds": PER_INTENT_THRESHOLDS,
+        "use_chat_context":    USE_CHAT_CONTEXT,
+        "chat_history_len":    CHAT_HISTORY_LEN,
+        "total_requests":      stats["requests"],
+        "dateparser":          _HAS_DATEPARSER,
     }
 
 
@@ -1503,9 +2019,11 @@ async def demo_page():
 @app.get("/")
 async def root():
     return {
-        "service": "PayChat Multi-Intent Detection API",
-        "version": "2.0.0",
+        "service": "FYOE Multi-Intent Detection API",
+        "version": "3.0.0",
         "intents": INTENTS,
+        "model_intents": model_state["label_order"],
+        "chat_history_len": CHAT_HISTORY_LEN,
         "docs": "/docs",
         "health": "/health",
         "demo": "/demo",
