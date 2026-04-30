@@ -45,7 +45,13 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    # legacy aliases kept so any older code paths importing them still work
+    DistilBertTokenizerFast,
+    DistilBertForSequenceClassification,
+)
 
 # Make sibling training/v3_intents.py importable regardless of CWD.
 _TRAINING_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "training")
@@ -223,10 +229,15 @@ def load_model(model_dir: Path = MODEL_DIR):
     """
     logger.info(f"Loading model from {model_dir}")
 
-    tokenizer = DistilBertTokenizerFast.from_pretrained(str(model_dir))
-    model = DistilBertForSequenceClassification.from_pretrained(str(model_dir))
+    # Auto* picks the right architecture from config.json (DistilBERT for v1/v2,
+    # RoBERTa for v3, DeBERTa-v3 if we ever swap, etc.) — no need to hard-code.
+    tokenizer = AutoTokenizer.from_pretrained(str(model_dir), use_fast=True)
+    model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
     model = model.to(DEVICE)
     model.eval()
+    logger.info(
+        f"Loaded {type(model).__name__} ({sum(p.numel() for p in model.parameters()) / 1e6:.0f}M params)"
+    )
 
     num_labels = model.config.num_labels
 
