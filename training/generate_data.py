@@ -32,6 +32,19 @@ from v3_intents import (
     SHOPPING_ITEMS, BILL_KINDS, TASKS, URLS,
 )
 
+# v4 failure-mode banks — direct fixes for every category that broke on the
+# seed-suite baseline (52.4% real-world accuracy vs 99.06% IID test).
+from v4_failure_modes import (
+    V4_NEGATION,
+    V4_PAST_TENSE,
+    V4_MULTI_INTENT,
+    V4_CODE_MIXED,
+    V4_CONTACT_FIX,
+    V4_DONT_FORGET,
+    V4_AMBIGUOUS_QUIET,
+    V4_QUERY_NOT_ACTION,
+)
+
 random.seed(42)
 
 # Use the v3 taxonomy (18 intents). Old code referencing INTENTS still works.
@@ -1389,6 +1402,64 @@ def generate_dataset(n_per_intent=600):
             labels = _zeros()
             labels.update(intent_flags)
             dataset.append(make_example(text, "multi_intent", labels))
+
+    # ═════════════════════════════════════════════════════════════════════
+    # v4 FAILURE-MODE FIXES — direct repairs for the 39 seed-suite failures
+    # that exposed the IID overfitting (52.4% real-world vs 99.06% test).
+    # Each block targets a specific tag from baseline_report.md.
+    # ═════════════════════════════════════════════════════════════════════
+
+    # 1. Strong negations (v3 baseline: 25% pass) — must NOT fire any intent.
+    for _ in range(220):
+        text = augment(fill(random.choice(V4_NEGATION)))
+        dataset.append(make_example(text, "v4_negation", _zeros()))
+
+    # 2. Past-tense / completed actions (v3 baseline: 43% pass) — must NOT fire.
+    for _ in range(220):
+        text = augment(fill(random.choice(V4_PAST_TENSE)))
+        dataset.append(make_example(text, "v4_past_tense", _zeros()))
+
+    # 3. Multi-intent compound messages (v3 baseline: 0/6 pass) — fire 2-3 intents.
+    for template, intent_flags in V4_MULTI_INTENT:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v4_multi", labels))
+
+    # 4. Code-mixed Hindi-English Roman script (v3 baseline: 25% pass).
+    for template, intent_flags in V4_CODE_MIXED:
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v4_code_mixed", labels))
+
+    # 5. CONTACT INTENT FIX (v3 baseline: 0% recall — biggest single bug).
+    # Every "call X" / "text X" / pronoun form must fire the contact head.
+    for _ in range(400):
+        text = augment(fill(random.choice(V4_CONTACT_FIX)))
+        labels = _zeros()
+        labels["contact"] = 1
+        dataset.append(make_example(text, "v4_contact_fix", labels))
+
+    # 6. "Don't forget to X" — has negation marker but action SHOULD fire.
+    for template, intent_flags in V4_DONT_FORGET:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v4_dont_forget", labels))
+
+    # 7. Ambiguous "quiet" inputs — must NOT fire (model overfires at 0.95).
+    for _ in range(150):
+        text = augment(fill(random.choice(V4_AMBIGUOUS_QUIET)))
+        dataset.append(make_example(text, "v4_ambiguous_quiet", _zeros()))
+
+    # 8. Information queries (not action commands) — must NOT fire.
+    for _ in range(120):
+        text = augment(fill(random.choice(V4_QUERY_NOT_ACTION)))
+        dataset.append(make_example(text, "v4_query", _zeros()))
 
     # ── Negatives ──
     # Two flavors:

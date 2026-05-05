@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#5E5CE6" />
+<title>FYOE — chat</title>
+<style>
+  :root {
+    --bg:        #0a0a0c;
+    --card:     #16161a;
+    --card-2:   #1d1d22;
+    --line:     #26262d;
+    --text:     #f4f4f6;
+    --muted:    #8a8a92;
+    --accent:   #5E5CE6;     /* FYOE indigo */
+    --accent-2: #7d7bff;
+    --green:    #22c55e;
+    --amber:    #f59e0b;
+    --red:      #ef4444;
+    --bubble-me:    #5E5CE6;
+    --bubble-them:  #2a2a32;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- JOIN SCREEN ---------- */
+  #join {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 20px;
+  }
+  .join-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 32px 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 22px;
+    margin-bottom: 4px;
+    letter-spacing: -0.4px;
+  }
+  .brand-dot {
+    width: 28px; height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(94,92,230,0.4);
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin: 14px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  input[type=text] {
+    width: 100%;
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  .join-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 18px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .join-btn:hover { background: var(--accent-2); }
+  .join-btn:active { transform: translateY(1px); }
+  .join-meta {
+    color: var(--muted);
+    font-size: 11.5px;
+    margin-top: 16px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .join-meta b { color: var(--text); font-weight: 600; }
+
+  /* ---------- CHAT SCREEN ---------- */
+  #chat {
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    flex-shrink: 0;
+  }
+  .topbar .brand-dot { width: 26px; height: 26px; font-size: 13px; border-radius: 8px; }
+  .topbar .room-meta {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar .room-name { font-weight: 600; font-size: 14px; }
+  .topbar .room-sub  { color: var(--muted); font-size: 11.5px; }
+  .topbar .pres {
+    display: flex; gap: 4px; align-items: center;
+    color: var(--muted); font-size: 11px;
+  }
+  .pres-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .pres-dot.off { background: var(--muted); }
+  .pres-dot.warn { background: var(--amber); }
+  .icon-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+
+  /* messages */
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .msg-row {
+    display: flex;
+    flex-direction: column;
+    max-width: 78%;
+  }
+  .msg-row.me { align-self: flex-end; align-items: flex-end; }
+  .msg-row.them { align-self: flex-start; align-items: flex-start; }
+  .sender {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 6px 4px 2px;
+  }
+  .bubble {
+    padding: 9px 13px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  .me .bubble {
+    background: var(--bubble-me);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .them .bubble {
+    background: var(--bubble-them);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+
+  /* model annotation card under each bubble */
+  .anno {
+    margin-top: 4px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text);
+    width: 100%;
+  }
+  .me .anno { border-color: rgba(94,92,230,0.35); }
+  .anno-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+  .anno-head .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    background: rgba(94,92,230,0.16);
+    color: var(--accent-2);
+    border: 1px solid rgba(94,92,230,0.3);
+  }
+  .chip.amber {
+    background: rgba(245,158,11,0.14);
+    color: var(--amber);
+    border-color: rgba(245,158,11,0.35);
+  }
+  .chip.muted {
+    background: var(--card-2);
+    color: var(--muted);
+    border-color: var(--line);
+  }
+  .chip .pct { color: var(--muted); font-weight: 400; font-size: 10.5px; }
+
+  .slots {
+    margin-top: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 11.5px;
+  }
+  .slots dt { color: var(--muted); }
+  .slots dd { margin: 0; color: var(--text); }
+  .slots dd.miss { color: var(--amber); font-style: italic; }
+
+  .action-card {
+    margin-top: 6px;
+    background: linear-gradient(135deg, rgba(94,92,230,0.18), rgba(125,123,255,0.08));
+    border: 1px solid rgba(94,92,230,0.4);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+  .action-card .ico {
+    font-size: 16px;
+    width: 22px; text-align: center;
+  }
+  .action-card .label { flex: 1; }
+  .action-card .hint  { color: var(--muted); font-size: 10.5px; }
+
+  .clarify {
+    margin-top: 6px;
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 10px;
+    padding: 7px 10px;
+    color: var(--amber);
+    font-size: 12px;
+  }
+
+  /* composer */
+  .composer {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom)) 12px;
+    border-top: 1px solid var(--line);
+    background: var(--card);
+    flex-shrink: 0;
+  }
+  .composer textarea {
+    flex: 1;
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    resize: none;
+    max-height: 100px;
+    outline: none;
+  }
+  .composer textarea:focus { border-color: var(--accent); }
+  .composer .send {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 38px; height: 38px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .composer .send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 13px;
+  }
+  .empty b { color: var(--text); }
+
+  .sys {
+    align-self: center;
+    color: var(--muted);
+    font-size: 11px;
+    margin: 6px 0;
+  }
+
+  /* mobile tweaks */
+  @media (max-width: 480px) {
+    .msg-row { max-width: 88%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== JOIN SCREEN ============== -->
+<div id="join">
+  <div class="join-card">
+    <div class="brand"><span class="brand-dot">F</span>FYOE chat</div>
+    <div class="sub">Real conversations through your model. Every message you send gets the intent + entity slots predicted live, so you can see exactly what FYOE would do.</div>
+
+    <label for="name">Your name</label>
+    <input id="name" type="text" placeholder="akash" autocomplete="off" />
+
+    <label for="room">Room</label>
+    <input id="room" type="text" placeholder="demo" autocomplete="off" />
+
+    <button class="join-btn" id="join-btn">Join chat</button>
+
+    <div class="join-meta">
+      Share this URL with your friend (same room name) and chat normally. Both of you see what the model fired on every line.<br><br>
+      Model: <b id="model-info">…</b>
+    </div>
+  </div>
+</div>
+
+<!-- ============== CHAT SCREEN ============== -->
+<div id="chat">
+  <div class="topbar">
+    <span class="brand-dot">F</span>
+    <div class="room-meta">
+      <div class="room-name" id="t-room">room</div>
+      <div class="room-sub"  id="t-sub">connecting…</div>
+    </div>
+    <div class="pres"><span class="pres-dot off" id="conn-dot"></span><span id="presence-list">…</span></div>
+    <button class="icon-btn" id="btn-share">Share</button>
+    <button class="icon-btn" id="btn-leave">Leave</button>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="composer">
+    <textarea id="msg-in" rows="1" placeholder="Message…"></textarea>
+    <button class="send" id="btn-send" title="Send (Enter)">↑</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────
+// Config: how each intent renders as an action chip
+// (matches the iOS mockups in /ui_mockups/)
+// ─────────────────────────────────────────────
+const INTENT_INFO = {
+  money:       { ico: "💸", label: "Pay",        verb: "Send money" },
+  alarm:       { ico: "⏰", label: "Reminder",   verb: "Set reminder" },
+  contact:     { ico: "📞", label: "Contact",    verb: "Open contact" },
+  calendar:    { ico: "📅", label: "Calendar",   verb: "Add to calendar" },
+  maps:        { ico: "📍", label: "Maps",       verb: "Open in maps" },
+  ride:        { ico: "🚗", label: "Ride",       verb: "Book a ride" },
+  food_order:  { ico: "🍔", label: "Order food", verb: "Order delivery" },
+  travel:      { ico: "✈️", label: "Travel",     verb: "Search flights" },
+  shopping:    { ico: "🛒", label: "Shop",       verb: "Add to cart" },
+  music:       { ico: "🎵", label: "Music",      verb: "Play music" },
+  video:       { ico: "🎬", label: "Watch",      verb: "Open show" },
+  tickets:     { ico: "🎟️", label: "Tickets",    verb: "Buy tickets" },
+  reservation: { ico: "🍽️", label: "Reserve",    verb: "Book a table" },
+  task:        { ico: "✅", label: "Task",       verb: "Add to to-do" },
+  note:        { ico: "📝", label: "Note",       verb: "Save note" },
+  bills:       { ico: "🧾", label: "Bill",       verb: "Pay bill" },
+  health:      { ico: "🏥", label: "Health",     verb: "Schedule visit" },
+  weather:     { ico: "☁️", label: "Weather",    verb: "Check forecast" },
+};
+
+const ASK_VERB = {
+  name: "who?", recipient: "to whom?", amount: "how much?",
+  datetime: "when?", destination: "where to?", title: "what for?",
+  item: "what?", event: "which event?", action: "what to do?",
+  place: "where?", body: "the note text?", bill_kind: "which bill?",
+};
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+const state = {
+  ws: null,
+  you: null,
+  room: null,
+  presence: [],
+  reconnectAttempt: 0,
+};
+
+// ─────────────────────────────────────────────
+// Boot — preload model meta on join screen
+// ─────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch("/meta");
+    if (r.ok) {
+      const m = await r.json();
+      const acc = (m.test_exact_match * 100).toFixed(1);
+      document.getElementById("model-info").textContent =
+        `${m.model || "roberta-base"} · ${m.labels.length} intents · ${acc}% IID test`;
+    }
+  } catch { /* offline-safe */ }
+
+  // pre-fill from URL hash (so the share link puts you straight in the right room)
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.get("room"))  document.getElementById("room").value = hash.get("room");
+  if (hash.get("name"))  document.getElementById("name").value = hash.get("name");
+
+  // restore your last name from localStorage if present
+  const remembered = localStorage.getItem("fyoe-name");
+  if (remembered && !document.getElementById("name").value) {
+    document.getElementById("name").value = remembered;
+  }
+  document.getElementById("name").focus();
+})();
+
+document.getElementById("join-btn").addEventListener("click", join);
+document.getElementById("name").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("room").focus(); });
+document.getElementById("room").addEventListener("keydown", e => { if (e.key === "Enter") join(); });
+
+function join() {
+  const name = (document.getElementById("name").value || "").trim();
+  const room = (document.getElementById("room").value || "demo").trim();
+  if (!name) {
+    document.getElementById("name").focus();
+    return;
+  }
+  if (!/^[\w\-. ]{1,30}$/.test(name)) {
+    alert("Use letters, numbers, spaces, dot or dash in your name.");
+    return;
+  }
+  state.you = name;
+  state.room = room;
+  localStorage.setItem("fyoe-name", name);
+  history.replaceState(null, "", "#room=" + encodeURIComponent(room));
+  connect();
+  document.getElementById("join").style.display = "none";
+  document.getElementById("chat").style.display = "flex";
+  document.getElementById("t-room").textContent = "room: " + room;
+  document.getElementById("msg-in").focus();
+}
+
+// ─────────────────────────────────────────────
+// WebSocket
+// ─────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const url = `${proto}://${location.host}/ws/${encodeURIComponent(state.room)}/${encodeURIComponent(state.you)}`;
+  setStatus("connecting…", "warn");
+  const ws = new WebSocket(url);
+  state.ws = ws;
+
+  ws.onopen = () => {
+    setStatus("connected", "on");
+    state.reconnectAttempt = 0;
+  };
+  ws.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      handleFrame(data);
+    } catch (err) {
+      console.error("bad frame", err, e.data);
+    }
+  };
+  ws.onclose = () => {
+    setStatus("disconnected — retrying", "off");
+    state.ws = null;
+    const delay = Math.min(1000 * Math.pow(1.5, state.reconnectAttempt++), 8000);
+    setTimeout(() => { if (state.you) connect(); }, delay);
+  };
+  ws.onerror = () => { /* close handler will retry */ };
+}
+
+function setStatus(text, level) {
+  document.getElementById("t-sub").textContent = text;
+  const dot = document.getElementById("conn-dot");
+  dot.className = "pres-dot " + (level === "on" ? "" : level === "warn" ? "warn" : "off");
+}
+
+function handleFrame(d) {
+  if (d.type === "history") {
+    document.getElementById("feed").innerHTML = "";
+    if (!d.messages.length) {
+      const div = document.createElement("div");
+      div.className = "empty";
+      div.innerHTML = `<b>You're in.</b><br>Type a message — every line gets run through the model live.`;
+      document.getElementById("feed").appendChild(div);
+    }
+    for (const m of d.messages) renderMsg(m);
+    return;
+  }
+  if (d.type === "presence") {
+    state.presence = d.users || [];
+    renderPresence();
+    if (d.joined && d.joined !== state.you) sysLine(`${d.joined} joined`);
+    if (d.left   && d.left   !== state.you) sysLine(`${d.left} left`);
+    return;
+  }
+  if (d.type === "msg") {
+    // remove the empty-state placeholder
+    const empty = document.querySelector("#feed .empty");
+    if (empty) empty.remove();
+    renderMsg(d);
+    return;
+  }
+  if (d.type === "error") {
+    sysLine("error: " + d.reason);
+  }
+}
+
+function renderPresence() {
+  const others = state.presence.filter(u => u !== state.you);
+  let txt;
+  if (state.presence.length <= 1) {
+    txt = "just you — share the URL";
+  } else if (others.length === 1) {
+    txt = "with " + others[0];
+  } else {
+    txt = "with " + others.join(", ");
+  }
+  document.getElementById("presence-list").textContent = txt;
+}
+
+function sysLine(text) {
+  const el = document.createElement("div");
+  el.className = "sys";
+  el.textContent = text;
+  const feed = document.getElementById("feed");
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ─────────────────────────────────────────────
+// Compose / send
+// ─────────────────────────────────────────────
+const inputEl = document.getElementById("msg-in");
+inputEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendCurrent();
+  }
+});
+inputEl.addEventListener("input", () => {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + "px";
+});
+document.getElementById("btn-send").addEventListener("click", sendCurrent);
+
+function sendCurrent() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  if (!state.ws || state.ws.readyState !== 1) {
+    sysLine("not connected — message held");
+    return;
+  }
+  state.ws.send(JSON.stringify({ type: "msg", text }));
+  inputEl.value = "";
+  inputEl.style.height = "auto";
+}
+
+// ─────────────────────────────────────────────
+// Render a chat bubble + model annotation
+// ─────────────────────────────────────────────
+function renderMsg(m) {
+  const feed = document.getElementById("feed");
+  const row = document.createElement("div");
+  row.className = "msg-row " + (m.sender === state.you ? "me" : "them");
+
+  if (m.sender !== state.you) {
+    const s = document.createElement("div");
+    s.className = "sender";
+    s.textContent = m.sender;
+    row.appendChild(s);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = m.text;
+  row.appendChild(bubble);
+
+  // ─── model annotation block ───
+  if (m.fired && m.fired.length || (m.top_scores && m.top_scores.length)) {
+    const anno = document.createElement("div");
+    anno.className = "anno";
+
+    const head = document.createElement("div");
+    head.className = "anno-head";
+    head.innerHTML = `<span class="pulse"></span>FYOE picked up`;
+    anno.appendChild(head);
+
+    // intent chips
+    const chipRow = document.createElement("div");
+    chipRow.className = "chips";
+    if (m.fired.length) {
+      const scoreMap = {};
+      for (const s of (m.top_scores || [])) scoreMap[s.intent] = s.prob;
+      for (const intent of m.fired) {
+        const info = INTENT_INFO[intent] || { ico: "•", label: intent };
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        const pct = scoreMap[intent] != null ? Math.round(scoreMap[intent] * 100) + "%" : "";
+        chip.innerHTML = `${info.ico} ${info.label}${pct ? ` <span class="pct">${pct}</span>` : ""}`;
+        chipRow.appendChild(chip);
+      }
+    } else {
+      const chip = document.createElement("span");
+      chip.className = "chip muted";
+      chip.textContent = "no action";
+      chipRow.appendChild(chip);
+    }
+    anno.appendChild(chipRow);
+
+    // slots
+    if (m.fired.length && m.slots) {
+      const slotsList = renderSlots(m.fired, m.slots);
+      if (slotsList) anno.appendChild(slotsList);
+    }
+
+    // clarification chips ("who?", "when?")
+    if (m.needs_clarification && m.needs_clarification.length) {
+      const cBox = document.createElement("div");
+      cBox.className = "clarify";
+      const items = m.needs_clarification.map(c =>
+        `<b>${(INTENT_INFO[c.intent] || {label: c.intent}).label || c.intent}</b> ${ASK_VERB[c.missing] || c.missing + "?"}`
+      );
+      cBox.innerHTML = "❓ would ask: " + items.join(" · ");
+      anno.appendChild(cBox);
+    }
+
+    // action card preview (only when required slots are filled)
+    if (m.fired.length && m.slots) {
+      const ready = m.fired.filter(f => m.slots[f] && m.slots[f]._required_filled);
+      for (const intent of ready) {
+        const info = INTENT_INFO[intent] || { ico: "•", verb: intent };
+        const summary = summarizeForAction(intent, m.slots[intent]);
+        const card = document.createElement("div");
+        card.className = "action-card";
+        card.innerHTML =
+          `<span class="ico">${info.ico}</span>` +
+          `<span class="label"><b>${info.verb}</b>${summary ? `<br><span class="hint">${summary}</span>` : ""}</span>`;
+        anno.appendChild(card);
+      }
+    }
+
+    row.appendChild(anno);
+  }
+
+  // strip the empty-state if this is the first real message
+  const empty = feed.querySelector(".empty");
+  if (empty) empty.remove();
+
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function renderSlots(fired, slotsByIntent) {
+  const dl = document.createElement("dl");
+  dl.className = "slots";
+  let any = false;
+  for (const intent of fired) {
+    const s = slotsByIntent[intent];
+    if (!s) continue;
+    for (const [k, v] of Object.entries(s)) {
+      if (k.startsWith("_")) continue;
+      if (v == null || v === "") continue;
+      any = true;
+      const dt = document.createElement("dt");
+      dt.textContent = `${intent}.${k}`;
+      const dd = document.createElement("dd");
+      if (v === "__pronoun__") {
+        dd.className = "miss";
+        dd.textContent = "(pronoun)";
+      } else {
+        dd.textContent = formatSlotValue(k, v);
+      }
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    }
+  }
+  return any ? dl : null;
+}
+
+function formatSlotValue(slotName, v) {
+  // datetime → friendly form
+  if (slotName === "datetime" || slotName === "when" || slotName === "due") {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const day = new Date(d); day.setHours(0,0,0,0);
+      const diffDays = Math.round((day - today) / 86400000);
+      const tStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const dStr = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+      let prefix = dStr;
+      if (diffDays === 0) prefix = "today";
+      else if (diffDays === 1) prefix = "tomorrow";
+      else if (diffDays === -1) prefix = "yesterday";
+      // omit time if it's exactly 00:00 (date-only)
+      const noTime = d.getHours() === 0 && d.getMinutes() === 0;
+      return noTime ? prefix : `${prefix}, ${tStr}`;
+    }
+  }
+  return String(v);
+}
+
+function summarizeForAction(intent, slots) {
+  switch (intent) {
+    case "money":
+      return [
+        slots.amount ? `$${slots.amount}` : "",
+        slots.recipient ? `→ ${slots.recipient}` : "",
+        slots.method ? `via ${slots.method}` : "",
+        slots.note ? `for ${slots.note}` : "",
+      ].filter(Boolean).join(" ");
+    case "alarm":
+      return [
+        slots.note,
+        slots.datetime ? "@ " + formatSlotValue("datetime", slots.datetime) : "",
+      ].filter(Boolean).join(" ");
+    case "contact":
+      return [slots.channel || "call", slots.name].filter(Boolean).join(" ");
+    case "calendar":
+      return [
+        slots.title,
+        slots.with_who ? `with ${slots.with_who}` : "",
+        slots.location ? `@ ${slots.location}` : "",
+        slots.datetime ? `· ${formatSlotValue("datetime", slots.datetime)}` : "",
+      ].filter(Boolean).join(" ");
+    case "ride":
+    case "maps":
+      return [slots.service || slots.mode || "", slots.destination ? `→ ${slots.destination}` : "", slots.when ? `@ ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "food_order":
+      return [slots.provider || "", slots.item ? `· ${slots.item}` : "", slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "travel":
+      return [slots.mode || "flight", slots.destination ? `→ ${slots.destination}` : "", slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "shopping":
+      return [slots.qty ? `${slots.qty}×` : "", slots.item || "", slots.provider ? `on ${slots.provider}` : ""].filter(Boolean).join(" ");
+    case "music":
+      return [slots.song, slots.artist ? `by ${slots.artist}` : "", slots.provider ? `on ${slots.provider}` : ""].filter(Boolean).join(" ");
+    case "video":
+      return [slots.title, slots.provider ? `on ${slots.provider}` : ""].filter(Boolean).join(" ");
+    case "tickets":
+      return [slots.event, slots.qty ? `· ${slots.qty} seats` : ""].filter(Boolean).join(" ");
+    case "reservation":
+      return [slots.place, slots.qty ? `· ${slots.qty} ppl` : "", slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "bills":
+      return [slots.bill_kind, slots.amount ? `$${slots.amount}` : "", slots.due ? `· due ${formatSlotValue("due", slots.due)}` : ""].filter(Boolean).join(" ");
+    case "health":
+      return [slots.provider, slots.kind, slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "weather":
+      return [slots.place, slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "task":
+      return [slots.action, slots.when ? `· ${formatSlotValue("when", slots.when)}` : ""].filter(Boolean).join(" ");
+    case "note":
+      return slots.body || "";
+  }
+  return "";
+}
+
+// ─────────────────────────────────────────────
+// Top-bar buttons
+// ─────────────────────────────────────────────
+document.getElementById("btn-share").addEventListener("click", async () => {
+  const url = location.origin + "/chat#room=" + encodeURIComponent(state.room);
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "FYOE chat", text: `Join me on FYOE — room "${state.room}"`, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      sysLine("link copied: " + url);
+    }
+  } catch {
+    prompt("Copy this URL:", url);
+  }
+});
+document.getElementById("btn-leave").addEventListener("click", () => {
+  if (state.ws) { state.ws.close(); state.ws = null; }
+  state.you = null;
+  document.getElementById("chat").style.display = "none";
+  document.getElementById("join").style.display = "flex";
+  document.getElementById("feed").innerHTML = "";
+});
+
+// keep socket alive on mobile screens (some browsers idle-kill ws after ~30s)
+setInterval(() => {
+  if (state.ws && state.ws.readyState === 1) {
+    try { state.ws.send(JSON.stringify({ type: "ping" })); } catch {}
+  }
+}, 25000);
+</script>
+</body>
+</html>
