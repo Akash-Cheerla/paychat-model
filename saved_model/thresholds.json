@@ -1,0 +1,20 @@
+{
+  "money": 0.55,
+  "alarm": 0.3,
+  "contact": 0.2,
+  "calendar": 0.7,
+  "maps": 0.2,
+  "food_order": 0.2,
+  "ride": 0.5,
+  "travel": 0.1,
+  "shopping": 0.1,
+  "music": 0.3,
+  "video": 0.35,
+  "tickets": 0.1,
+  "reservation": 0.2,
+  "task": 0.7,
+  "note": 0.1,
+  "bills": 0.2,
+  "health": 0.45,
+  "weather": 0.1
+}
