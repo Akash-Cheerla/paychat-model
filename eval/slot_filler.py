@@ -40,7 +40,7 @@ import dateparser
 # the action card cannot be rendered without a clarification step.
 # ─────────────────────────────────────────────────────────────────────────────
 SLOT_SCHEMA: dict[str, dict[str, list[str]]] = {
-    "money":       {"required": ["amount", "recipient"],   "optional": ["note", "method"]},
+    "money":       {"required": ["amount", "recipient"],   "optional": ["note", "method", "direction"]},
     "alarm":       {"required": ["datetime"],              "optional": ["note", "recurrence"]},
     "contact":     {"required": ["name", "channel"],       "optional": ["note"]},
     "calendar":    {"required": ["title", "datetime"],     "optional": ["with_who", "location"]},
@@ -129,10 +129,12 @@ _PLACE_STOP = (
     r"yesterday|tonite|next|this|every|\d)|\s*$|[,.;!?])"
 )
 _RE_AT_PLACE = re.compile(
-    rf"\b(?:at|@)\s+(?P<place>[A-Z][\w&'\-. ]{{1,40}}?){_PLACE_STOP}"
+    rf"\b(?:at|@)\s+(?P<place>[A-Za-z][\w&'\-. ]{{1,40}}?){_PLACE_STOP}",
+    re.IGNORECASE,
 )
 _RE_TO_PLACE = re.compile(
-    rf"\bto\s+(?P<place>[A-Z][\w&'\-. ]{{1,40}}?){_PLACE_STOP}"
+    rf"\bto\s+(?P<place>[A-Za-z][\w&'\-. ]{{1,40}}?){_PLACE_STOP}",
+    re.IGNORECASE,
 )
 _RE_IN_PLACE = re.compile(
     rf"\bin\s+(?P<place>[A-Z][\w&'\-. ]{{1,40}}?){_PLACE_STOP}",
@@ -362,12 +364,77 @@ def _extract_qty(text: str) -> str | None:
 # Per-intent fillers
 # ─────────────────────────────────────────────────────────────────────────────
 def _slots_money(text: str) -> dict[str, Any]:
+    amount = _extract_amount(text) or _extract_word_amount(text)
     return {
-        "amount":    _extract_amount(text),
+        "amount":    amount,
         "recipient": _extract_recipient(text),
         "method":    _extract_pay_method(text),
         "note":      _extract_money_note(text),
+        "direction": _extract_pay_direction(text),
     }
+
+
+# Word amounts: "five dollars" → "5", "twenty bucks" → "20"
+_WORD_TO_NUM = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
+    "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100,
+    "thousand": 1000, "grand": 1000, "k": 1000,
+}
+
+def _extract_word_amount(text: str) -> str | None:
+    """Parse written-out amounts: 'five dollars' → '5', 'twenty five bucks' → '25'."""
+    text_l = text.lower()
+    # Pattern: (word_num) (word_num)? (dollars|bucks|etc)?
+    m = re.search(
+        r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+        r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
+        r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)"
+        r"(?:\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+        r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
+        r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand))?"
+        r"(?:\s+(?:dollars?|bucks?|rupees?|pounds?|euros?))?",
+        text_l,
+    )
+    if not m:
+        return None
+    w1 = _WORD_TO_NUM.get(m.group(1), 0)
+    w2 = _WORD_TO_NUM.get(m.group(2), 0) if m.group(2) else 0
+    # "twenty five" = 20 + 5; "five hundred" = 5 * 100
+    if w1 >= 100 and w2 > 0:
+        total = w1 * w2
+    elif w2 >= 100:
+        total = w1 * w2
+    else:
+        total = w1 + w2
+    return str(total) if total > 0 else None
+
+
+def _extract_pay_direction(text: str) -> str | None:
+    """Detect if the user is sending, requesting, or it's ambiguous."""
+    text_l = text.lower()
+    # requesting money FROM someone
+    req = re.search(
+        r"\b(you owe|owe me|pay me|send me|venmo me|cashapp me|zelle me|"
+        r"pay (?:me )?back|give me|give me my money|where'?s my money|"
+        r"I need .{0,20} from you|lend me)\b",
+        text_l,
+    )
+    if req:
+        return "request"
+    # sending money TO someone
+    send = re.search(
+        r"\b(I'?ll pay|I'?ll send|let me pay|let me send|paying|sending|"
+        r"transfer(?:ring)? .{0,20} to|I owe|I should pay|"
+        r"venmo .{0,20} to|send .{0,20} to|pay .{0,20} to)\b",
+        text_l,
+    )
+    if send:
+        return "send"
+    return None
 
 
 def _extract_pay_method(text: str) -> str | None:

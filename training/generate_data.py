@@ -43,6 +43,13 @@ from v4_failure_modes import (
     V4_DONT_FORGET,
     V4_AMBIGUOUS_QUIET,
     V4_QUERY_NOT_ACTION,
+    # v4.1 banks — teammate feedback from real-world chat testing
+    V41_WORD_AMOUNTS,
+    V41_PRESENT_PERFECT_ACTIONABLE,
+    V41_NOISE_NEGATIVES,
+    V41_SARCASM_IMPOSSIBLE,
+    V41_MULTI_INTENT_FIXES,
+    V41_SMS_SPEAK,
 )
 
 random.seed(42)
@@ -1263,6 +1270,30 @@ def augment(text):
                 words[idx] = w[:i] + w[i+1:]
             variants.append(" ".join(words))
 
+    # v4.1: heavier typo — swap two adjacent chars
+    if random.random() < 0.08:
+        words = text.split()
+        if words:
+            idx = random.randint(0, len(words) - 1)
+            w = words[idx]
+            if len(w) > 3:
+                i = random.randint(1, len(w) - 2)
+                w = w[:i] + w[i+1] + w[i] + w[i+2:]
+                words[idx] = w
+            variants.append(" ".join(words))
+
+    # v4.1: drop all vowels from one word (SMS-speak effect: "please" → "pls")
+    if random.random() < 0.06:
+        words = text.split()
+        if words:
+            idx = random.randint(0, len(words) - 1)
+            w = words[idx]
+            if len(w) > 3:
+                stripped = w[0] + re.sub(r'[aeiouAEIOU]', '', w[1:])
+                if len(stripped) >= 2 and stripped != w:
+                    words[idx] = stripped
+            variants.append(" ".join(words))
+
     return random.choice(variants)
 
 
@@ -1460,6 +1491,50 @@ def generate_dataset(n_per_intent=600):
     for _ in range(120):
         text = augment(fill(random.choice(V4_QUERY_NOT_ACTION)))
         dataset.append(make_example(text, "v4_query", _zeros()))
+
+    # ═════════════════════════════════════════════════════════════════════
+    # v4.1 FIXES — teammate feedback from real-world chat testing
+    # ═════════════════════════════════════════════════════════════════════
+
+    # 9. Word amounts ("five dollars", "twenty bucks") + present-perfect actionable.
+    for template, intent_flags in V41_WORD_AMOUNTS:
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v41_word_amounts", labels))
+    for template, intent_flags in V41_PRESENT_PERFECT_ACTIONABLE:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v41_present_perfect", labels))
+
+    # 10. OTP/spam/noise negatives — real chat garbage that must NOT fire.
+    for _ in range(250):
+        text = augment(random.choice(V41_NOISE_NEGATIVES))
+        dataset.append(make_example(text, "v41_noise", _zeros()))
+
+    # 11. Sarcasm / impossible destinations — must NOT fire.
+    for _ in range(120):
+        text = augment(random.choice(V41_SARCASM_IMPOSSIBLE))
+        dataset.append(make_example(text, "v41_sarcasm", _zeros()))
+
+    # 12. Multi-intent false positive fixes (cab != food, pay != food, etc.)
+    for template, intent_flags in V41_MULTI_INTENT_FIXES:
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v41_multi_fix", labels))
+
+    # 13. SMS-speak / heavy typo templates.
+    for template, intent_flags in V41_SMS_SPEAK:
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v41_sms_speak", labels))
 
     # ── Negatives ──
     # Two flavors:

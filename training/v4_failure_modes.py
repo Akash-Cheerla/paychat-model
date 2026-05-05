@@ -604,3 +604,309 @@ V4_QUERY_NOT_ACTION = [
     "do I have any reminders",
     "any meetings scheduled",
 ]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  v4.1 BANKS — teammate feedback from real-world chat testing
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  WORD AMOUNTS — "five dollars", "twenty bucks" (v4 only trained on
+#  numeric amounts like "$20", "50 bucks"; fails on written-out numbers)
+# ───────────────────────────────────────────────────────────────────────
+V41_WORD_AMOUNTS = [
+    # send/pay with word amounts
+    ("venmo me five dollars",                           {"money": 1}),
+    ("pay me ten bucks",                                {"money": 1}),
+    ("send twenty dollars to {addressee}",              {"money": 1}),
+    ("you owe me fifteen dollars",                      {"money": 1}),
+    ("cashapp me fifty bucks for dinner",               {"money": 1}),
+    ("transfer thirty dollars to {addressee}",          {"money": 1}),
+    ("pay {addressee} twenty five dollars",             {"money": 1}),
+    ("zelle me forty bucks",                            {"money": 1}),
+    ("send me a hundred dollars",                       {"money": 1}),
+    ("I owe you seventy five bucks",                    {"money": 1}),
+    ("give me five bucks for coffee",                   {"money": 1}),
+    ("you owe me two hundred dollars",                  {"money": 1}),
+    ("can you send ten dollars",                        {"money": 1}),
+    ("split it three ways thats twenty each",           {"money": 1}),
+    ("here's fifty for the groceries",                  {"money": 1}),
+    ("pay back the thirty dollars you borrowed",        {"money": 1}),
+    ("I need five dollars for the bus",                 {"money": 1}),
+    ("lend me sixty bucks till friday",                 {"money": 1}),
+    ("chip in fifteen each",                            {"money": 1}),
+    ("your share is forty five dollars",                {"money": 1}),
+    # word amounts in bill context
+    ("rent is twelve hundred this month",               {"bills": 1}),
+    ("electric bill is eighty dollars",                 {"bills": 1}),
+    ("pay two hundred for the {bill_kind} bill",        {"bills": 1, "money": 1}),
+    # word amounts that should NOT fire (past tense)
+    ("paid him fifty bucks yesterday",                  {}),
+    ("already sent twenty dollars",                     {}),
+    ("gave her ten bucks last week",                    {}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  PRESENT-PERFECT / PENDING — "haven't paid yet", "still need to pay"
+#  These are ACTIONABLE (unlike past tense which is completed).
+#  v4 incorrectly treated these as past tense negatives.
+# ───────────────────────────────────────────────────────────────────────
+V41_PRESENT_PERFECT_ACTIONABLE = [
+    # bills — haven't paid yet = actionable
+    ("I still haven't paid my {bill_kind} bill",        {"bills": 1}),
+    ("haven't paid rent yet",                           {"bills": 1}),
+    ("I need to pay the {bill_kind} bill",              {"bills": 1}),
+    ("still need to pay rent",                          {"bills": 1}),
+    ("gotta pay the {bill_kind} bill",                  {"bills": 1}),
+    ("rent is overdue I should pay",                    {"bills": 1}),
+    ("forgot to pay {bill_kind}",                       {"bills": 1, "alarm": 1}),
+    ("haven't sent the rent yet",                       {"bills": 1, "money": 1}),
+    ("still owe {amount} for {bill_kind}",              {"bills": 1, "money": 1}),
+    ("the electricity bill is due and I haven't paid",  {"bills": 1}),
+    ("my {bill_kind} bill is overdue",                  {"bills": 1}),
+    # money — haven't sent yet = actionable
+    ("I still haven't paid {addressee} back",           {"money": 1}),
+    ("haven't venmoed {addressee} yet",                 {"money": 1}),
+    ("still need to send {addressee} the money",        {"money": 1}),
+    ("I should pay {addressee} back",                   {"money": 1}),
+    ("forgot to venmo {addressee}",                     {"money": 1}),
+    # contact — haven't called yet = actionable
+    ("I still haven't called {addressee}",              {"contact": 1}),
+    ("haven't texted mom back yet",                     {"contact": 1}),
+    ("I need to call {addressee} back",                 {"contact": 1}),
+    ("still need to call dad",                          {"contact": 1}),
+    # tasks — haven't done yet = actionable
+    ("I still haven't finished {task}",                 {"task": 1}),
+    ("still need to {task}",                            {"task": 1}),
+    ("haven't {task} yet",                              {"task": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  OTP / SPAM / NOTIFICATION NOISE — must NOT fire any intent.
+#  Real chat contains forwarded OTPs, app notifications, random noise.
+# ───────────────────────────────────────────────────────────────────────
+V41_NOISE_NEGATIVES = [
+    # OTP messages
+    "Your OTP is 482910. Do not share with anyone.",
+    "123456 is your verification code for Amazon",
+    "Your one-time password is 789012",
+    "Google verification code: 654321",
+    "PayPal: Your security code is 112233. It expires in 10 minutes.",
+    "Uber code: 5544",
+    "Your login code is 998877",
+    "Enter 223344 to verify your account",
+    "OTP for transaction: 556677",
+    "2FA code: 334455",
+
+    # notification-style noise
+    "Your package has been delivered",
+    "Your order has been shipped",
+    "Battery low 10%",
+    "Storage almost full",
+    "Update available for 3 apps",
+    "Screenshot saved",
+    "WiFi connected to Home",
+    "Do not disturb is on",
+    "Bluetooth connected",
+    "Low data warning: 90% used",
+
+    # spam / marketing
+    "FLASH SALE 50% off everything today only!!",
+    "Congratulations you've won a $1000 gift card!",
+    "Click here to claim your prize",
+    "Limited time offer free shipping on all orders",
+    "You have been selected for an exclusive deal",
+    "Earn cash back on every purchase sign up now",
+    "Unsubscribe from this list",
+
+    # random conversation noise
+    "lmaooo",
+    "bruh",
+    "no way",
+    "fr fr",
+    "that's crazy",
+    "wow",
+    "lol what",
+    "hahaha",
+    "ok",
+    "k",
+    "bet",
+    "nah",
+    "wdym",
+    "idk",
+    "same",
+    "real",
+    "ong",
+    "deadass",
+    "nvm",
+    "mb",
+    "smh",
+    "istg",
+    "💀",
+    "😭",
+    "🔥",
+    "👍",
+    "aight",
+    "yo",
+    "sup",
+    "nm wbu",
+    "nothing much",
+    "just chilling",
+    "im bored",
+    "wanna hang",
+    "what time is it",
+    "where are you",
+    "im coming",
+    "almost there",
+    "running late",
+    "be there in 5",
+    "one sec",
+    "hold on",
+    "my bad",
+    "sorry wrong chat",
+    "ignore that",
+    "that was for someone else",
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  SARCASM / IMPOSSIBLE / UNREALISTIC — must NOT fire real actions.
+#  "book a flight to Mars" is not a valid travel intent.
+# ───────────────────────────────────────────────────────────────────────
+V41_SARCASM_IMPOSSIBLE = [
+    "book a flight to Mars",
+    "uber to the moon",
+    "fly me to Jupiter",
+    "reserve a table on the sun",
+    "order food from Antarctica",
+    "book me a hotel on Mars",
+    "flight to Narnia next week",
+    "uber to Hogwarts please",
+    "directions to the end of the rainbow",
+    "navigate to Atlantis",
+    "call Santa Claus",
+    "text the tooth fairy",
+    "venmo God 100 bucks",
+    "pay the universe back",
+    "set an alarm for the year 3000",
+    "remind me in a million years",
+    "sure let me just fly to the moon real quick",
+    "yeah I'll just teleport there",
+    "oh yeah let me just print money",
+    "lol yeah let me book a spaceship",
+    "I'll just time travel back",
+    "right because I can totally fly",
+    "yeah and pigs can fly",
+    "sure I'll just swim across the ocean",
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  MULTI-INTENT FALSE POSITIVE FIXES — ride should NOT fire food, etc.
+#  Targeted hard negatives for specific cross-intent confusion.
+# ───────────────────────────────────────────────────────────────────────
+V41_MULTI_INTENT_FIXES = [
+    # ride without food (v4 confused "cab" with food_order)
+    ("book a cab to {place}",                           {"ride": 1, "maps": 1}),
+    ("get me a cab to {airport}",                       {"ride": 1, "maps": 1}),
+    ("book a cab and pay later",                        {"ride": 1}),
+    ("cab to {place} please",                           {"ride": 1, "maps": 1}),
+    ("get a cab home",                                  {"ride": 1, "maps": 1}),
+    ("take a cab to {place}",                           {"ride": 1, "maps": 1}),
+    ("need a cab to the office",                        {"ride": 1, "maps": 1}),
+    ("hail a cab",                                      {"ride": 1}),
+    ("call me a cab",                                   {"ride": 1}),
+    ("i need a cab right now",                          {"ride": 1}),
+    ("cab from {place} to {place2}",                    {"ride": 1, "maps": 1}),
+    ("taxi to {place}",                                 {"ride": 1, "maps": 1}),
+    ("auto to {place}",                                 {"ride": 1, "maps": 1}),
+    ("rickshaw to {place}",                             {"ride": 1, "maps": 1}),
+
+    # pay + ride (not food)
+    ("uber to {place} and pay with card",               {"ride": 1, "maps": 1}),
+    ("cab there and I'll pay cash",                     {"ride": 1}),
+    ("take a lyft and split the fare",                  {"ride": 1, "money": 1}),
+
+    # shopping without food
+    ("order {item} and pay on delivery",                {"shopping": 1}),
+    ("buy {item} and pay later",                        {"shopping": 1}),
+    ("order {item} from amazon",                        {"shopping": 1}),
+
+    # alarm without calendar (just a reminder, not a meeting)
+    ("remind me to eat",                                {"alarm": 1}),
+    ("remind me to drink water",                        {"alarm": 1}),
+    ("alarm at {time} to take meds",                    {"alarm": 1}),
+    ("ping me to stretch at {time}",                    {"alarm": 1}),
+    ("remind me to lock the door",                      {"alarm": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  SMS-SPEAK / HEAVY TYPO TEMPLATES — "ordr fud from mcd" etc.
+#  v4 augment() only did light single-char drops. Real chat is messier.
+# ───────────────────────────────────────────────────────────────────────
+V41_SMS_SPEAK = [
+    # food
+    ("ordr fud from {provider_food}",                   {"food_order": 1}),
+    ("ordr {food} pls",                                 {"food_order": 1}),
+    ("gt me sum {food}",                                {"food_order": 1}),
+    ("fud delivery pls",                                {"food_order": 1}),
+    ("wnt {food} tn",                                   {"food_order": 1}),
+    ("ordring {food} rn",                               {"food_order": 1}),
+    ("delivr {food} to home",                           {"food_order": 1}),
+    ("can u ordr {food}",                               {"food_order": 1}),
+
+    # ride
+    ("buk a cab to {place}",                            {"ride": 1, "maps": 1}),
+    ("ubr to {airport}",                                {"ride": 1, "maps": 1}),
+    ("ned a ride to {place}",                           {"ride": 1, "maps": 1}),
+    ("gt me a lyft",                                    {"ride": 1}),
+    ("rideshr to {place}",                              {"ride": 1, "maps": 1}),
+
+    # money
+    ("vmo me {amount}",                                 {"money": 1}),
+    ("py me bck {amount}",                              {"money": 1}),
+    ("snd {amount} to {addressee}",                     {"money": 1}),
+    ("trnsfr {amount} pls",                             {"money": 1}),
+    ("u owe me {amount} bro",                           {"money": 1}),
+
+    # alarm
+    ("rmnd me at {time}",                               {"alarm": 1}),
+    ("set alrm for {time}",                             {"alarm": 1}),
+    ("wke me up at {time}",                             {"alarm": 1}),
+    ("remindme {time}",                                 {"alarm": 1}),
+
+    # contact
+    ("cal {addressee}",                                 {"contact": 1}),
+    ("txt {addressee} pls",                             {"contact": 1}),
+    ("msg {addressee}",                                 {"contact": 1}),
+    ("fon {addressee}",                                 {"contact": 1}),
+
+    # shopping
+    ("ordr {item} frm amazon",                          {"shopping": 1}),
+    ("buy {item} onln",                                 {"shopping": 1}),
+    ("gt {item} delivrd",                               {"shopping": 1}),
+
+    # travel
+    ("buk flyt to {city}",                              {"travel": 1}),
+    ("flt to {city} nxt wk",                            {"travel": 1}),
+
+    # calendar
+    ("mtng with {addressee} tmrw",                      {"calendar": 1}),
+    ("schdl lunch {day}",                               {"calendar": 1}),
+
+    # maps
+    ("hw to gt to {place}",                             {"maps": 1}),
+    ("dirctons to {place}",                             {"maps": 1}),
+
+    # music
+    ("ply {song}",                                      {"music": 1}),
+    ("ply sum music",                                   {"music": 1}),
+
+    # bills
+    ("py my {bill_kind} bil",                           {"bills": 1}),
+    ("rnt due {day}",                                   {"bills": 1}),
+]
