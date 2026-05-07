@@ -1,12 +1,11 @@
 # FYOE Integration Guide — v4
 
-For Samyak / whoever's wiring the model into the Android app.
 
 ---
 
 ## How it fits together
 
-Everything runs **on the user's device**. Backend never decrypts, never runs the model.
+Everything runs **on the user's device**.
 
 ```
 Chat message typed
@@ -147,7 +146,7 @@ We don't process, hold, or route payments. We just deep-link to the right app.
 
 For return-to-app: use `SFSafariViewController` (iOS) / Custom Tabs (Android) for web links. Register `fyoe://` callback scheme for native deep links.
 
-Same pattern for non-payment intents — detect the provider from text ("on spotify", "from amazon"), deep-link to that app.
+Same pattern for non-payment intents — detect the provider from text ("on spotify", "from amazon")
 
 ---
 
@@ -197,19 +196,6 @@ Multiple intents = multiple stacked cards, most confident first.
 
 ---
 
-## Testing
-
-```bash
-pip install torch transformers fastapi uvicorn dateparser pydantic
-python eval/eval_server.py
-```
-
-- `http://localhost:8001/` — single-message tester
-- `http://localhost:8001/chat` — two-person chat with live annotations
-
-Share with friends: `ngrok http 8001`, send the URL.
-
----
 
 ## Known limitations
 
@@ -219,14 +205,3 @@ Share with friends: `ngrok http 8001`, send the URL.
 
 ---
 
-## Checklist
-
-- [ ] Backend hosts model files for download
-- [ ] Android downloads/bundles model on first launch
-- [ ] Android runs inference with per-intent thresholds from `thresholds.json`
-- [ ] Android ports slot filler from `eval/slot_filler.py`
-- [ ] Action cards when `_required_filled = true`
-- [ ] Clarification cards when required slots missing
-- [ ] Deep links on card tap (Venmo, Maps, Spotify, etc)
-- [ ] `fyoe://` callback scheme registered
-- [ ] Tested with eval harness before shipping
