@@ -1,330 +1,232 @@
-# PayChat — Intent Detection API (v2)
+# FYOE Integration Guide — v4
 
-So basically I trained a DistilBERT model to pick up 5 actionable intents in chat messages — money, alarm, contact, calendar, and maps. One message can hit multiple intents at once ("remind me to venmo priya $25 at 8pm" fires both money *and* alarm). The API takes in a chat message and returns an array of detected intents with everything the Android app needs to fire the right system intent.
-
-**Model info:**
-- DistilBERT (distilbert-base-uncased), fine-tuned on ~4,900 examples
-- 5 sigmoid heads, independent multi-label output
-- ~20-40ms on CPU (same speed as the old single-head model — five heads share the same backbone)
-- Confidence threshold at 0.5 per intent (you can change this)
+For Samyak / whoever's wiring the model into the Android app.
 
 ---
 
-## Getting it running
+## How it fits together
 
-**With Docker:**
-```bash
-docker build -t paychat-api .
-docker run -p 8000:8000 paychat-api
+Everything runs **on the user's device**. Backend never decrypts, never runs the model.
+
+```
+Chat message typed
+  -> on-device model (RoBERTa, 18 heads) -> which intents fired
+  -> on-device slot filler (regex, <5ms) -> who, when, where, how much
+  -> all required slots filled? -> show action card with deep link
+  -> something missing? -> show clarification card ("who?", "how much?")
+  -> user taps card -> deep link opens Venmo / Maps / Spotify / whatever
 ```
 
-**Without Docker:**
-```bash
-pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-**To check everything works:**
-```bash
-python tests/test_cooldown.py
-```
-Runs 174 checks across 32 scenarios — cooldowns, per-intent isolation, multi-intent messages, websocket, error paths. Should all pass green. Takes about 2 seconds.
+Backend just:
+- Stores and relays encrypted messages (already doing this)
+- Hosts model files for on-device download (~499MB, one-time)
+- Doesn't decrypt, doesn't run the model, doesn't extract anything
 
 ---
 
-## How it fits into our flow
+## The 18 intents
 
-```
-User sends message in the app
-        |
-        v
-Backend receives it (like it already does)
-        |
-        v
-Backend calls:  POST <API_URL>/detect
-                { "text": "remind me to venmo priya $25 at 8pm",
-                  "chat_id": "room123",
-                  "sender": "akash" }
-        |
-        v
-My API responds with detection data (intents[] array)
-        |
-        v
-Backend attaches that to the message before sending to recipient:
-{
-  "id": "msg_456",
-  "text": "remind me to venmo priya $25 at 8pm",
-  "sender": "akash",
-  "timestamp": "...",
-  "intents": [
-    { "type": "money", "should_popup": true, "payload": { "amount": "$25", ... }, "targeting": {...} },
-    { "type": "alarm", "should_popup": true, "payload": { "time_iso": "...", "label": "venmo priya" }, "targeting": {...} }
-  ]
-}
-        |
-        v
-Android iterates intents[] — for each where should_popup=true, fires the matching system intent
-```
-
----
-
-## POST /detect
-
-This is the main one. Send every chat message here.
-
-**Request:**
-```json
-{
-  "text": "remind me to venmo priya $25 at 8pm",
-  "chat_id": "room_abc123",
-  "message_id": "msg_456",
-  "sender": "akash"
-}
-```
-
-Only `text` is required. `chat_id` is what keys the per-intent cooldown tracker — pass it consistently per conversation. `message_id` and `sender` are echoed back so you can match responses to messages.
-
-**Response:**
-```json
-{
-  "intents": [
-    {
-      "type": "money",
-      "confidence": 0.98,
-      "should_popup": true,
-      "suppressed_reason": null,
-      "cooldown_remaining_seconds": 0,
-      "chat_state": "cooldown",
-      "payload": { "amount": "$25", "trigger_type": "payment_app", "direction": "request" },
-      "targeting": { "addressee": null, "third_party": "priya", "is_self": true, "is_mutual": false }
-    },
-    {
-      "type": "alarm",
-      "confidence": 0.97,
-      "should_popup": true,
-      "suppressed_reason": null,
-      "cooldown_remaining_seconds": 0,
-      "chat_state": "cooldown",
-      "payload": { "label": "venmo priya", "time_iso": "2026-04-24T20:00", "time_phrase": "at 8pm" },
-      "targeting": { "addressee": null, "third_party": "priya", "is_self": true, "is_mutual": false }
-    }
-  ],
-  "is_money": true,
-  "should_popup": true,
-  "detected_amount": "$25",
-  "trigger_type": "payment_app",
-  "direction": "request",
-  "confidence": 0.98,
-  "chat_state": "cooldown",
-  "latency_ms": 28.4,
-  "chat_id": "room_abc123",
-  "message_id": "msg_456",
-  "sender": "akash"
-}
-```
-
-**The v1 back-compat bit:** The flat top-level `is_money`, `should_popup`, `detected_amount`, etc. still exist — they mirror the money intent exactly like the old contract. If you already built for v1, nothing breaks. New code should read `intents[]`.
-
-Errors: `400` if text is empty, `503` if the model is still loading on cold start.
-
----
-
-## The 5 intents — what the app gets
-
-Each `intents[]` entry has a `payload` shaped for its intent:
-
-| intent | payload fields | android intent |
+| intent | fires when... | what the app does |
 |---|---|---|
-| `money` | `amount`, `trigger_type`, `direction` | venmo/cashapp/upi deep link |
-| `alarm` | `label`, `time_iso`, `time_phrase`, `seconds_from_now?` | `AlarmClock.ACTION_SET_ALARM` |
-| `contact` | `phone` (normalized), `name_hint` | `ContactsContract.Intents.Insert` |
-| `calendar` | `title`, `start_iso`, `start_phrase`, `duration_minutes` | `CalendarContract.Events` insert |
-| `maps` | `place` | `geo:` uri |
+| `money` | debt, payment, splitting, venmo/cashapp mentions | deep-link Venmo / PayPal.me / CashApp / UPI |
+| `alarm` | reminder, wake-up, timer | system alarm |
+| `contact` | call, text, save number | phone / contacts intent |
+| `calendar` | meeting, event with a time | calendar insert |
+| `maps` | directions, place lookup | maps deep link |
+| `ride` | cab, uber, lyft, ola | rideshare deep link |
+| `food_order` | ordering food, swiggy, zomato | food delivery deep link |
+| `travel` | flights, hotels, trips | booking app deep link |
+| `shopping` | buying stuff online | Amazon / Flipkart deep link |
+| `music` | play song/artist/playlist | Spotify / Apple Music deep link |
+| `video` | watch show/movie/video | YouTube / Netflix deep link |
+| `tickets` | event/movie tickets | BookMyShow / Fandango deep link |
+| `reservation` | restaurant/hotel booking | OpenTable / Dineout deep link |
+| `task` | to-do item | Todoist / Reminders |
+| `note` | take a note | system notes |
+| `bills` | utility/service bill | bill pay deep link |
+| `health` | doctor, pharmacy, appointment | Practo / Zocdoc deep link |
+| `weather` | weather check | weather card (no deep link) |
 
-All of those are free Android system intents — no api keys, no external services. Just open the system app.
+Multi-label — one message can fire 2+ intents at once.
 
 ---
 
-## The targeting object — who gets the popup
+## Model specs
 
-Every intent entry also has a `targeting` object:
+- **RoBERTa-base** with 18 sigmoid heads
+- 19,001 training examples with 8 failure-mode banks
+- 98.8% IID exact match, 81.7% adversarial seed suite (82 edge cases)
+- ~20-40ms on CPU, ~5-15ms on GPU
+- ~499MB model weights
+
+### Thresholds
+
+**Don't use a flat 0.5.** Each intent has its own threshold from validation:
 
 ```json
-"targeting": { "addressee": "akash", "third_party": "priya", "is_self": false, "is_mutual": false }
-```
-
-- `addressee` — chat member the message is aimed at ("hey **akash** save this number")
-- `third_party` — person mentioned who isn't a chat participant ("remind me to call **mom**")
-- `is_self` — sender is referring to themselves ("remind **me**…")
-- `is_mutual` — group action ("**team sync**", "**everyone** meet at…")
-
-Use these to decide whose device actually pops:
-
-```kotlin
-// Android — picking who pops an alarm
-if (intent.targeting.isSelf) {
-    if (currentUserId == message.senderId) showAlarmPopup(intent.payload)
-} else if (intent.targeting.isMutual) {
-    showAlarmPopup(intent.payload)  // everyone
-} else if (intent.targeting.addressee != null) {
-    if (currentUsername == intent.targeting.addressee) showAlarmPopup(intent.payload)
+{
+  "money": 0.55, "alarm": 0.30, "contact": 0.20, "calendar": 0.70,
+  "maps": 0.20, "food_order": 0.20, "ride": 0.50, "travel": 0.10,
+  "shopping": 0.10, "music": 0.30, "video": 0.35, "tickets": 0.10,
+  "reservation": 0.20, "task": 0.70, "note": 0.10, "bills": 0.20,
+  "health": 0.45, "weather": 0.10
 }
 ```
 
-For money specifically, the old `direction` field still works:
+These are in `saved_model/thresholds.json`. If you hardcode 0.5, accuracy tanks.
 
-| direction | what's happening | who gets the popup |
-|-----------|-----------------|-------------------|
-| `request` | sender is asking for money ("you owe me $25") | everyone except sender |
-| `offer` | sender wants to pay ("I'll send you $20") | the sender |
-| `split` | splitting something ("let's split dinner") | everyone |
+---
+
+## Slot filling
+
+After the model fires intents, you extract entities from the text. This is pure regex + dateparser — no ML, no network, no cost.
+
+### Example
+
+`"venmo priya $25 for dinner"` -> fires `money`:
+```json
+{
+  "amount": "25",
+  "recipient": "priya",
+  "note": "dinner",
+  "method": "venmo",
+  "direction": "send",
+  "_required_filled": true
+}
+```
+
+`"send money to someone"` -> fires `money`:
+```json
+{
+  "amount": null,
+  "recipient": null,
+  "direction": "send",
+  "_required_filled": false
+}
+// needs_clarification: [{ intent: "money", missing: "amount" }, { intent: "money", missing: "recipient" }]
+```
+
+### Slot schema (all 18)
+
+| intent | required | optional |
+|---|---|---|
+| `money` | `amount`, `recipient` | `note`, `method`, `direction` |
+| `alarm` | `datetime` | `note`, `recurrence` |
+| `contact` | `name`, `channel` | `note` |
+| `calendar` | `title`, `datetime` | `with_who`, `location` |
+| `maps` | `destination` | `origin`, `mode` |
+| `ride` | `destination` | `pickup`, `when`, `service` |
+| `food_order` | `item` | `provider`, `when`, `address` |
+| `travel` | `destination` | `origin`, `when`, `mode` |
+| `shopping` | `item` | `qty`, `provider`, `when` |
+| `music` | *(none)* | `song`, `artist`, `provider` |
+| `video` | *(none)* | `title`, `provider` |
+| `tickets` | `event` | `when`, `qty` |
+| `reservation` | `place` | `when`, `qty` |
+| `task` | `action` | `when` |
+| `note` | `body` | |
+| `bills` | `bill_kind` | `amount`, `due` |
+| `health` | *(none)* | `provider`, `when`, `kind` |
+| `weather` | *(none)* | `place`, `when` |
+
+**If `_required_filled` is false, show clarification, don't guess.**
+
+---
+
+## Deep links — FYOE never touches money
+
+We don't process, hold, or route payments. We just deep-link to the right app.
+
+| detected method | deep link |
+|---|---|
+| venmo | `venmo://paycharge?txn=pay&recipients=<user>&amount=<amt>&note=<note>` |
+| cashapp | `cashapp://cash.app/pay` |
+| paypal | `https://paypal.me/<user>/<amt>` (use Custom Tab, not browser) |
+| upi | `upi://pay?pa=<vpa>&am=<amt>&tn=<note>` |
+| fallback | show picker based on user's default payment app |
+
+For return-to-app: use `SFSafariViewController` (iOS) / Custom Tabs (Android) for web links. Register `fyoe://` callback scheme for native deep links.
+
+Same pattern for non-payment intents — detect the provider from text ("on spotify", "from amazon"), deep-link to that app.
+
+---
+
+## Android integration (the actual steps)
+
+### 1. Get the model onto the device
+
+~499MB. Either download on first launch (from your CDN) or bundle in APK. Files you need:
+```
+config.json, model.safetensors, tokenizer.json,
+tokenizer_config.json, special_tokens_map.json, thresholds.json
+```
+
+### 2. Run inference
+
+Use ONNX Runtime Mobile or PyTorch Mobile. Pseudocode:
 
 ```kotlin
-// Android — money direction handling (v1-compatible)
-message.intents.firstOrNull { it.type == "money" }?.let { det ->
-    if (!det.shouldPopup) return@let
-    when (det.payload.direction) {
-        "request" -> if (currentUserId != message.senderId) showVenmoPopup(det.payload)
-        "offer"   -> if (currentUserId == message.senderId) showVenmoPopup(det.payload)
-        "split"   -> showVenmoPopup(det.payload)
+val logits = model.forward(tokenize(text))  // float[18]
+val fired = mutableListOf<String>()
+for (i in LABELS.indices) {
+    val prob = sigmoid(logits[i])
+    if (prob >= thresholds[LABELS[i]]!!) {
+        fired.add(LABELS[i])
     }
 }
 ```
 
----
+### 3. Port the slot filler
 
-## The cooldown — per chat, per intent
+`eval/slot_filler.py` is ~400 lines of regex + dateparser. Port to Kotlin or run via Chaquopy if you want exact parity. No ML involved, just string matching.
 
-Server holds `(chat_id, intent)` state so related follow-up messages don't spam popups.
+### 4. Render cards
 
-- First fire per (chat, intent) → pops
-- Follow-ups within 5 min → suppressed (`cooldown_active`)
-- A different payload for same intent → pops again (new action). dedupe key per intent: `amount`, `time_iso`, `phone`, `start_iso`, `place`
-- User dismissed → 15 min cooldown
-- Payment completes (money only) → cooldown clears, 60s grace ignores "sent!" / "thanks"
-
-Critically — cooldowns are **independent per intent**. An alarm firing doesn't block a money popup in the same chat.
-
-To make the cooldown feel smart, wire up these 3 endpoints from the backend:
-
-- `POST /payment-complete/{chat_id}` — money only. Call on venmo/upi webhook or in-app payment success.
-- `POST /popup-dismissed/{chat_id}?intent=<intent>` — user closed the popup. `intent` defaults to `money` for v1 callers.
-- `POST /reset-cooldown/{chat_id}[?intent=<intent>]` — admin / testing / "snooze". Omit `intent` to clear all intents for the chat.
-
-Skip these and the system still works — falls back to timer-only mode.
-
----
-
-## Trigger types (money intent only)
-
-| trigger_type | examples |
-|-------------|----------|
-| `owing_debt` | "you owe me $25", "pay me back" |
-| `bill_splitting` | "let's split dinner", "halves?" |
-| `direct_amount` | "that's $50", "30 bucks" |
-| `payment_app` | "venmo me", "cashapp me" |
-| `general_money` | "cover me", "spot me" |
-
----
-
-## Other endpoints
-
-**GET /health** — check if server is up and model loaded
-```json
-{
-  "status": "healthy",
-  "num_labels": 5,
-  "intents": ["money", "alarm", "contact", "calendar", "maps"],
-  "version": { "trained_at": "2026-04-24", "test_accuracy": 0.98, "test_f1": 0.97 },
-  "threshold": 0.5
+```kotlin
+for (intent in fired) {
+    val slots = extractSlots(text, intent)
+    if (slots.requiredFilled) {
+        showActionCard(intent, slots)  // tap -> deep link
+    } else {
+        showClarificationCard(intent, slots.missing)  // "who?", "when?"
+    }
 }
 ```
 
-**GET /metrics** — request counts, per-intent detection counts, popup stats
-```json
-{
-  "requests": 142,
-  "money_detected": 37,
-  "intents_detected": { "money": 37, "alarm": 12, "contact": 5, "calendar": 22, "maps": 18 },
-  "popups_fired": 48,
-  "popups_suppressed": 46,
-  "suppression_rate": 0.489,
-  "avg_latency_ms": 29.1
-}
-```
-
-**GET /chat-state/{chat_id}** — per-intent cooldown state for a chat. Useful when debugging "why didn't that popup fire?".
-
-**POST /reload** — if we retrain the model, call this to swap it in without restarting the server.
-
-**WebSocket /ws/detect** — same as POST /detect but over websocket. Send JSON, get JSON back with `intents[]` + v1-mirror `venmo_detection` object attached.
+Multiple intents = multiple stacked cards, most confident first.
 
 ---
 
-## Deployment notes
+## Testing
 
-**Env vars:**
-- `MODEL_DIR` — path to the saved_model folder (defaults to `./saved_model`)
-- `CONFIDENCE_THRESHOLD` — defaults to 0.5 per intent (was 0.65 in v1 for single-class softmax; sigmoids need a different baseline)
-- `POPUP_COOLDOWN_SECONDS` — 300 default (quiet window per intent)
-- `DISMISSED_COOLDOWN_SECONDS` — 900 default
-- `POST_PAYMENT_GRACE_SECONDS` — 60 default
-- `TRACKER_EVICTION_SECONDS` — 1800 default (drops idle chat trackers)
-
-**Model files** are in `saved_model/`:
-```
-config.json, model.safetensors (255 MB), tokenizer.json, tokenizer_config.json, training_report.json
-```
-
-Weights file is big (255 MB) so if you're using git, you'll need LFS:
 ```bash
-git lfs install
-git lfs track "saved_model/model.safetensors"
+pip install torch transformers fastapi uvicorn dateparser pydantic
+python eval/eval_server.py
 ```
 
-**For prod** — GPU instance (like AWS g4dn.xlarge) does inference in 5-15ms instead of 20-40ms on CPU. Use `--workers 1` since the model loads per worker.
+- `http://localhost:8001/` — single-message tester
+- `http://localhost:8001/chat` — two-person chat with live annotations
 
-Hit `/health` and confirm `num_labels: 5` before sending traffic. The server also handles a legacy 2-class (money-only) checkpoint — `num_labels` will read `2` and only the money head fires.
-
-**Docker compose:**
-```yaml
-services:
-  paychat-detector:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - CONFIDENCE_THRESHOLD=0.5
-    restart: unless-stopped
-```
+Share with friends: `ngrok http 8001`, send the URL.
 
 ---
 
-## Retraining
+## Known limitations
 
-If we ever add more intents or need to retrain:
-```bash
-cd training/
-pip install -r requirements.txt
-python generate_data.py    # regenerates training data for all 5 intents
-python train.py            # trains a multi-label (5-head) model
-```
-Then copy the new `saved_model/` over and hit `POST /reload`. Zero-downtime hot-swap.
+1. **No conversation context** — model sees one message at a time. "How much?" after "I need to pay Priya" won't connect. Fix is on-device context window (planned).
+2. **No coreference** — "Send it to her" doesn't know who "her" is. Same fix.
+3. **81.7% adversarial** — that seed suite is intentionally brutal (sarcasm, negation, past tense). Real-world accuracy is higher.
 
 ---
 
-## What each intent catches vs ignores
+## Checklist
 
-- **money** — picks up debt/owing, bill splitting, amounts in payment context, payment-app mentions (venmo/cashapp/zelle/upi), general asks (cover me, spot me). Ignores: stock talk, prices without payment intent ("that shirt is $50"), random numbers ("gate 12").
-- **alarm** — picks up "remind me", "wake me up", "set alarm", "ping me in 20 min", "don't let me forget". Ignores: past references ("reminded me of X"), generic "hey" messages.
-- **contact** — picks up "save this number" + a phone number pattern. US (`+1 415-555-1234`, `(415) 555-1234`) and India (`+91 98765 43210`). Ignores: credit card digits, order numbers, ages.
-- **calendar** — picks up "meeting at 3pm tomorrow", "team sync friday 4pm", "dinner sat 8pm", "wedding on april 30". Ignores: vague "let's hang out" without a time.
-- **maps** — picks up "meet me at X", "heading to X", "directions to X", "i'm at X", addresses. Ignores: metaphorical uses ("meet you halfway").
-
----
-
-## Swagger docs
-
-Once the server is running: `http://<server>:8000/docs`
-
-Hit me up if anything's unclear — Akash
+- [ ] Backend hosts model files for download
+- [ ] Android downloads/bundles model on first launch
+- [ ] Android runs inference with per-intent thresholds from `thresholds.json`
+- [ ] Android ports slot filler from `eval/slot_filler.py`
+- [ ] Action cards when `_required_filled = true`
+- [ ] Clarification cards when required slots missing
+- [ ] Deep links on card tap (Venmo, Maps, Spotify, etc)
+- [ ] `fyoe://` callback scheme registered
+- [ ] Tested with eval harness before shipping
