@@ -35,7 +35,7 @@ The 18 intents:
 
 ## Slot filler
 
-Every fired intent also gets **slots** pulled out — regex + dateparser, <5ms, zero cost. No LLM, no network call.
+Every fired intent also gets **slots** pulled out -- regex + dateparser, <5ms, zero cost. No LLM, no network call.
 
 `"venmo priya $25 for dinner"` fires `money` with:
 ```json
@@ -65,25 +65,6 @@ User sends message
 
 Backend stores encrypted messages. Never decrypts, never runs the model.
 
-**FYOE never touches money.** Deep-link to Venmo/PayPal.me/CashApp/UPI — payment happens in their app. No MSB licensing, no holding funds.
-
-
-## Run the eval harness
-
-```bash
-pip install torch transformers fastapi uvicorn dateparser pydantic
-python eval/eval_server.py
-```
-
-- `http://localhost:8001/` — type a message, see all 18 scores + slots
-- `http://localhost:8001/chat` — two-person chat with live model annotations
-
-Share with someone over the internet:
-```bash
-ngrok http 8001
-# send the https://...ngrok-free.app/chat URL
-```
-
 
 ## Files that matter
 
@@ -102,9 +83,9 @@ ngrok http 8001
 
 ## Retraining
 
-Open `training/colab_train_v4.ipynb` in Colab with a T4 runtime. Clones repo, generates data, trains 5 epochs (~18 min), runs seed suite, downloads zip. Drop the new `saved_model/` and you're done.
+Open `training/colab_train_v4.ipynb` in Colab with a T4 runtime. Clones repo, generates data, trains 5 epochs , runs seed suite, downloads zip. Drop the new `saved_model/` and you're done.
 
 
 ## When the model screws up
 
-Send me the exact text + what you expected + what it actually did. I add it to the failure banks, regenerate, retrain. ~18 min cycle.
+Send me the exact text + what you expected + what it actually did. I add it to the failure banks, regenerate, retrain.
