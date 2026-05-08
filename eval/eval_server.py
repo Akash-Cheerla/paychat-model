@@ -39,6 +39,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 # v4 Layer A slot extractor (deterministic regex + dateparser, ~5ms / message)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slot_filler import extract_slots, needs_clarification, SLOT_SCHEMA  # noqa: E402
+from trigger_filter import should_process, matched_intents  # noqa: E402
 
 # --- paths -----------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
@@ -82,16 +83,51 @@ print(f"[eval] loaded {type(mdl).__name__} ({sum(p.numel() for p in mdl.paramete
 print(f"[eval] labels: {LABELS}", flush=True)
 
 # --- inference -------------------------------------------------------------
+
+def _empty_result(text: str) -> dict[str, Any]:
+    """Result for a message that the trigger filter skipped."""
+    return {
+        "text": text,
+        "all_scores": [{"intent": l, "prob": 0.0, "threshold": THRESHOLDS.get(l, 0.5), "fired": False} for l in LABELS],
+        "fired": [],
+        "slots": {},
+        "needs_clarification": [],
+        "triggered": False,
+        "trigger_hints": [],
+    }
+
+
 @torch.no_grad()
-def run_model(texts: list[str]) -> list[dict[str, Any]]:
+def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]]:
     """Batched inference. Returns list of
-    {text, all_scores, fired, slots, needs_clarification}.
+    {text, all_scores, fired, slots, needs_clarification, triggered, trigger_hints}.
+
+    If use_trigger=True, messages without action keywords are skipped entirely
+    (casual chat like "lol", "what's up" never hits the model).
     """
-    enc = tok(texts, return_tensors="pt", truncation=True, max_length=128, padding=True).to(DEVICE)
+    # Split into triggered vs skipped
+    if use_trigger:
+        to_run = []
+        indices = []
+        results = [None] * len(texts)
+        for i, text in enumerate(texts):
+            if should_process(text):
+                to_run.append(text)
+                indices.append(i)
+            else:
+                results[i] = _empty_result(text)
+        if not to_run:
+            return results  # type: ignore
+    else:
+        to_run = texts
+        indices = list(range(len(texts)))
+        results = [None] * len(texts)
+
+    enc = tok(to_run, return_tensors="pt", truncation=True, max_length=128, padding=True).to(DEVICE)
     logits = mdl(**enc).logits
     probs = torch.sigmoid(logits).cpu().tolist()
-    out = []
-    for text, ps in zip(texts, probs):
+
+    for idx, text, ps in zip(indices, to_run, probs):
         scores = []
         for i, label in enumerate(LABELS):
             thr = THRESHOLDS.get(label, 0.5)
@@ -106,14 +142,16 @@ def run_model(texts: list[str]) -> list[dict[str, Any]]:
         # v4: deterministic slot extraction for the fired intents
         slots = extract_slots(text, fired) if fired else {}
         clar = needs_clarification(slots)
-        out.append({
+        results[idx] = {
             "text": text,
             "all_scores": scores,
             "fired": fired,
             "slots": slots,
             "needs_clarification": [{"intent": i, "missing": m} for i, m in clar],
-        })
-    return out
+            "triggered": True,
+            "trigger_hints": matched_intents(text),
+        }
+    return results  # type: ignore
 
 # --- FastAPI ---------------------------------------------------------------
 app = FastAPI(title="FYOE eval harness")
@@ -238,8 +276,9 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                     "fired": r["fired"],
                     "slots": r["slots"],
                     "needs_clarification": r["needs_clarification"],
+                    "triggered": r.get("triggered", True),
                     # only the top-5 scores so the payload stays small
-                    "top_scores": r["all_scores"][:5],
+                    "top_scores": r["all_scores"][:5] if r.get("triggered", True) else [],
                     "ts": datetime.now(timezone.utc).isoformat(),
                 }
                 room["messages"].append(msg)
@@ -274,6 +313,7 @@ def meta():
         "test_exact_match": TEST_EXACT,
         "device": DEVICE,
         "slot_schema": SLOT_SCHEMA,
+        "trigger_filter": True,
     }
 
 @app.post("/detect")

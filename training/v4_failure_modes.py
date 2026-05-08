@@ -910,3 +910,383 @@ V41_SMS_SPEAK = [
     ("py my {bill_kind} bil",                           {"bills": 1}),
     ("rnt due {day}",                                   {"bills": 1}),
 ]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  v4.2 BANKS — targeted at the 15 remaining seed-suite failures.
+#  Every bank uses CONTRASTIVE PAIRS: for every negative, a matching
+#  positive so the model learns the actual distinction.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  "X IT" SLANG — "doordash it", "spotify it", "uber it" etc.
+#  v4 scores these at ~0.00. Model never saw this pattern.
+#  3 seed failures: doordash it bro, spotify it pls, ubering home
+# ───────────────────────────────────────────────────────────────────────
+V42_SLANG_VERBED = [
+    # food_order — "doordash it" pattern
+    ("doordash it",                                     {"food_order": 1}),
+    ("doordash it bro",                                 {"food_order": 1}),
+    ("just doordash it",                                {"food_order": 1}),
+    ("doordash it tonight",                             {"food_order": 1}),
+    ("lets doordash it",                                {"food_order": 1}),
+    ("doordash some food",                              {"food_order": 1}),
+    ("ubereats it bro",                                 {"food_order": 1}),
+    ("just ubereats it",                                {"food_order": 1}),
+    ("grubhub it",                                      {"food_order": 1}),
+    ("swiggy it bro",                                   {"food_order": 1}),
+    ("zomato it",                                       {"food_order": 1}),
+    ("lets just order in",                              {"food_order": 1}),
+    ("lets just swiggy",                                {"food_order": 1}),
+    ("yo just doordash",                                {"food_order": 1}),
+
+    # music — "spotify it" pattern
+    ("spotify it",                                      {"music": 1}),
+    ("spotify it pls",                                  {"music": 1}),
+    ("just spotify it",                                 {"music": 1}),
+    ("spotify that song",                               {"music": 1}),
+    ("shazam it",                                       {"music": 1}),
+    ("youtube it",                                      {"music": 1, "video": 1}),
+    ("alexa play it",                                   {"music": 1}),
+    ("siri play it",                                    {"music": 1}),
+    ("put it on spotify",                               {"music": 1}),
+    ("throw it on spotify",                             {"music": 1}),
+    ("queue it on spotify",                             {"music": 1}),
+
+    # ride — "uber it" / "ubering" pattern
+    ("ubering home",                                    {"ride": 1, "maps": 1}),
+    ("ubering there",                                   {"ride": 1, "maps": 1}),
+    ("ubering to {place}",                              {"ride": 1, "maps": 1}),
+    ("just uber it",                                    {"ride": 1}),
+    ("uber it bro",                                     {"ride": 1}),
+    ("lyft it",                                         {"ride": 1}),
+    ("lyfting home",                                    {"ride": 1, "maps": 1}),
+    ("gonna uber there",                                {"ride": 1, "maps": 1}),
+    ("im ubering",                                      {"ride": 1}),
+    ("just uber",                                       {"ride": 1}),
+
+    # other verbed apps
+    ("google it",                                       {}),    # not actionable
+    ("yelp it",                                         {}),    # not actionable
+    ("just amazon it",                                  {"shopping": 1}),
+    ("flipkart it",                                     {"shopping": 1}),
+    ("venmo it",                                        {"money": 1}),
+    ("cashapp it",                                      {"money": 1}),
+    ("zelle it",                                        {"money": 1}),
+    ("airbnb it",                                       {"travel": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  PLACE-AS-VENUE — "lunch at sweetgreen" is calendar, NOT maps.
+#  "oppenheimer at amc" is video+tickets, NOT maps/calendar.
+#  Model fires maps/calendar whenever it sees a place name + time.
+#  5 seed failures from extra maps/calendar on venue contexts.
+#
+#  Contrastive: same place, but one is "go TO the place" (maps) and
+#  the other is "event AT the place" (calendar/reservation/tickets).
+# ───────────────────────────────────────────────────────────────────────
+V42_VENUE_NOT_MAPS = [
+    # restaurant = calendar/reservation, NOT maps
+    ("lunch at {place} on {day}",                       {"calendar": 1, "reservation": 1}),
+    ("dinner at {place} {day} at {time}",               {"calendar": 1, "reservation": 1}),
+    ("brunch at {place} {day}",                         {"calendar": 1, "reservation": 1}),
+    ("eating at {place} tonight",                       {"calendar": 1, "reservation": 1}),
+    ("coffee at {place} tomorrow",                      {"calendar": 1}),
+    ("meeting at {place} {day} at {time}",              {"calendar": 1}),
+    ("lunch with {addressee} at {place} on {day}",      {"calendar": 1, "contact": 1}),
+    ("dinner with {addressee} at {place} {time}",       {"calendar": 1, "contact": 1}),
+    ("drinks at {place} {day} night",                   {"calendar": 1, "reservation": 1}),
+    ("happy hour at {place} {day}",                     {"calendar": 1, "reservation": 1}),
+
+    # contrastive: same place but GOING there = maps
+    ("heading to {place}",                              {"maps": 1}),
+    ("directions to {place}",                           {"maps": 1}),
+    ("navigate to {place}",                             {"maps": 1}),
+    ("how do I get to {place}",                         {"maps": 1}),
+    ("on my way to {place}",                            {"maps": 1}),
+    ("driving to {place}",                              {"maps": 1}),
+    ("where is {place}",                                {"maps": 1}),
+    ("find {place} on maps",                            {"maps": 1}),
+
+    # movie at theater = video+tickets, NOT calendar/maps
+    ("{movie} at amc tonight",                          {"video": 1, "tickets": 1}),
+    ("{movie} at amc tonight at {time}",                {"video": 1, "tickets": 1}),
+    ("{movie} at the theater tonight",                  {"video": 1, "tickets": 1}),
+    ("{movie} at imax {day}",                           {"video": 1, "tickets": 1}),
+    ("{movie} at regal tonight at {time}",              {"video": 1, "tickets": 1}),
+    ("see {movie} at amc {day}",                       {"video": 1, "tickets": 1}),
+    ("catch {movie} at the movies tonight",             {"video": 1, "tickets": 1}),
+    ("going to see {movie} at the cinema",              {"video": 1, "tickets": 1}),
+    ("lets watch {movie} at the theater {day}",         {"video": 1, "tickets": 1}),
+    ("{movie} showing at {time} get tickets",           {"video": 1, "tickets": 1}),
+    ("buy tickets for {movie}",                         {"video": 1, "tickets": 1}),
+
+    # contrastive: movie at HOME = just video, no tickets
+    ("watch {movie} on netflix",                        {"video": 1}),
+    ("put on {movie} tonight",                          {"video": 1}),
+    ("stream {movie} on disney plus",                   {"video": 1}),
+    ("{movie} on prime video tonight",                  {"video": 1}),
+
+    # long multi-intent with venue
+    ("dinner {day} at {place} at {time} and then catch {movie} after",
+                                                        {"calendar": 1, "reservation": 1, "video": 1}),
+    ("lets do {place} for dinner and then {movie}",
+                                                        {"calendar": 1, "reservation": 1, "video": 1}),
+    ("{place} for lunch and then {movie} at the theater",
+                                                        {"calendar": 1, "reservation": 1, "video": 1, "tickets": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  FALSE POSITIVE BAIT — figurative / metaphorical language.
+#  "map out plans" ≠ maps. "contact lens" ≠ contact. "check on mom" ≠ contact.
+#  3 seed failures. Contrastive: literal vs figurative.
+# ───────────────────────────────────────────────────────────────────────
+V42_FIGURATIVE_NEGATIVES = [
+    # "map" used figuratively — NOT maps intent
+    ("we should map out our plans",                     {}),
+    ("let me map this out",                             {}),
+    ("mapping out the strategy",                        {}),
+    ("map out the project timeline",                    {}),
+    ("need to map out the roadmap",                     {}),
+    ("let's map the customer journey",                  {}),
+    # contrastive: "map" used literally = maps
+    ("map me to {place}",                               {"maps": 1}),
+    ("pull up the map to {place}",                      {"maps": 1}),
+    ("map to {airport}",                                {"maps": 1}),
+
+    # "contact" used as noun — NOT contact intent
+    ("she's a contact lens specialist",                 {}),
+    ("lost my contact lens",                            {}),
+    ("need new contact lenses",                         {"shopping": 1}),
+    ("contact paper for the shelves",                   {}),
+    ("eye contact is important",                        {}),
+    ("he's my emergency contact",                       {}),
+    ("first point of contact",                          {}),
+    # contrastive: "contact" as action = contact intent
+    ("contact {addressee} please",                      {"contact": 1}),
+    ("contact my doctor",                               {"contact": 1}),
+
+    # "check on" someone — NOT contact, just chitchat/concern
+    ("check on mom",                                    {}),
+    ("check on him",                                    {}),
+    ("check on her",                                    {}),
+    ("check on the kids",                               {}),
+    ("check on grandma",                                {}),
+    ("check on your brother",                           {}),
+    ("I should check on {addressee}",                   {}),
+    # contrastive: "call" someone = contact
+    ("call mom",                                        {"contact": 1}),
+    ("call him",                                        {"contact": 1}),
+    ("text her",                                        {"contact": 1}),
+
+    # "task" used figuratively — NOT task intent
+    ("we should map out our plans",                     {}),
+    ("that's a big task ahead",                         {}),
+    ("multi-tasking is hard",                           {}),
+    ("this task is killing me",                         {}),
+    ("what a task that was",                            {}),
+    # contrastive: actual task creation = task
+    ("add {task} to my todo list",                      {"task": 1}),
+    ("create a task for {task}",                        {"task": 1}),
+    ("add to my list: {task}",                          {"task": 1}),
+
+    # "reservation" used figuratively — NOT reservation intent
+    ("I have reservations about this plan",             {}),
+    ("dinner reservations make me nervous",             {}),
+    ("no reservations about quitting",                  {}),
+    ("I have some reservations",                        {}),
+    # contrastive: actual reservation = reservation
+    ("make a reservation at {place}",                   {"reservation": 1}),
+    ("reserve a table at {place}",                      {"reservation": 1}),
+    ("book a table for {qty} at {place}",               {"reservation": 1}),
+
+    # "bill" used figuratively — NOT bills intent
+    ("bill is a great guy",                             {}),
+    ("ask bill about it",                               {}),
+    ("bill said he'd come",                             {}),
+    ("the Bill of Rights",                              {}),
+    # contrastive: actual bill = bills
+    ("pay the electricity bill",                        {"bills": 1}),
+    ("my phone bill is due",                            {"bills": 1}),
+
+    # "health" used casually — NOT health intent
+    ("she's a contact lens specialist",                 {}),
+    ("health is wealth",                                {}),
+    ("mental health matters",                           {}),
+    ("health of the economy is bad",                    {}),
+    # contrastive: health action = health
+    ("book a doctor appointment",                       {"health": 1}),
+    ("schedule a dentist visit",                        {"health": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  BILL SPLITTING — "split the bill", "split dinner 4 ways"
+#  v4 scores "split the dinner bill 4 ways" at money=0.02. Not learned.
+# ───────────────────────────────────────────────────────────────────────
+V42_SPLIT_PATTERNS = [
+    ("split the bill",                                  {"money": 1}),
+    ("split the dinner bill",                           {"money": 1}),
+    ("split the bill {qty} ways",                       {"money": 1}),
+    ("split the dinner bill {qty} ways",                {"money": 1}),
+    ("split it {qty} ways",                             {"money": 1}),
+    ("split dinner",                                    {"money": 1}),
+    ("split the uber",                                  {"money": 1}),
+    ("split the tab",                                   {"money": 1}),
+    ("split the check",                                 {"money": 1}),
+    ("lets split it",                                   {"money": 1}),
+    ("lets go halves",                                  {"money": 1}),
+    ("lets go halfsies",                                {"money": 1}),
+    ("halves on dinner",                                {"money": 1}),
+    ("going dutch",                                     {"money": 1}),
+    ("we can split it",                                 {"money": 1}),
+    ("split {qty} ways?",                               {"money": 1}),
+    ("split the cab fare",                              {"money": 1}),
+    ("split the groceries",                             {"money": 1}),
+    ("split the rent",                                  {"money": 1, "bills": 1}),
+    ("chip in for dinner",                              {"money": 1}),
+    ("everyone chip in {amount}",                       {"money": 1}),
+    ("your share is {amount}",                          {"money": 1}),
+    ("each person pays {amount}",                       {"money": 1}),
+    ("divvy up the bill",                               {"money": 1}),
+    ("split the cost",                                  {"money": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  GENERIC / MINIMAL ALARM TRIGGERS — "set a reminder", "remind me"
+#  v4 scores "set a reminder" at alarm=0.04. Way too low.
+# ───────────────────────────────────────────────────────────────────────
+V42_GENERIC_ALARM = [
+    ("set a reminder",                                  {"alarm": 1}),
+    ("set a reminder please",                           {"alarm": 1}),
+    ("set a reminder for me",                           {"alarm": 1}),
+    ("reminder please",                                 {"alarm": 1}),
+    ("I need a reminder",                               {"alarm": 1}),
+    ("can you set a reminder",                          {"alarm": 1}),
+    ("set an alarm",                                    {"alarm": 1}),
+    ("set an alarm please",                             {"alarm": 1}),
+    ("alarm please",                                    {"alarm": 1}),
+    ("I need an alarm",                                 {"alarm": 1}),
+    ("can you set an alarm",                            {"alarm": 1}),
+    ("remind me",                                       {"alarm": 1}),
+    ("remind me please",                                {"alarm": 1}),
+    ("just remind me",                                  {"alarm": 1}),
+    ("set timer",                                       {"alarm": 1}),
+    ("put a reminder",                                  {"alarm": 1}),
+    ("make a reminder",                                 {"alarm": 1}),
+    ("wake me up",                                      {"alarm": 1}),
+    ("wake me",                                         {"alarm": 1}),
+    ("ping me later",                                   {"alarm": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  RENT + TRANSFER COMPOUND — "rent due friday, transfer 1200"
+#  v4 fires bills but misses money. The "transfer X" pattern should
+#  also fire money when combined with bills.
+# ───────────────────────────────────────────────────────────────────────
+V42_BILLS_MONEY_COMPOUND = [
+    ("rent due {day}, transfer {amount}",               {"bills": 1, "money": 1}),
+    ("rent due {day} transfer {amount}",                {"bills": 1, "money": 1}),
+    ("rent is due, need to transfer {amount}",          {"bills": 1, "money": 1}),
+    ("transfer {amount} for rent by {day}",             {"bills": 1, "money": 1}),
+    ("send {amount} for rent",                          {"bills": 1, "money": 1}),
+    ("pay {amount} rent by {day}",                      {"bills": 1, "money": 1}),
+    ("rent {amount} due {day} sending now",             {"bills": 1, "money": 1}),
+    ("need to send {amount} for {bill_kind}",           {"bills": 1, "money": 1}),
+    ("{bill_kind} bill is {amount}, transferring now",   {"bills": 1, "money": 1}),
+    ("paying {amount} for {bill_kind} today",           {"bills": 1, "money": 1}),
+    ("wifi bill {amount} sending via zelle",            {"bills": 1, "money": 1}),
+    ("electric bill {amount} venmo me",                 {"bills": 1, "money": 1}),
+    ("insurance due {day} gotta send {amount}",         {"bills": 1, "money": 1}),
+    ("gym membership {amount} transferring {day}",      {"bills": 1, "money": 1}),
+    # contrastive: just bills, no money action
+    ("rent is due {day}",                               {"bills": 1}),
+    ("{bill_kind} bill is overdue",                     {"bills": 1}),
+    ("my {bill_kind} bill is {amount}",                 {"bills": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  RIDE TIME ≠ ALARM — "uber at 5am" is departure time, not a reminder.
+#  "don't forget to book the flight" = travel, NOT alarm.
+#  2 seed failures from alarm overfiring on time-in-context.
+# ───────────────────────────────────────────────────────────────────────
+V42_TIME_CONTEXT = [
+    # ride with time = ride ONLY, not alarm
+    ("uber to {place} at {time}",                       {"ride": 1, "maps": 1}),
+    ("uber to {airport} at {time} tomorrow",            {"ride": 1, "maps": 1}),
+    ("cab at {time} to {place}",                        {"ride": 1, "maps": 1}),
+    ("lyft at {time} to {airport}",                     {"ride": 1, "maps": 1}),
+    ("pickup at {time} from {place}",                   {"ride": 1, "maps": 1}),
+    ("uber at {time}",                                  {"ride": 1}),
+    ("cab at {time}",                                   {"ride": 1}),
+    ("ride at {time} to {place}",                       {"ride": 1, "maps": 1}),
+    ("need a ride at {time} tomorrow",                  {"ride": 1}),
+    ("uber me at {time}",                               {"ride": 1}),
+
+    # contrastive: reminder about ride = alarm + ride
+    ("remind me to book uber at {time}",                {"alarm": 1, "ride": 1}),
+    ("set alarm for {time} uber to {airport}",          {"alarm": 1, "ride": 1, "maps": 1}),
+    ("reminder to get a cab at {time}",                 {"alarm": 1, "ride": 1}),
+
+    # calendar with time = calendar ONLY, not alarm
+    ("meeting at {time} {day}",                         {"calendar": 1}),
+    ("lunch at {time}",                                 {"calendar": 1}),
+    ("dinner at {time} {day}",                          {"calendar": 1}),
+    ("interview at {time} tomorrow",                    {"calendar": 1}),
+    ("standup at {time}",                               {"calendar": 1}),
+
+    # contrastive: reminder about meeting = alarm + calendar
+    ("remind me about the meeting at {time}",           {"alarm": 1, "calendar": 1}),
+    ("set alarm for {time} I have a meeting",           {"alarm": 1, "calendar": 1}),
+
+    # "don't forget to X" = the actual X intent, NOT alarm
+    ("don't forget to book the flight to {city}",       {"travel": 1}),
+    ("don't forget to book flights for {date}",         {"travel": 1}),
+    ("don't forget to get flight tickets",              {"travel": 1}),
+    ("don't forget to book the hotel in {city}",        {"travel": 1}),
+    ("don't forget to order {food}",                    {"food_order": 1}),
+    ("don't forget to buy {item}",                      {"shopping": 1}),
+    ("don't forget to pay the {bill_kind} bill",        {"bills": 1}),
+
+    # contrastive: "remind me to X" = alarm + X (explicit reminder request)
+    ("remind me to book the flight to {city}",          {"alarm": 1, "travel": 1}),
+    ("remind me to order {food}",                       {"alarm": 1, "food_order": 1}),
+    ("remind me to pay the {bill_kind} bill",           {"alarm": 1, "bills": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  HINGLISH ALARM / TIME — "kal subah 6 baje" needs to fire alarm.
+#  v4 catches ride but misses alarm on Hinglish time expressions.
+# ───────────────────────────────────────────────────────────────────────
+V42_HINGLISH_TIME = [
+    ("kal subah {time} baje alarm laga do",             {"alarm": 1}),
+    ("kal subah {time} baje uthana",                    {"alarm": 1}),
+    ("subah {time} baje yaad dilana",                   {"alarm": 1}),
+    ("shaam ko {time} baje reminder set karo",          {"alarm": 1}),
+    ("{time} baje alarm chahiye",                        {"alarm": 1}),
+    ("kal {time} pe reminder laga de",                  {"alarm": 1}),
+    ("kal subah jaldi uthana hai",                      {"alarm": 1}),
+    ("dopahar ko yaad dilana",                          {"alarm": 1}),
+    ("raat ko {time} baje alarm",                       {"alarm": 1}),
+    ("parso subah {time} baje",                         {"alarm": 1}),
+
+    # hinglish ride + alarm (the seed-suite compound)
+    ("kal subah {time} baje uber book kar dena to {airport}",
+                                                        {"ride": 1, "maps": 1, "alarm": 1}),
+    ("subah {time} baje cab chahiye {airport} ke liye",
+                                                        {"ride": 1, "maps": 1, "alarm": 1}),
+    ("kal {time} baje ola book karna hai office ke liye",
+                                                        {"ride": 1, "maps": 1, "alarm": 1}),
+
+    # contrastive: hinglish chitchat (no alarm)
+    ("kal subah baat karte hain",                       {}),
+    ("kal milte hain",                                  {}),
+    ("subah subah kya kar raha hai",                    {}),
+]

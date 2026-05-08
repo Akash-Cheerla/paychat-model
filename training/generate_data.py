@@ -50,6 +50,15 @@ from v4_failure_modes import (
     V41_SARCASM_IMPOSSIBLE,
     V41_MULTI_INTENT_FIXES,
     V41_SMS_SPEAK,
+    # v4.2 banks — targeted at 15 remaining seed-suite failures
+    V42_SLANG_VERBED,
+    V42_VENUE_NOT_MAPS,
+    V42_FIGURATIVE_NEGATIVES,
+    V42_SPLIT_PATTERNS,
+    V42_GENERIC_ALARM,
+    V42_BILLS_MONEY_COMPOUND,
+    V42_TIME_CONTEXT,
+    V42_HINGLISH_TIME,
 )
 
 random.seed(42)
@@ -1535,6 +1544,77 @@ def generate_dataset(n_per_intent=600):
             labels = _zeros()
             labels.update(intent_flags)
             dataset.append(make_example(text, "v41_sms_speak", labels))
+
+    # ── v4.2 banks — targeted at 15 remaining seed-suite failures ──
+    # Contrastive pairs: every negative has a matching positive.
+
+    # 14. "X it" slang — "doordash it", "spotify it", "ubering home"
+    for template, intent_flags in V42_SLANG_VERBED:
+        for _ in range(12):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_slang_verbed", labels))
+
+    # 15. Place-as-venue — "lunch at sweetgreen" = calendar, NOT maps
+    for template, intent_flags in V42_VENUE_NOT_MAPS:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_venue", labels))
+
+    # 16. Figurative / metaphorical negatives — "map out plans" ≠ maps
+    for entry in V42_FIGURATIVE_NEGATIVES:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_figurative", labels))
+
+    # 17. Bill splitting — "split the dinner bill 4 ways"
+    for template, intent_flags in V42_SPLIT_PATTERNS:
+        for _ in range(12):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_split", labels))
+
+    # 18. Generic alarm triggers — "set a reminder", "remind me"
+    for template, intent_flags in V42_GENERIC_ALARM:
+        for _ in range(12):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_generic_alarm", labels))
+
+    # 19. Bills + money compound — "rent due friday, transfer 1200"
+    for template, intent_flags in V42_BILLS_MONEY_COMPOUND:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_bills_money", labels))
+
+    # 20. Time context — ride time ≠ alarm, "don't forget" ≠ alarm
+    for template, intent_flags in V42_TIME_CONTEXT:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_time_context", labels))
+
+    # 21. Hinglish alarm/time expressions
+    for template, intent_flags in V42_HINGLISH_TIME:
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v42_hinglish_time", labels))
 
     # ── Negatives ──
     # Two flavors:

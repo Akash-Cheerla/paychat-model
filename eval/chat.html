@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#5E5CE6" />
-<title>FYOE — chat</title>
+<title>FYOE</title>
 <style>
   :root {
     --bg:        #0a0a0c;
@@ -43,12 +43,11 @@
   }
   .join-card {
     width: 100%;
-    max-width: 380px;
+    max-width: 360px;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 32px 24px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border-radius: 14px;
+    padding: 28px 22px;
   }
   .brand {
     display: flex;
@@ -62,11 +61,10 @@
   .brand-dot {
     width: 28px; height: 28px;
     border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: var(--accent);
     display: flex; align-items: center; justify-content: center;
     font-weight: 800; font-size: 14px;
     color: white;
-    box-shadow: 0 4px 12px rgba(94,92,230,0.4);
   }
   .sub {
     color: var(--muted);
@@ -76,10 +74,8 @@
   label {
     display: block;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     margin: 14px 0 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
   }
   input[type=text] {
     width: 100%;
@@ -354,20 +350,20 @@
 <!-- ============== JOIN SCREEN ============== -->
 <div id="join">
   <div class="join-card">
-    <div class="brand"><span class="brand-dot">F</span>FYOE chat</div>
-    <div class="sub">Real conversations through your model. Every message you send gets the intent + entity slots predicted live, so you can see exactly what FYOE would do.</div>
+    <div class="brand"><span class="brand-dot">F</span>FYOE</div>
+    <div class="sub"> To Chat with our team and see what intents the model picks up on every message to retrain.</div>
 
-    <label for="name">Your name</label>
-    <input id="name" type="text" placeholder="akash" autocomplete="off" />
+    <label for="name">name</label>
+    <input id="name" type="text" placeholder="Akash" autocomplete="off" />
 
-    <label for="room">Room</label>
+    <label for="room">room</label>
     <input id="room" type="text" placeholder="demo" autocomplete="off" />
 
-    <button class="join-btn" id="join-btn">Join chat</button>
+    <button class="join-btn" id="join-btn">join</button>
 
     <div class="join-meta">
-      Share this URL with your friend (same room name) and chat normally. Both of you see what the model fired on every line.<br><br>
-      Model: <b id="model-info">…</b>
+       Join the same room to chat and test together.<br><br>
+      <b id="model-info">…</b>
     </div>
   </div>
 </div>
@@ -631,7 +627,9 @@ function renderMsg(m) {
   row.appendChild(bubble);
 
   // ─── model annotation block ───
-  if (m.fired && m.fired.length || (m.top_scores && m.top_scores.length)) {
+  // skip annotation entirely for casual chat (trigger filter said not worth processing)
+  const wasTriggered = m.triggered !== false;
+  if (wasTriggered && (m.fired && m.fired.length || (m.top_scores && m.top_scores.length))) {
     const anno = document.createElement("div");
     anno.className = "anno";
 
@@ -815,7 +813,7 @@ document.getElementById("btn-share").addEventListener("click", async () => {
   const url = location.origin + "/chat#room=" + encodeURIComponent(state.room);
   try {
     if (navigator.share) {
-      await navigator.share({ title: "FYOE chat", text: `Join me on FYOE — room "${state.room}"`, url });
+      await navigator.share({ title: "FYOE", text: `test the model with me — room "${state.room}"`, url });
     } else {
       await navigator.clipboard.writeText(url);
       sysLine("link copied: " + url);
