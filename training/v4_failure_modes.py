@@ -1290,3 +1290,349 @@ V42_HINGLISH_TIME = [
     ("kal milte hain",                                  {}),
     ("subah subah kya kar raha hai",                    {}),
 ]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  v4.3 BANKS — making the model "perfect". Covers patterns the v4.0-4.2
+#  banks missed: question-form intents, single-word triggers, idiomatic
+#  false positives, and more natural conversation flow.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  QUESTION-FORM INTENTS — real people ASK, they don't command.
+#  "can you venmo me?" is just as actionable as "venmo me".
+#  Most v4 training templates are imperative commands. Real chat is
+#  50%+ questions. This gap causes recall loss on polite phrasings.
+# ───────────────────────────────────────────────────────────────────────
+V43_QUESTION_WRAPPING = [
+    # money questions
+    ("can you venmo me {amount}",                          {"money": 1}),
+    ("could you send me {amount}",                         {"money": 1}),
+    ("would you mind paying me back",                      {"money": 1}),
+    ("hey can you cashapp me {amount}",                    {"money": 1}),
+    ("do you mind venmoing me",                            {"money": 1}),
+    ("can I get that {amount} back",                       {"money": 1}),
+    ("you gonna pay me back or what",                      {"money": 1}),
+    ("wanna just venmo me for it",                         {"money": 1}),
+    ("mind sending me {amount}",                           {"money": 1}),
+
+    # alarm questions
+    ("can you remind me at {time}",                        {"alarm": 1}),
+    ("could you set an alarm for {time}",                  {"alarm": 1}),
+    ("would you remind me to {task}",                      {"alarm": 1}),
+    ("can someone remind me",                              {"alarm": 1}),
+    ("hey can you wake me up at {time}",                   {"alarm": 1}),
+    ("mind reminding me about the {event}",                {"alarm": 1}),
+
+    # contact questions
+    ("can you call {addressee}",                           {"contact": 1}),
+    ("could you text {addressee} for me",                  {"contact": 1}),
+    ("should I call {addressee}",                          {"contact": 1}),
+    ("wanna facetime {addressee}",                         {"contact": 1}),
+    ("want me to text {addressee}",                        {"contact": 1}),
+    ("can someone call {addressee}",                       {"contact": 1}),
+
+    # food questions
+    ("should we order food",                               {"food_order": 1}),
+    ("wanna order pizza",                                  {"food_order": 1}),
+    ("should we doordash it",                              {"food_order": 1}),
+    ("can you order {food} for us",                        {"food_order": 1}),
+    ("want me to order {food}",                            {"food_order": 1}),
+    ("you guys wanna order in",                            {"food_order": 1}),
+    ("what should we order",                               {"food_order": 1}),
+
+    # ride questions
+    ("should I uber there",                                {"ride": 1}),
+    ("wanna uber",                                         {"ride": 1}),
+    ("should we get a cab",                                {"ride": 1}),
+    ("can you book me an uber to {place}",                 {"ride": 1, "maps": 1}),
+    ("want me to book a lyft",                             {"ride": 1}),
+
+    # travel questions
+    ("should I book the flight to {city}",                 {"travel": 1}),
+    ("wanna plan a trip to {city}",                        {"travel": 1}),
+    ("should we book the hotel",                           {"travel": 1}),
+
+    # calendar questions
+    ("are we still on for {day}",                          {"calendar": 1}),
+    ("can we schedule a meeting {day}",                    {"calendar": 1}),
+    ("should we do lunch {day}",                           {"calendar": 1}),
+    ("you free for dinner {day}",                          {"calendar": 1}),
+
+    # music questions
+    ("can you play {song}",                                {"music": 1}),
+    ("wanna play some music",                              {"music": 1}),
+    ("should I put on {artist}",                           {"music": 1}),
+
+    # bills questions
+    ("did you pay rent yet",                               {"bills": 1}),
+    ("should I pay the {bill_kind} bill",                  {"bills": 1}),
+    ("is the {bill_kind} bill due",                        {"bills": 1}),
+
+    # shopping questions
+    ("should I order {item} on amazon",                    {"shopping": 1}),
+    ("want me to buy {item}",                              {"shopping": 1}),
+
+    # contrastive: rhetorical / non-actionable questions
+    ("can you believe that",                               {}),
+    ("should we even bother",                              {}),
+    ("want me to just leave",                              {}),
+    ("you think so",                                       {}),
+    ("do you agree",                                       {}),
+    ("would you say that",                                 {}),
+    ("can I get a break",                                  {}),
+    ("wanna hang out",                                     {}),
+    ("should we go",                                       {}),
+    ("you coming or what",                                 {}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  IDIOMATIC / FIGURATIVE FALSE POSITIVES — deeper set.
+#  Words that match intent keywords but are used figuratively.
+#  v4.2 covered "map out", "contact lens", "check on", "bill" (name).
+#  v4.3 adds more: "playing", "riding", "booking", "noted", etc.
+# ───────────────────────────────────────────────────────────────────────
+V43_IDIOMATIC_NEGATIVES = [
+    # "play" used figuratively — NOT music
+    ("playing it safe",                                    {}),
+    ("playing with fire",                                  {}),
+    ("playing hardball",                                   {}),
+    ("stop playing around",                                {}),
+    ("playing the victim",                                 {}),
+    ("playing catch up",                                   {}),
+    ("play it by ear",                                     {}),
+    ("he plays for the team",                              {}),
+
+    # "ride" used figuratively — NOT ride intent
+    ("riding the wave",                                    {}),
+    ("ride or die",                                        {}),
+    ("it's been a rough ride",                             {}),
+    ("riding high",                                        {}),
+    ("she's riding a winning streak",                      {}),
+    ("riding out the storm",                               {}),
+
+    # "booking it" = running fast — NOT travel/reservation
+    ("he was booking it down the street",                  {}),
+    ("I booked it out of there",                           {}),
+    ("she's booking it to class",                          {}),
+
+    # "order" used figuratively — NOT food/shopping
+    ("in order to finish",                                 {}),
+    ("out of order",                                       {}),
+    ("put it in order",                                    {}),
+    ("that's a tall order",                                {}),
+    ("law and order",                                      {}),
+    ("order of operations",                                {}),
+
+    # "noted" / "note" used casually — NOT note intent
+    ("noted",                                              {}),
+    ("duly noted",                                         {}),
+    ("note taken",                                         {}),
+    ("on a different note",                                {}),
+    ("on that note I'm leaving",                           {}),
+    ("side note",                                          {}),
+    ("of note",                                            {}),
+
+    # "watch" figuratively — NOT video
+    ("watch your step",                                    {}),
+    ("watch out",                                          {}),
+    ("watch your back",                                    {}),
+    ("watching my weight",                                 {}),
+    ("watch your tone",                                    {}),
+
+    # "call" figuratively — NOT contact
+    ("good call",                                          {}),
+    ("that's a close call",                                {}),
+    ("call it a day",                                      {}),
+    ("call it even",                                       {}),
+    ("call the shots",                                     {}),
+    ("it's your call",                                     {}),
+    ("judgment call",                                      {}),
+    ("tough call",                                         {}),
+    ("close call today",                                   {}),
+
+    # "split" figuratively — NOT money
+    ("split decision",                                     {}),
+    ("split personality",                                  {}),
+    ("split second",                                       {}),
+    ("splitting hairs",                                    {}),
+    ("let's split up and search",                          {}),
+    ("they split up last month",                           {}),
+
+    # "set" figuratively — NOT alarm
+    ("set in stone",                                       {}),
+    ("all set",                                            {}),
+    ("set the tone",                                       {}),
+    ("set the bar high",                                   {}),
+    ("mindset",                                            {}),
+    ("get set for this",                                   {}),
+
+    # "pay" figuratively — NOT money
+    ("pay attention",                                      {}),
+    ("it'll pay off",                                      {}),
+    ("pay your respects",                                  {}),
+    ("pay the price",                                      {}),
+    ("that doesn't pay well",                              {}),
+    ("crime doesn't pay",                                  {}),
+
+    # "delivery" figuratively — NOT food
+    ("great delivery on that joke",                        {}),
+    ("her delivery was perfect",                           {}),
+    ("delivery room",                                      {}),
+
+    # "trip" figuratively — NOT travel
+    ("what a trip",                                        {}),
+    ("that's trippy",                                      {}),
+    ("tripping out",                                       {}),
+    ("don't trip about it",                                {}),
+    ("ego trip",                                           {}),
+
+    # "ticket" figuratively — NOT tickets
+    ("that's the ticket",                                  {}),
+    ("meal ticket",                                        {}),
+    ("parking ticket",                                     {}),
+    ("golden ticket",                                      {}),
+    ("one way ticket to disaster",                         {}),
+
+    # "bill" more — NOT bills
+    ("Buffalo Bills game",                                 {}),
+    ("dollar bill",                                        {}),
+    ("bill of sale",                                       {}),
+    ("the bill passed in congress",                        {}),
+    ("fitting the bill",                                   {}),
+
+    # contrastive: literal uses that SHOULD fire
+    ("play {song} on spotify",                             {"music": 1}),
+    ("get me a ride to {place}",                           {"ride": 1, "maps": 1}),
+    ("book a flight to {city}",                            {"travel": 1}),
+    ("watch {movie} tonight",                              {"video": 1}),
+    ("call {addressee} now",                               {"contact": 1}),
+    ("set alarm for {time}",                               {"alarm": 1}),
+    ("pay {addressee} {amount}",                           {"money": 1}),
+    ("order {food} on doordash",                           {"food_order": 1}),
+    ("split the bill {qty} ways",                          {"money": 1}),
+    ("note to self: {task}",                               {"note": 1}),
+    ("buy tickets for {movie}",                            {"tickets": 1, "video": 1}),
+    ("book a table at {place}",                            {"reservation": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  SINGLE-WORD / ULTRA-SHORT INTENTS — "uber", "venmo", "spotify"
+#  Some intents should fire on a single brand name + minimal context.
+#  But bare words like "uber" alone shouldn't (too ambiguous).
+#  These teach the boundary between actionable-short and too-short.
+# ───────────────────────────────────────────────────────────────────────
+V43_ULTRA_SHORT = [
+    # Actionable short messages
+    ("uber please",                                        {"ride": 1}),
+    ("uber home",                                          {"ride": 1, "maps": 1}),
+    ("venmo me",                                           {"money": 1}),
+    ("cashapp me",                                         {"money": 1}),
+    ("doordash please",                                    {"food_order": 1}),
+    ("order food",                                         {"food_order": 1}),
+    ("call mom",                                           {"contact": 1}),
+    ("text dad",                                           {"contact": 1}),
+    ("play music",                                         {"music": 1}),
+    ("directions home",                                    {"maps": 1}),
+    ("directions to {place}",                              {"maps": 1}),
+    ("remind me later",                                    {"alarm": 1}),
+    ("alarm {time}",                                       {"alarm": 1}),
+    ("weather today",                                      {"weather": 1}),
+    ("pay rent",                                           {"bills": 1}),
+    ("order {food}",                                       {"food_order": 1}),
+    ("book uber",                                          {"ride": 1}),
+    ("book cab",                                           {"ride": 1}),
+    ("book flight",                                        {"travel": 1}),
+    ("book hotel",                                         {"travel": 1}),
+
+    # Too short / ambiguous — should NOT fire
+    ("uber",                                               {}),
+    ("venmo",                                              {}),
+    ("spotify",                                            {}),
+    ("doordash",                                           {}),
+    ("amazon",                                             {}),
+    ("netflix",                                            {}),
+    ("youtube",                                            {}),
+    ("food",                                               {}),
+    ("money",                                              {}),
+    ("call",                                               {}),
+    ("ride",                                               {}),
+    ("flight",                                             {}),
+    ("alarm",                                              {}),
+    ("bill",                                               {}),
+    ("doctor",                                             {}),
+    ("dinner",                                             {}),
+    ("music",                                              {}),
+    ("weather",                                            {}),
+    ("tickets",                                            {}),
+    ("hotel",                                              {}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  PRESENT TENSE STATEMENTS — "I'm cooking", "he's calling someone"
+#  These describe CURRENT activity, not requests. Should NOT fire.
+#  Different from past tense ("cooked yesterday") — present progressive
+#  "I'm doing X right now" is NOT a command to do X.
+# ───────────────────────────────────────────────────────────────────────
+V43_PRESENT_ACTIVITY = [
+    ("I'm watching a movie",                               {}),
+    ("I'm watching tv",                                    {}),
+    ("she's watching netflix",                              {}),
+    ("he's playing video games",                           {}),
+    ("I'm playing guitar",                                 {}),
+    ("we're cooking dinner",                               {}),
+    ("I'm cooking right now",                              {}),
+    ("he's calling someone",                               {}),
+    ("I'm on a call",                                      {}),
+    ("she's on the phone",                                 {}),
+    ("I'm ordering food rn",                               {}),
+    ("we're riding the subway",                            {}),
+    ("I'm paying for it right now",                        {}),
+    ("he's driving to work",                               {}),
+    ("she's shopping",                                     {}),
+    ("I'm at the doctor rn",                               {}),
+    ("we're at the restaurant",                            {}),
+    ("I'm setting the table",                              {}),
+    ("he's booking his own flight",                        {}),
+    ("I'm listening to music",                             {}),
+    ("she's texting someone",                              {}),
+    ("I'm streaming something",                            {}),
+    ("we're splitting up for the search",                  {}),
+
+    # contrastive: COMMANDS to do things = actionable
+    ("watch a movie on netflix",                           {"video": 1}),
+    ("play some music",                                    {"music": 1}),
+    ("order food for us",                                  {"food_order": 1}),
+    ("call {addressee} for me",                            {"contact": 1}),
+    ("book me a flight",                                   {"travel": 1}),
+    ("drive me to {place}",                                {"ride": 1, "maps": 1}),
+]
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  THIRD PERSON / GOSSIP — "sarah paid 200 for that bag"
+#  Talking ABOUT someone else's actions isn't a command.
+# ───────────────────────────────────────────────────────────────────────
+V43_THIRD_PERSON = [
+    ("she paid {amount} for that bag",                     {}),
+    ("he ordered food from doordash",                      {}),
+    ("they booked a flight to {city}",                     {}),
+    ("sarah called her mom",                               {}),
+    ("mike set an alarm for 5am",                          {}),
+    ("they ubered home last night",                        {}),
+    ("he watches netflix all day",                         {}),
+    ("{addressee} bought tickets for the concert",         {}),
+    ("she split the bill with her friends",                {}),
+    ("he reminded everyone about the meeting",             {}),
+    ("they made a reservation at {place}",                 {}),
+    ("she venmod me {amount} already",                     {}),
+    ("{addressee} already paid the rent",                  {}),
+    ("his alarm goes off at {time} every day",             {}),
+    ("she ordered {food} for the office",                  {}),
+    ("they scheduled it for {day}",                        {}),
+    ("he booked a hotel in {city}",                        {}),
+]

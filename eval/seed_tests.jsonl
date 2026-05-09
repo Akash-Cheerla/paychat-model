@@ -80,3 +80,31 @@
 {"text": "feeling sick, need a doctor", "intents": ["health"], "entities": {"type": "doctor"}, "tag": "health_implicit"}
 {"text": "weather", "intents": ["weather"], "entities": {}, "tag": "weather_minimal"}
 {"text": "what's the weather", "intents": ["weather"], "entities": {}, "tag": "weather_minimal"}
+{"text": "can you venmo me 30 for dinner", "intents": ["money"], "entities": {"amount": "30", "note": "dinner", "app": "venmo"}, "tag": "question_form"}
+{"text": "should we order pizza", "intents": ["food_order"], "entities": {"item": "pizza"}, "tag": "question_form"}
+{"text": "wanna uber there", "intents": ["ride"], "entities": {}, "tag": "question_form"}
+{"text": "can you remind me at 3pm", "intents": ["alarm"], "entities": {"time": "3pm"}, "tag": "question_form"}
+{"text": "should I book the flight", "intents": ["travel"], "entities": {}, "tag": "question_form"}
+{"text": "playing it safe", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "riding the wave", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "watch your back", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "good call", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "noted", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "pay attention", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "splitting hairs", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "that's a tall order", "intents": [], "entities": {}, "tag": "idiomatic_false_pos"}
+{"text": "I'm watching tv", "intents": [], "entities": {}, "tag": "present_activity"}
+{"text": "I'm cooking dinner", "intents": [], "entities": {}, "tag": "present_activity"}
+{"text": "she's on the phone", "intents": [], "entities": {}, "tag": "present_activity"}
+{"text": "he ordered food from doordash", "intents": [], "entities": {}, "tag": "third_person"}
+{"text": "she paid 200 for that bag", "intents": [], "entities": {}, "tag": "third_person"}
+{"text": "they booked a flight to Tokyo", "intents": [], "entities": {}, "tag": "third_person"}
+{"text": "uber please", "intents": ["ride"], "entities": {}, "tag": "ultra_short"}
+{"text": "venmo me", "intents": ["money"], "entities": {}, "tag": "ultra_short"}
+{"text": "order food", "intents": ["food_order"], "entities": {}, "tag": "ultra_short"}
+{"text": "uber", "intents": [], "entities": {}, "tag": "bare_word"}
+{"text": "venmo", "intents": [], "entities": {}, "tag": "bare_word"}
+{"text": "spotify", "intents": [], "entities": {}, "tag": "bare_word"}
+{"text": "lets go halves on dinner", "intents": ["money"], "entities": {}, "tag": "money_split"}
+{"text": "chip in 15 each", "intents": ["money"], "entities": {"amount": "15"}, "tag": "money_split"}
+{"text": "going dutch on this one", "intents": ["money"], "entities": {}, "tag": "money_split"}

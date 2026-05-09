@@ -59,6 +59,12 @@ from v4_failure_modes import (
     V42_BILLS_MONEY_COMPOUND,
     V42_TIME_CONTEXT,
     V42_HINGLISH_TIME,
+    # v4.3 banks — making the model perfect
+    V43_QUESTION_WRAPPING,
+    V43_IDIOMATIC_NEGATIVES,
+    V43_ULTRA_SHORT,
+    V43_PRESENT_ACTIVITY,
+    V43_THIRD_PERSON,
 )
 
 random.seed(42)
@@ -1615,6 +1621,68 @@ def generate_dataset(n_per_intent=600):
             labels = _zeros()
             labels.update(intent_flags)
             dataset.append(make_example(text, "v42_hinglish_time", labels))
+
+    # ── v4.3 banks — making the model perfect ──
+
+    # 22. Question-form intents — real people ask, not command
+    for entry in V43_QUESTION_WRAPPING:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(10):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v43_question", labels))
+
+    # 23. Idiomatic/figurative false positives — "playing it safe" ≠ music
+    for entry in V43_IDIOMATIC_NEGATIVES:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v43_idiomatic", labels))
+
+    # 24. Ultra-short messages — "uber please" vs bare "uber"
+    for entry in V43_ULTRA_SHORT:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(12):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v43_ultra_short", labels))
+
+    # 25. Present-tense activity — "I'm watching tv" ≠ video command
+    for entry in V43_PRESENT_ACTIVITY:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v43_present_activity", labels))
+
+    # 26. Third-person gossip — "she paid 200 for that" ≠ money
+    for entry in V43_THIRD_PERSON:
+        if isinstance(entry, tuple):
+            template, intent_flags = entry
+        else:
+            template, intent_flags = entry, {}
+        for _ in range(8):
+            text = augment(fill(template))
+            labels = _zeros()
+            labels.update(intent_flags)
+            dataset.append(make_example(text, "v43_third_person", labels))
 
     # ── Negatives ──
     # Two flavors:
