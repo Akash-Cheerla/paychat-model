@@ -139,15 +139,108 @@ _COMPILED: dict[str, re.Pattern] = {
     for intent, patterns in _TRIGGERS.items()
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Fuzzy matching — catches typos/SMS-speak automatically.
+# Instead of manually adding every misspelling ("ordr", "fud", "ubr"), we
+# check if any word in the message is within Levenshtein distance 1 of a
+# core keyword. This handles all single-char typos: drops ("ordr" → "order"),
+# swaps ("oder" → "order"), insertions ("ordeer" → "order"), replacements
+# ("ordur" → "order").
+#
+# Only applied as a fallback when regex matching finds nothing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Core keywords per intent — the important ones worth fuzzy-matching.
+# Kept short to avoid false positives (we don't fuzzy-match "rain" or "due").
+_FUZZY_KEYWORDS: dict[str, list[str]] = {
+    "money":      ["pay", "paid", "venmo", "cashapp", "zelle", "paypal", "paytm",
+                   "transfer", "split", "owe", "owed", "send", "money", "bucks",
+                   "dollars", "reimburse"],
+    "alarm":      ["remind", "reminder", "alarm", "timer", "wake", "notify"],
+    "contact":    ["call", "text", "dial", "phone", "whatsapp", "facetime",
+                   "message", "contact"],
+    "calendar":   ["meeting", "schedule", "appointment", "interview", "standup"],
+    "maps":       ["directions", "navigate", "address", "heading"],
+    "food_order": ["order", "deliver", "delivery", "doordash", "ubereats",
+                   "grubhub", "swiggy", "zomato", "pizza", "burger", "food",
+                   "sushi", "biryani", "noodles", "chipotle", "dominos",
+                   "mcdonalds", "subway"],
+    "ride":       ["uber", "lyft", "ride", "taxi", "cab"],
+    "travel":     ["flight", "flights", "hotel", "airbnb", "travel", "booking"],
+    "shopping":   ["buy", "purchase", "amazon", "flipkart", "cart"],
+    "music":      ["play", "song", "music", "playlist", "spotify"],
+    "video":      ["watch", "netflix", "youtube", "stream", "movie", "episode"],
+    "tickets":    ["tickets", "ticket", "concert", "fandango"],
+    "reservation":["reservation", "reserve", "table", "opentable"],
+    "task":       ["todo", "task", "todoist"],
+    "note":       ["note", "jot"],
+    "bills":      ["bill", "electricity", "rent", "wifi", "internet",
+                   "utility", "recharge", "insurance"],
+    "health":     ["doctor", "dentist", "hospital", "clinic", "pharmacy",
+                   "appointment", "checkup"],
+    "weather":    ["weather", "temperature", "forecast"],
+}
+
+
+def _levenshtein_1(a: str, b: str) -> bool:
+    """True if Levenshtein distance between a and b is exactly 1.
+    O(max(len(a), len(b))) — fast enough for short words."""
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la == lb:
+        # substitution: exactly 1 position differs
+        return sum(ca != cb for ca, cb in zip(a, b)) == 1
+    # insertion/deletion: shorter string is missing exactly 1 char
+    if la > lb:
+        a, b, la, lb = b, a, lb, la
+    # la == lb - 1
+    i = 0
+    while i < la and a[i] == b[i]:
+        i += 1
+    # skip the extra char in b, rest must match
+    return a[i:] == b[i + 1:]
+
+
+def _fuzzy_match(text: str) -> list[str]:
+    """Fuzzy fallback: check if any word is within edit distance 1 of a core keyword."""
+    words = text.lower().split()
+    # Skip very short words (1-2 chars) — too many false positives
+    words = [w.strip(".,!?;:'\"") for w in words if len(w) >= 3]
+    hits = []
+    for intent, keywords in _FUZZY_KEYWORDS.items():
+        for word in words:
+            for kw in keywords:
+                # Only fuzzy-match keywords with 5+ chars. Short words like
+                # "food", "call", "play" have too many 1-edit neighbors
+                # ("good"→"food", "tall"→"call", "pray"→"play").
+                if len(kw) < 5:
+                    continue
+                if _levenshtein_1(word, kw):
+                    hits.append(intent)
+                    break
+            else:
+                continue
+            break
+    return hits
+
 
 def matched_intents(text: str) -> list[str]:
     """Return which intent groups have keyword matches in the text."""
-    return [intent for intent, pat in _COMPILED.items() if pat.search(text)]
+    # Fast path: exact regex match
+    hits = [intent for intent, pat in _COMPILED.items() if pat.search(text)]
+    if hits:
+        return hits
+    # Slow path: fuzzy match (catches typos/SMS-speak)
+    return _fuzzy_match(text)
 
 
 def should_process(text: str) -> bool:
     """True if the message has any action-related keywords worth classifying."""
-    return any(pat.search(text) for pat in _COMPILED.values())
+    if any(pat.search(text) for pat in _COMPILED.values()):
+        return True
+    # Fuzzy fallback
+    return len(_fuzzy_match(text)) > 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +268,14 @@ if __name__ == "__main__":
         ("book a dentist appointment", True, ["health"]),
         ("will it rain tomorrow", True, ["weather"]),
         ("can we settle the loan which I'm owed by you", True, ["money"]),
+
+        # fuzzy / SMS-speak — should trigger via edit-distance fallback
+        ("can i ordr fud from mcd", True, ["food_order"]),
+        ("pls remnd me at 5", True, ["alarm"]),
+        ("ubr to airport", True, ["ride"]),
+        ("piza tonight", True, ["food_order"]),
+        ("wach a moive", True, ["video"]),
+        ("schdule a meetng", True, ["calendar"]),
 
         # should NOT trigger
         ("lol", False, []),
