@@ -150,7 +150,14 @@ if DEVICE.type == "cuda":
 # ═════════════════════════════════════════════════════════════════════
 
 class ChatDataset(Dataset):
-    """Multi-label chat dataset. Each item returns a float label vector of size NUM_LABELS."""
+    """Multi-label chat dataset. Each item returns a float label vector of size NUM_LABELS.
+
+    Supports multi-turn examples: if an item has a "context" field (prior
+    messages joined by " | "), the tokenizer encodes (context, text) as a
+    text pair so the model sees:
+        <s> prior context </s></s> current message </s>
+    This teaches the model to use conversation history for classification.
+    """
 
     def __init__(self, items, tokenizer):
         self.items = items
@@ -161,13 +168,25 @@ class ChatDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.items[idx]
-        enc = self.tokenizer(
-            item["text"],
-            max_length=MAX_LEN,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
+        context = item.get("context")
+        if context:
+            # Multi-turn: tokenizer handles the </s></s> separator automatically
+            enc = self.tokenizer(
+                context,
+                item["text"],
+                max_length=MAX_LEN,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+        else:
+            enc = self.tokenizer(
+                item["text"],
+                max_length=MAX_LEN,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
         # labels dict -> float vector aligned with INTENTS order
         label_dict = item["labels"]
         label_vec = [float(label_dict.get(intent, 0)) for intent in INTENTS]

@@ -1,7 +1,9 @@
 {
-  "trained_at": "2026-05-05T04:05:26.342673",
+  "trained_at": "2026-05-09T23:47:21.130352",
   "model": "roberta-base",
-  "epochs": 5,
+  "epochs": 8,
+  "lr": 2e-05,
+  "batch_size": 32,
   "intents": [
     "money",
     "alarm",
@@ -24,191 +26,217 @@
   ],
   "threshold": 0.5,
   "optimal_thresholds": {
-    "money": 0.55,
-    "alarm": 0.3,
-    "contact": 0.2,
-    "calendar": 0.7,
-    "maps": 0.2,
-    "food_order": 0.2,
-    "ride": 0.5,
-    "travel": 0.1,
-    "shopping": 0.1,
-    "music": 0.3,
-    "video": 0.35,
-    "tickets": 0.1,
-    "reservation": 0.2,
-    "task": 0.7,
-    "note": 0.1,
-    "bills": 0.2,
-    "health": 0.45,
-    "weather": 0.1
+    "money": 0.3,
+    "alarm": 0.6,
+    "contact": 0.45,
+    "calendar": 0.29,
+    "maps": 0.66,
+    "food_order": 0.29,
+    "ride": 0.57,
+    "travel": 0.17,
+    "shopping": 0.2,
+    "music": 0.29,
+    "video": 0.29,
+    "tickets": 0.36,
+    "reservation": 0.48,
+    "task": 0.64,
+    "note": 0.16,
+    "bills": 0.64,
+    "health": 0.2,
+    "weather": 0.14
   },
   "pos_weight_used": true,
-  "test_exact_match": 0.9878947368421053,
-  "test_hamming": 0.999093567251462,
+  "focal_loss": true,
+  "focal_gamma": 2.0,
+  "label_smoothing": 0.03,
+  "cosine_schedule": false,
+  "fp16": true,
+  "test_exact_match": 0.9890310786106032,
+  "test_hamming": 0.9992281129392647,
   "per_intent": {
     "money": {
-      "precision": 0.9493670886075949,
-      "recall": 0.974025974025974,
-      "f1": 0.9615384615384616,
-      "auc": 0.9989314032100648,
-      "support": 77
+      "precision": 0.9880239520958084,
+      "recall": 0.9939759036144579,
+      "f1": 0.990990990990991,
+      "auc": 0.9999835855684317,
+      "support": 166
     },
     "alarm": {
+      "precision": 0.9940119760479041,
+      "recall": 1.0,
+      "f1": 0.996996996996997,
+      "auc": 0.9999906203248182,
+      "support": 166
+    },
+    "contact": {
+      "precision": 0.9746835443037974,
+      "recall": 1.0,
+      "f1": 0.9871794871794872,
+      "auc": 0.9994892747701737,
+      "support": 154
+    },
+    "calendar": {
+      "precision": 0.9841269841269841,
+      "recall": 1.0,
+      "f1": 0.992,
+      "auc": 0.9999104285837832,
+      "support": 124
+    },
+    "maps": {
+      "precision": 0.9637681159420289,
+      "recall": 0.9568345323741008,
+      "f1": 0.9602888086642599,
+      "auc": 0.9962199731740031,
+      "support": 139
+    },
+    "food_order": {
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "support": 103
-    },
-    "contact": {
-      "precision": 0.9906542056074766,
-      "recall": 0.9724770642201835,
-      "f1": 0.9814814814814815,
-      "auc": 0.9988320808937655,
-      "support": 109
-    },
-    "calendar": {
-      "precision": 0.9901960784313726,
-      "recall": 0.9901960784313726,
-      "f1": 0.9901960784313726,
-      "auc": 0.9999890946367423,
-      "support": 102
-    },
-    "maps": {
-      "precision": 0.981651376146789,
-      "recall": 1.0,
-      "f1": 0.9907407407407407,
-      "auc": 0.9997028944337012,
-      "support": 107
-    },
-    "food_order": {
-      "precision": 0.9880952380952381,
-      "recall": 0.9880952380952381,
-      "f1": 0.9880952380952381,
-      "auc": 0.9999934445143697,
-      "support": 84
+      "support": 112
     },
     "ride": {
-      "precision": 0.9891304347826086,
-      "recall": 0.9891304347826086,
-      "f1": 0.9891304347826086,
-      "auc": 0.9995310696421701,
-      "support": 92
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "support": 121
     },
     "travel": {
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "support": 70
+      "support": 93
     },
     "shopping": {
       "precision": 1.0,
-      "recall": 0.987012987012987,
-      "f1": 0.9934640522875817,
-      "auc": 0.9931681045230141,
-      "support": 77
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "support": 73
     },
     "music": {
-      "precision": 0.9726027397260274,
-      "recall": 1.0,
-      "f1": 0.9861111111111112,
-      "auc": 1.0,
-      "support": 71
+      "precision": 1.0,
+      "recall": 0.9888888888888889,
+      "f1": 0.994413407821229,
+      "auc": 0.9999915984036967,
+      "support": 90
     },
     "video": {
-      "precision": 0.9887640449438202,
-      "recall": 1.0,
-      "f1": 0.9943502824858758,
-      "auc": 1.0,
-      "support": 88
+      "precision": 0.967741935483871,
+      "recall": 0.9782608695652174,
+      "f1": 0.972972972972973,
+      "auc": 0.9991034562174077,
+      "support": 92
     },
     "tickets": {
-      "precision": 1.0,
-      "recall": 0.9855072463768116,
-      "f1": 0.9927007299270073,
-      "auc": 0.9999762543632608,
-      "support": 69
+      "precision": 0.9661016949152542,
+      "recall": 0.9827586206896551,
+      "f1": 0.9743589743589743,
+      "auc": 0.9998196643180091,
+      "support": 58
     },
     "reservation": {
       "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 0.9999999999999999,
-      "support": 55
+      "recall": 0.9878048780487805,
+      "f1": 0.9938650306748467,
+      "auc": 0.9999954032710323,
+      "support": 82
     },
     "task": {
-      "precision": 0.9344262295081968,
-      "recall": 1.0,
-      "f1": 0.9661016949152542,
-      "auc": 0.9999714424422423,
-      "support": 57
+      "precision": 0.9841269841269841,
+      "recall": 0.9393939393939394,
+      "f1": 0.9612403100775194,
+      "auc": 0.9999375546396903,
+      "support": 66
     },
     "note": {
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "support": 58
+      "support": 44
     },
     "bills": {
-      "precision": 0.9846153846153847,
+      "precision": 0.9912280701754386,
       "recall": 1.0,
-      "f1": 0.9922480620155039,
+      "f1": 0.9955947136563876,
       "auc": 1.0,
-      "support": 64
+      "support": 113
     },
     "health": {
-      "precision": 0.9701492537313433,
-      "recall": 0.9848484848484849,
-      "f1": 0.9774436090225563,
-      "auc": 0.9996364958197019,
-      "support": 66
+      "precision": 0.9836065573770492,
+      "recall": 1.0,
+      "f1": 0.9917355371900827,
+      "auc": 0.9999937694704049,
+      "support": 60
     },
     "weather": {
       "precision": 1.0,
       "recall": 1.0,
       "f1": 1.0,
       "auc": 1.0,
-      "support": 51
+      "support": 56
     }
   },
   "training_history": [
     {
       "epoch": 1,
-      "train_loss": 0.3121898851725234,
-      "val_loss": 0.09350123939414819,
-      "val_exact_match": 0.9136842105263158,
-      "val_hamming": 0.9941520467836257
+      "train_loss": 0.06328092948860374,
+      "val_loss": 0.14947743644548017,
+      "val_exact_match": 0.8742690058479532,
+      "val_hamming": 0.9917763157894737
     },
     {
       "epoch": 2,
-      "train_loss": 0.06845666763388372,
-      "val_loss": 0.041404566696534556,
-      "val_exact_match": 0.9710526315789474,
-      "val_hamming": 0.9980409356725146
+      "train_loss": 0.008972423777463491,
+      "val_loss": 0.08150883235557135,
+      "val_exact_match": 0.9502923976608187,
+      "val_hamming": 0.997035412605588
     },
     {
       "epoch": 3,
-      "train_loss": 0.03561527099501451,
-      "val_loss": 0.027486819572125874,
-      "val_exact_match": 0.9757894736842105,
-      "val_hamming": 0.9984795321637427
+      "train_loss": 0.00423045863607784,
+      "val_loss": 0.05780736824800802,
+      "val_exact_match": 0.9769736842105263,
+      "val_hamming": 0.9985786224821313
     },
     {
       "epoch": 4,
-      "train_loss": 0.024366572499764347,
-      "val_loss": 0.02126688985154033,
-      "val_exact_match": 0.9847368421052631,
-      "val_hamming": 0.9990350877192983
+      "train_loss": 0.0025975831509608646,
+      "val_loss": 0.04876631532990655,
+      "val_exact_match": 0.9773391812865497,
+      "val_hamming": 0.9985989278752436
     },
     {
       "epoch": 5,
-      "train_loss": 0.02002630995962174,
-      "val_loss": 0.018952760100364684,
-      "val_exact_match": 0.9894736842105263,
-      "val_hamming": 0.9993567251461988
+      "train_loss": 0.0017444131104820217,
+      "val_loss": 0.04088433743129636,
+      "val_exact_match": 0.9828216374269005,
+      "val_hamming": 0.9989441195581547
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.00133471559101378,
+      "val_loss": 0.035891055779228374,
+      "val_exact_match": 0.9853801169590644,
+      "val_hamming": 0.999106562703054
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.0010356886420611357,
+      "val_loss": 0.0334504360852893,
+      "val_exact_match": 0.9839181286549707,
+      "val_hamming": 0.9990253411306043
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.0008957901975423866,
+      "val_loss": 0.03236716708471609,
+      "val_exact_match": 0.9864766081871345,
+      "val_hamming": 0.9991471734892787
     }
   ]
 }

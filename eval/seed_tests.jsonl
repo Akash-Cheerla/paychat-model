@@ -108,3 +108,18 @@
 {"text": "lets go halves on dinner", "intents": ["money"], "entities": {}, "tag": "money_split"}
 {"text": "chip in 15 each", "intents": ["money"], "entities": {"amount": "15"}, "tag": "money_split"}
 {"text": "going dutch on this one", "intents": ["money"], "entities": {}, "tag": "money_split"}
+{"text": "dominos?", "context": "bro I'm so hungry | same, haven't eaten all day", "intents": ["food_order"], "entities": {}, "tag": "v5_context_buildup"}
+{"text": "uber?", "context": "I'm running late | the train is delayed", "intents": ["ride"], "entities": {}, "tag": "v5_context_buildup"}
+{"text": "let's split it", "context": "dinner was 120 total | that's expensive", "intents": ["money"], "entities": {}, "tag": "v5_context_buildup"}
+{"text": "yeah do it", "context": "should we order pizza tonight", "intents": ["food_order"], "entities": {}, "tag": "v5_confirmation"}
+{"text": "sure", "context": "uber to the airport?", "intents": ["ride"], "entities": {}, "tag": "v5_confirmation"}
+{"text": "ok sending", "context": "venmo me 20 for the pizza", "intents": ["money"], "entities": {}, "tag": "v5_confirmation"}
+{"text": "yeah", "context": "that movie was wild", "intents": [], "entities": {}, "tag": "v5_confirm_negative"}
+{"text": "same", "context": "I'm so tired today", "intents": [], "entities": {}, "tag": "v5_confirm_negative"}
+{"text": "dominos", "context": "what's your favorite app", "intents": [], "entities": {}, "tag": "v5_context_negative"}
+{"text": "uber", "context": "their stock went up today", "intents": [], "entities": {}, "tag": "v5_context_negative"}
+{"text": "actually make it lyft", "context": "uber to the airport", "intents": ["ride"], "entities": {}, "tag": "v5_correction"}
+{"text": "that was a good game last night", "context": "order pizza from dominos", "intents": [], "entities": {}, "tag": "v5_no_carryforward"}
+{"text": "sure", "context": "should we order pizza", "intents": ["food_order"], "entities": {}, "tag": "v5_disambiguation"}
+{"text": "sure", "context": "that movie was really good", "intents": [], "entities": {}, "tag": "v5_disambiguation"}
+{"text": "venmo me 20 for pizza", "context": "what's up | nothing much", "intents": ["money"], "entities": {"amount": "20"}, "tag": "v5_single_with_context"}

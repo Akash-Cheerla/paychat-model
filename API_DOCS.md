@@ -1,18 +1,20 @@
-# FYOE Eval Server API — v4
+# FYOE Eval Server API — v5
 
 Base URL: `http://localhost:8001`
 
-This is the **eval/testing server**, not the production API. In prod everything runs on-device (E2EE). This server lets you stress-test the model by throwing messages at it and seeing what comes back.
+This is the **eval/testing server**, not the production API. In prod everything runs in the Nitro Enclave. This server lets you stress-test the model by throwing messages at it and seeing what comes back.
 
 ---
 
 ## Model quick facts
 
 - RoBERTa-base, 18 sigmoid heads (multi-label)
-- 19,001 training examples, 5 epochs
-- Per-intent optimized thresholds (not flat 0.5 — each intent has its own cutoff)
+- ~30,840 training examples (2,486 multi-turn context), 8 epochs
+- Focal loss + label smoothing + fp16 mixed precision
+- Per-intent optimized thresholds (not flat 0.5)
+- **v5: multi-turn context** — model sees last 3-5 messages via tokenizer pair encoding
 - Layer A slot filler: regex + dateparser, <5ms/message, $0
-- 98.8% test exact match, 81.7% adversarial seed suite
+- Trigger filter: regex + fuzzy Levenshtein (catches typos automatically)
 
 ### The 18 intents
 
@@ -34,10 +36,9 @@ The main one. Send a message, get back all 18 scores + slots.
 {
   "text": "remind me to venmo priya $25 at 8pm",
   "all_scores": [
-    { "intent": "alarm",    "prob": 0.9912, "threshold": 0.30, "fired": true },
-    { "intent": "money",    "prob": 0.9847, "threshold": 0.55, "fired": true },
-    { "intent": "calendar", "prob": 0.0312, "threshold": 0.70, "fired": false },
-    ...
+    { "intent": "alarm",    "prob": 0.9912, "threshold": 0.60, "fired": true },
+    { "intent": "money",    "prob": 0.9847, "threshold": 0.30, "fired": true },
+    { "intent": "calendar", "prob": 0.0312, "threshold": 0.29, "fired": false }
   ],
   "fired": ["money", "alarm"],
   "slots": {
@@ -50,7 +51,7 @@ The main one. Send a message, get back all 18 scores + slots.
       "_required_filled": true
     },
     "alarm": {
-      "datetime": "2026-05-02T20:00:00",
+      "datetime": "2026-05-12T20:00:00",
       "note": "venmo priya $25",
       "_required_filled": true
     }
@@ -59,7 +60,7 @@ The main one. Send a message, get back all 18 scores + slots.
 }
 ```
 
-`all_scores` is sorted by probability (highest first). `fired` is the list of intents that cleared their threshold. `slots` has per-intent extracted entities. `needs_clarification` tells you which required slots are missing — if it's not empty, the app should ask the user instead of guessing.
+`all_scores` is sorted by probability (highest first). `fired` is the list of intents that cleared their threshold. `slots` has per-intent extracted entities. `needs_clarification` tells you which required slots are missing.
 
 ---
 
@@ -77,7 +78,7 @@ Returns `{ "results": [ ...same shape as /detect... ] }`.
 
 ## `GET /meta`
 
-Model version, all 18 labels, thresholds, slot schema. Good for sanity-checking what the server is running.
+Model version, all 18 labels, thresholds, slot schema.
 
 ---
 
@@ -120,13 +121,15 @@ Failures as training-data JSONL. Drop into `training/data/` for the next retrain
 
 ## `GET /seed`
 
-The 82 adversarial seed-suite test cases as JSON.
+The 126 adversarial seed-suite test cases as JSON (including 16 multi-turn context tests).
 
 ---
 
 ## WebSocket `/ws/{room_id}/{user_name}`
 
 Powers the two-person chat. Connect, send messages, get back model predictions broadcast to everyone in the room.
+
+**v5:** The WebSocket chat now uses the **context accumulator** — every message is classified with the last 5 messages from the room as context. This means confirmations ("yeah do it"), context buildup ("I'm hungry" → "dominos?"), and corrections ("actually make it lyft") all work.
 
 **Connect:** `ws://localhost:8001/ws/myroom/akash`
 
@@ -139,32 +142,35 @@ Powers the two-person chat. Connect, send messages, get back model predictions b
   "sender": "akash",
   "text": "venmo priya $25",
   "fired": ["money"],
-  "slots": { "money": { "amount": "25", "recipient": "priya", ... } },
+  "slots": { "money": { "amount": "25", "recipient": "priya" } },
   "needs_clarification": [],
+  "context_used": true,
   "top_scores": [ ... ],
-  "ts": "2026-05-02T10:30:00+00:00"
+  "ts": "2026-05-12T10:30:00+00:00"
 }
 ```
+
+`context_used: true` means prior messages from the room were used as context for this classification.
 
 Other frames: `history` (on connect — last 50 msgs), `presence` (join/leave), `ping`/`pong` (keepalive).
 
 ---
 
-## Per-intent thresholds
+## Per-intent thresholds (v5)
 
 Each intent has its own threshold from validation. Not a flat 0.5.
 
 | intent | threshold | intent | threshold |
 |---|---|---|---|
-| money | 0.55 | shopping | 0.10 |
-| alarm | 0.30 | music | 0.30 |
-| contact | 0.20 | video | 0.35 |
-| calendar | 0.70 | tickets | 0.10 |
-| maps | 0.20 | reservation | 0.20 |
-| food_order | 0.20 | task | 0.70 |
-| ride | 0.50 | note | 0.10 |
-| travel | 0.10 | bills | 0.20 |
-| | | health | 0.45 |
-| | | weather | 0.10 |
+| money | 0.30 | shopping | 0.20 |
+| alarm | 0.60 | music | 0.29 |
+| contact | 0.45 | video | 0.29 |
+| calendar | 0.29 | tickets | 0.36 |
+| maps | 0.66 | reservation | 0.48 |
+| food_order | 0.29 | task | 0.64 |
+| ride | 0.57 | note | 0.16 |
+| travel | 0.17 | bills | 0.64 |
+| | | health | 0.20 |
+| | | weather | 0.14 |
 
 Baked into `saved_model/thresholds.json`, loaded automatically.

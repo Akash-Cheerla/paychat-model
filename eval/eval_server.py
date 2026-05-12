@@ -40,6 +40,10 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slot_filler import extract_slots, needs_clarification, SLOT_SCHEMA  # noqa: E402
 from trigger_filter import should_process, matched_intents  # noqa: E402
+from context_accumulator import ConversationContext  # noqa: E402
+
+# v5 conversation context — tracks multi-turn history per chat room
+CONV_CTX = ConversationContext(window_size=5, stale_seconds=1800)
 
 # --- paths -----------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
@@ -152,6 +156,57 @@ def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]
             "trigger_hints": matched_intents(text),
         }
     return results  # type: ignore
+
+
+@torch.no_grad()
+def run_model_with_context(text: str, context: str | None = None, use_trigger: bool = True) -> dict[str, Any]:
+    """Single-message inference with optional conversation context.
+
+    When context is provided, the tokenizer encodes (context, text) as a
+    text pair — same format the v5 model was trained on:
+        <s> prior msg 1 | prior msg 2 </s></s> current message </s>
+
+    If context is provided and the current message alone doesn't pass the
+    trigger filter, we STILL run the model — because the context might make
+    an otherwise-ambiguous message actionable ("dominos?" after "I'm hungry").
+    """
+    # With context, always run the model (context can make ambiguous messages actionable)
+    if use_trigger and not context:
+        if not should_process(text):
+            return _empty_result(text)
+
+    if context:
+        enc = tok(context, text, return_tensors="pt", truncation=True, max_length=128).to(DEVICE)
+    else:
+        enc = tok(text, return_tensors="pt", truncation=True, max_length=128).to(DEVICE)
+
+    logits = mdl(**enc).logits[0]
+    probs = torch.sigmoid(logits).cpu().tolist()
+
+    scores = []
+    for i, label in enumerate(LABELS):
+        thr = THRESHOLDS.get(label, 0.5)
+        scores.append({
+            "intent": label,
+            "prob": round(probs[i], 4),
+            "threshold": thr,
+            "fired": probs[i] >= thr,
+        })
+    scores.sort(key=lambda s: -s["prob"])
+    fired = [s["intent"] for s in scores if s["fired"]]
+    slots = extract_slots(text, fired) if fired else {}
+    clar = needs_clarification(slots)
+    return {
+        "text": text,
+        "context": context,
+        "all_scores": scores,
+        "fired": fired,
+        "slots": slots,
+        "needs_clarification": [{"intent": i, "missing": m} for i, m in clar],
+        "triggered": True,
+        "trigger_hints": matched_intents(text),
+    }
+
 
 # --- FastAPI ---------------------------------------------------------------
 app = FastAPI(title="FYOE eval harness")
@@ -266,9 +321,13 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                 text = (data.get("text") or "").strip()
                 if not text:
                     continue
-                # Run model in threadpool to avoid blocking the event loop.
-                result = await asyncio.to_thread(run_model, [text])
-                r = result[0]
+                # v5: get conversation context for this room
+                ctx_str = CONV_CTX.get_context_string(room_id)
+                # Run model with context in threadpool to avoid blocking.
+                r = await asyncio.to_thread(run_model_with_context, text, ctx_str)
+                # Record the turn so future messages have context
+                CONV_CTX.record(room_id, text, sender=user_name,
+                                fired=r["fired"], slots=r.get("slots", {}))
                 msg = {
                     "type": "msg",
                     "sender": user_name,
@@ -277,6 +336,7 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                     "slots": r["slots"],
                     "needs_clarification": r["needs_clarification"],
                     "triggered": r.get("triggered", True),
+                    "context_used": ctx_str is not None,
                     # only the top-5 scores so the payload stays small
                     "top_scores": r["all_scores"][:5] if r.get("triggered", True) else [],
                     "ts": datetime.now(timezone.utc).isoformat(),

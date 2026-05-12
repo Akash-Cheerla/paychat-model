@@ -51,10 +51,17 @@ def main() -> None:
     print(f"[base] loaded {len(cases)} seed cases", flush=True)
 
     # Inference (one at a time for clarity; tiny dataset)
+    # v5: supports multi-turn context tests. If a case has a "context" field,
+    # the tokenizer encodes (context, text) as a pair — matching training format.
     results = []
     t0 = time.time()
     for case in cases:
-        enc = tok(case["text"], return_tensors="pt", truncation=True, max_length=128).to(device)
+        context = case.get("context")
+        if context:
+            # Multi-turn: tokenizer pair encoding
+            enc = tok(context, case["text"], return_tensors="pt", truncation=True, max_length=128).to(device)
+        else:
+            enc = tok(case["text"], return_tensors="pt", truncation=True, max_length=128).to(device)
         with torch.no_grad():
             logits = mdl(**enc).logits[0]
         probs = torch.sigmoid(logits).cpu().tolist()
@@ -62,6 +69,7 @@ def main() -> None:
         expected = list(case.get("intents", []))
         results.append({
             "text": case["text"],
+            "context": context,
             "tag": case.get("tag", "untagged"),
             "expected": expected,
             "fired": fired,
@@ -147,6 +155,10 @@ def main() -> None:
         "alarm_with_note", "alarm_missing_note", "alarm_missing_all",
         "maps_simple", "maps_query_not_action",
         "money_split", "query_not_action", "health_implicit", "weather_minimal",
+        # v5 multi-turn context
+        "v5_context_buildup", "v5_confirmation", "v5_confirm_negative",
+        "v5_context_negative", "v5_correction", "v5_no_carryforward",
+        "v5_disambiguation", "v5_single_with_context",
     ]
     seen_tags = set()
     for t in tag_order + [x for x in by_tag if x not in tag_order]:
@@ -182,7 +194,10 @@ def main() -> None:
             top = " · ".join(f"`{n}`={p:.2f}" for n, p, _ in f["top5"])
             extras = f", **extra:** {', '.join(f['extra'])}" if f["extra"] else ""
             missed = f", **missed:** {', '.join(f['missed'])}" if f["missed"] else ""
+            ctx_str = f"  context: `{f['context']}`  \n" if f.get("context") else ""
             out.append(f"- `{f['text']}`  ")
+            if ctx_str:
+                out.append(ctx_str)
             out.append(f"  expected **{exp}** · fired **{fired}**{extras}{missed}  ")
             out.append(f"  top probs: {top}")
         out.append("")

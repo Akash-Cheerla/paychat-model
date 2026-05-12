@@ -67,6 +67,10 @@ from v4_failure_modes import (
     V43_THIRD_PERSON,
 )
 
+# v5 multi-turn conversation banks — teaches the model to use prior messages
+# as context for classifying the current message.
+from v5_multiturn import ALL_V5_BANKS
+
 random.seed(42)
 
 # Use the v3 taxonomy (18 intents). Old code referencing INTENTS still works.
@@ -1320,13 +1324,16 @@ def _zeros():
     return {k: 0 for k in INTENTS}
 
 
-def make_example(text, category, labels):
-    return {
+def make_example(text, category, labels, context=None):
+    ex = {
         "text": text,
         "labels": labels,
         "category": category,
         "split": "train",
     }
+    if context:
+        ex["context"] = context
+    return ex
 
 
 def generate_dataset(n_per_intent=600):
@@ -1683,6 +1690,43 @@ def generate_dataset(n_per_intent=600):
             labels = _zeros()
             labels.update(intent_flags)
             dataset.append(make_example(text, "v43_third_person", labels))
+
+    # ═════════════════════════════════════════════════════════════════════
+    # v5 MULTI-TURN CONTEXT — teaches the model to use prior messages
+    # as context for classifying the current message.
+    #
+    # Format: (prior_msgs_list, current_msg, intent_flags)
+    # Stored as: {"text": current, "context": "msg1 | msg2", "labels": {...}}
+    #
+    # During training, ChatDataset uses tokenizer(context, text) so the
+    # model sees: <s> prior context </s></s> current message </s>
+    # ═════════════════════════════════════════════════════════════════════
+
+    # Multipliers per bank — positive banks get more repeats, negatives
+    # need fewer since we already have plenty of single-turn negatives.
+    _V5_MULTIPLIERS = {
+        "v5_context_buildup":     12,  # core feature — needs heavy training
+        "v5_context_negative":    10,  # contrastive — equally important
+        "v5_confirmation":        10,  # common pattern
+        "v5_confirm_negative":     8,  # contrastive
+        "v5_correction":           8,  # less common but important
+        "v5_addition":             8,
+        "v5_no_carryforward":     10,  # critical negative
+        "v5_single_with_context": 10,  # prevent regression
+        "v5_disambiguation":      12,  # highest-value contrastive pairs
+        "v5_long_context":        10,  # deep context chains
+    }
+
+    for bank_name, bank in ALL_V5_BANKS.items():
+        multiplier = _V5_MULTIPLIERS.get(bank_name, 8)
+        for priors, current, intent_flags in bank:
+            for _ in range(multiplier):
+                cur_text = augment(fill(current))
+                ctx_parts = [augment(fill(p)) for p in priors]
+                context_str = " | ".join(ctx_parts)
+                labels = _zeros()
+                labels.update(intent_flags)
+                dataset.append(make_example(cur_text, bank_name, labels, context=context_str))
 
     # ── Negatives ──
     # Two flavors:

@@ -1,25 +1,24 @@
-# FYOE Integration Guide — v4
+# FYOE Integration Guide — v5
 
 
 ---
 
 ## How it fits together
 
-Everything runs **on the user's device**.
+Everything runs on the **server (AWS Nitro Enclave)** — encrypted in, prediction out.
 
 ```
-Chat message typed
-  -> on-device model (RoBERTa, 18 heads) -> which intents fired
-  -> on-device slot filler (regex, <5ms) -> who, when, where, how much
-  -> all required slots filled? -> show action card with deep link
-  -> something missing? -> show clarification card ("who?", "how much?")
-  -> user taps card -> deep link opens Venmo / Maps / Spotify / whatever
+Chat message sent
+  -> Server (Nitro Enclave) decrypts in secure enclave
+  -> Trigger filter pre-screens (regex + fuzzy Levenshtein)
+  -> Context accumulator prepends last 3-5 messages from conversation
+  -> RoBERTa model (18 sigmoid heads) classifies with context
+  -> Slot filler (regex + dateparser, <5ms) extracts entities
+  -> All required slots filled? -> action card with deep link
+  -> Something missing? -> clarification card ("who?", "how much?")
+  -> Encrypted response sent back to client
+  -> User taps card -> deep link opens Venmo / Maps / Spotify / etc
 ```
-
-Backend just:
-- Stores and relays encrypted messages (already doing this)
-- Hosts model files for on-device download (~499MB, one-time)
-- Doesn't decrypt, doesn't run the model, doesn't extract anything
 
 ---
 
@@ -50,11 +49,59 @@ Multi-label — one message can fire 2+ intents at once.
 
 ---
 
+## Multi-turn context (v5)
+
+The model now uses conversation history. This is the biggest upgrade — the model sees prior messages and uses them to classify the current message.
+
+### What this enables
+
+| Pattern | Before (v4) | After (v5) |
+|---|---|---|
+| "I'm hungry" → "dominos?" | Nothing fires | food_order fires |
+| "order pizza?" → "yeah" | Nothing fires | food_order carries forward |
+| "uber to JFK" → "make it lyft" | Confused | ride fires, app = lyft |
+| "sure" after "order pizza?" | Nothing | food_order |
+| "sure" after "good movie" | Nothing | Nothing (correct!) |
+
+### How it works (server-side)
+
+1. **Context accumulator** tracks last 5 messages per conversation (chat_id)
+2. When a new message arrives, prior messages are prepended using `|` separator
+3. The tokenizer encodes `(context, current_text)` as a text pair:
+   ```
+   <s> prior msg 1 | prior msg 2 </s></s> current message </s>
+   ```
+4. Model was trained on 2,486 examples in this exact format
+5. Single-turn messages still work as before (no context = no pair encoding)
+
+### Integration
+
+```python
+from context_accumulator import ConversationContext
+
+ctx = ConversationContext(window_size=5)
+
+# On each message:
+context_str = ctx.get_context_string(chat_id)  # "msg1 | msg2" or None
+
+if context_str:
+    enc = tokenizer(context_str, text, max_length=128, ...)  # pair encoding
+else:
+    enc = tokenizer(text, max_length=128, ...)               # single
+
+# After classification:
+ctx.record(chat_id, text, fired=result["fired"], slots=result["slots"])
+```
+
+---
+
 ## Model specs
 
 - **RoBERTa-base** with 18 sigmoid heads
-- 19,001 training examples with 8 failure-mode banks
-- 98.8% IID exact match, 81.7% adversarial seed suite (82 edge cases)
+- ~30,840 training examples (2,486 multi-turn context)
+- 10 multi-turn conversation banks + 26 single-turn failure-mode banks
+- Focal loss (gamma=2.0) + label smoothing (0.03) + mixed precision (fp16)
+- 8 epochs on T4 GPU
 - ~20-40ms on CPU, ~5-15ms on GPU
 - ~499MB model weights
 
@@ -64,15 +111,29 @@ Multi-label — one message can fire 2+ intents at once.
 
 ```json
 {
-  "money": 0.55, "alarm": 0.30, "contact": 0.20, "calendar": 0.70,
-  "maps": 0.20, "food_order": 0.20, "ride": 0.50, "travel": 0.10,
-  "shopping": 0.10, "music": 0.30, "video": 0.35, "tickets": 0.10,
-  "reservation": 0.20, "task": 0.70, "note": 0.10, "bills": 0.20,
-  "health": 0.45, "weather": 0.10
+  "money": 0.30, "alarm": 0.60, "contact": 0.45, "calendar": 0.29,
+  "maps": 0.66, "food_order": 0.29, "ride": 0.57, "travel": 0.17,
+  "shopping": 0.20, "music": 0.29, "video": 0.29, "tickets": 0.36,
+  "reservation": 0.48, "task": 0.64, "note": 0.16, "bills": 0.64,
+  "health": 0.20, "weather": 0.14
 }
 ```
 
 These are in `saved_model/thresholds.json`. If you hardcode 0.5, accuracy tanks.
+
+---
+
+## Trigger filter
+
+`eval/trigger_filter.py` — pre-screens messages before they hit the model.
+
+Two layers:
+1. **Regex** — per-intent keyword patterns (fast, catches 95%+ of actionable messages)
+2. **Fuzzy (Levenshtein distance 1)** — automatically catches typos/SMS-speak ("ordr" → "order", "ubr" → "uber", "piza" → "pizza")
+
+Only keywords with 5+ characters get fuzzy-matched (avoids false positives like "good" → "food").
+
+**With context:** When the context accumulator has prior messages for a conversation, the trigger filter is bypassed for that message — because context can make an otherwise-ambiguous message actionable ("dominos?" has no keywords but context makes it food_order).
 
 ---
 
@@ -92,17 +153,6 @@ After the model fires intents, you extract entities from the text. This is pure 
   "direction": "send",
   "_required_filled": true
 }
-```
-
-`"send money to someone"` -> fires `money`:
-```json
-{
-  "amount": null,
-  "recipient": null,
-  "direction": "send",
-  "_required_filled": false
-}
-// needs_clarification: [{ intent: "money", missing: "amount" }, { intent: "money", missing: "recipient" }]
 ```
 
 ### Slot schema (all 18)
@@ -144,64 +194,68 @@ We don't process, hold, or route payments. We just deep-link to the right app.
 | upi | `upi://pay?pa=<vpa>&am=<amt>&tn=<note>` |
 | fallback | show picker based on user's default payment app |
 
-For return-to-app: use `SFSafariViewController` (iOS) / Custom Tabs (Android) for web links. Register `fyoe://` callback scheme for native deep links.
-
-Same pattern for non-payment intents — detect the provider from text ("on spotify", "from amazon")
+Same pattern for non-payment intents — detect the provider from text ("on spotify", "from amazon").
 
 ---
 
-## Android integration (the actual steps)
+## Server-side integration
 
-### 1. Get the model onto the device
+### 1. Deploy model in Nitro Enclave
 
-~499MB. Either download on first launch (from your CDN) or bundle in APK. Files you need:
+The model runs inside an AWS Nitro Enclave. Files needed:
 ```
 config.json, model.safetensors, tokenizer.json,
 tokenizer_config.json, special_tokens_map.json, thresholds.json
 ```
 
-### 2. Run inference
+### 2. Run inference with context
 
-Use ONNX Runtime Mobile or PyTorch Mobile. Pseudocode:
+```python
+# Load model
+tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR).eval()
+thresholds = json.load(open(MODEL_DIR / "thresholds.json"))
 
-```kotlin
-val logits = model.forward(tokenize(text))  // float[18]
-val fired = mutableListOf<String>()
-for (i in LABELS.indices) {
-    val prob = sigmoid(logits[i])
-    if (prob >= thresholds[LABELS[i]]!!) {
-        fired.add(LABELS[i])
-    }
+# Per-message inference (with optional context)
+context = "prior msg 1 | prior msg 2"  # from context accumulator, or None
+
+if context:
+    enc = tokenizer(context, text, return_tensors="pt", truncation=True, max_length=128)
+else:
+    enc = tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
+
+logits = model(**enc).logits[0]
+probs = torch.sigmoid(logits).tolist()
+fired = [labels[i] for i, p in enumerate(probs) if p >= thresholds[labels[i]]]
+```
+
+### 3. Extract slots
+
+```python
+from slot_filler import extract_slots, needs_clarification
+
+slots = extract_slots(text, fired)
+missing = needs_clarification(slots)
+```
+
+### 4. Return result to client
+
+```json
+{
+  "fired": ["food_order"],
+  "slots": { "food_order": { "item": "pizza", "provider": "dominos" } },
+  "needs_clarification": [],
+  "context_used": true
 }
 ```
 
-### 3. Port the slot filler
-
-`eval/slot_filler.py` is ~400 lines of regex + dateparser. Port to Kotlin or run via Chaquopy if you want exact parity. No ML involved, just string matching.
-
-### 4. Render cards
-
-```kotlin
-for (intent in fired) {
-    val slots = extractSlots(text, intent)
-    if (slots.requiredFilled) {
-        showActionCard(intent, slots)  // tap -> deep link
-    } else {
-        showClarificationCard(intent, slots.missing)  // "who?", "when?"
-    }
-}
-```
-
-Multiple intents = multiple stacked cards, most confident first.
-
 ---
 
+## Known limitations (and what's next)
 
-## Known limitations
-
-1. **No conversation context** — model sees one message at a time. "How much?" after "I need to pay Priya" won't connect. Fix is on-device context window (planned).
-2. **No coreference** — "Send it to her" doesn't know who "her" is. Same fix.
-3. **81.7% adversarial** — that seed suite is intentionally brutal (sarcasm, negation, past tense). Real-world accuracy is higher.
+1. ~~**No conversation context**~~ **FIXED in v5** — model now sees last 3-5 messages
+2. **No coreference** — "Send it to her" doesn't know who "her" is. Needs contact resolution against user's address book (backend Layer C).
+3. **Context needs retraining** — v5 templates are the first version. Real user conversations will surface edge cases that need more training data.
+4. **126 seed tests** — adversarial suite is intentionally brutal. Real-world accuracy is higher.
 
 ---
-
