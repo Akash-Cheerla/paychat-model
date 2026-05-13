@@ -1743,18 +1743,19 @@ def generate_dataset(n_per_intent=600):
     # ═════════════════════════════════════════════════════════════════════
 
     _V51_MULTIPLIERS = {
-        "v51_time_not_alarm":         15,  # critical — alarm overfires hardest
+        "v51_time_not_alarm":         18,  # critical — alarm overfires hardest
         "v51_time_is_alarm":          10,  # contrastive positive
-        "v51_activity_not_calendar":  15,  # calendar overfires on activity
-        "v51_venue_not_maps":         15,  # maps overfires on venues
+        "v51_activity_not_calendar":  18,  # calendar overfires on activity
+        "v51_venue_not_maps":         18,  # maps overfires on venues
         "v51_place_is_maps":          10,  # contrastive positive
-        "v51_ride_not_maps":          15,  # maps fires on "uber there"
+        "v51_ride_not_maps":          18,  # maps fires on "uber there"
         "v51_bills_not_money":        15,  # money fires on "pay rent"
         "v51_actual_money":           10,  # contrastive positive
         "v51_strong_negation":        15,  # negation must kill intent
+        "v51_bare_brand_negative":    18,  # bare "uber"/"venmo" must NOT fire
         "v51_contact_boost":          15,  # contact threshold too high
         "v51_bare_word_boost":        18,  # bare "weather" needs heavy boost
-        "v51_dont_forget_fixes":      12,  # "don't forget" ≠ alarm
+        "v51_dont_forget_fixes":      15,  # "don't forget" ≠ alarm
         "v51_question_form":          12,  # "wanna uber" = ride
     }
 

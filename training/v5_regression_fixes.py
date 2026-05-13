@@ -595,7 +595,7 @@ V51_CONTACT_BOOST = [
 # ═════════════════════════════════════════════════════════════════════════════
 
 V51_BARE_WORD_BOOST = [
-    # ── weather bare words ──
+    # ── weather bare words (weather SHOULD fire) ──
     ("weather", {"weather": 1}),
     ("weather?", {"weather": 1}),
     ("weather today", {"weather": 1}),
@@ -627,39 +627,109 @@ V51_BARE_WORD_BOOST = [
     ("what's the temp", {"weather": 1}),
     ("outside temp", {"weather": 1}),
 
-    # ── ride bare words ──
-    ("uber", {"ride": 1}),
-    ("uber?", {"ride": 1}),
+    # ── ride WITH action word (ride SHOULD fire) ──
     ("uber please", {"ride": 1}),
-    ("lyft", {"ride": 1}),
-    ("lyft?", {"ride": 1}),
-    ("cab", {"ride": 1}),
-    ("cab?", {"ride": 1}),
-    ("taxi", {"ride": 1}),
-    ("ride?", {"ride": 1}),
-    ("ola", {"ride": 1}),
+    ("get an uber", {"ride": 1}),
+    ("book an uber", {"ride": 1}),
+    ("call an uber", {"ride": 1}),
+    ("need an uber", {"ride": 1}),
+    ("let's uber", {"ride": 1}),
+    ("uber there", {"ride": 1}),
+    ("uber home", {"ride": 1}),
+    ("get a lyft", {"ride": 1}),
+    ("book a cab", {"ride": 1}),
+    ("call a cab", {"ride": 1}),
+    ("need a cab", {"ride": 1}),
+    ("need a ride", {"ride": 1}),
 
-    # ── food bare words ──
-    ("pizza?", {"food_order": 1}),
-    ("sushi?", {"food_order": 1}),
-    ("chipotle?", {"food_order": 1}),
-    ("dominos?", {"food_order": 1}),
-    ("doordash?", {"food_order": 1}),
-    ("ubereats?", {"food_order": 1}),
-    ("swiggy?", {"food_order": 1}),
-    ("zomato?", {"food_order": 1}),
-    ("order food?", {"food_order": 1}),
-
-    # ── money bare words ──
-    ("venmo", {"money": 1}),
-    ("venmo?", {"money": 1}),
+    # ── money WITH action word (money SHOULD fire) ──
     ("venmo me", {"money": 1}),
-    ("cashapp", {"money": 1}),
+    ("venmo me {amount}", {"money": 1}),
     ("cashapp me", {"money": 1}),
-    ("split?", {"money": 1}),
-    ("splitwise?", {"money": 1}),
-    ("pay up", {"money": 1}),
+    ("cashapp me {amount}", {"money": 1}),
+    ("pay me back", {"money": 1}),
     ("pay me", {"money": 1}),
+    ("pay up", {"money": 1}),
+    ("split it", {"money": 1}),
+    ("let's split", {"money": 1}),
+    ("send me {amount}", {"money": 1}),
+    ("you owe me", {"money": 1}),
+
+    # ── food WITH action word (food SHOULD fire) ──
+    ("order pizza", {"food_order": 1}),
+    ("order food", {"food_order": 1}),
+    ("let's order", {"food_order": 1}),
+    ("get dominos", {"food_order": 1}),
+    ("get chipotle", {"food_order": 1}),
+    ("order from doordash", {"food_order": 1}),
+    ("order from ubereats", {"food_order": 1}),
+]
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 8b. BARE_BRAND_NEGATIVES — bare brand names must NOT fire
+#
+# "uber" alone = could be talking about the company, stock, etc.
+# "venmo" alone = could be naming the app in conversation.
+# Only fires when combined with action words (uber please, venmo me, etc.)
+# ═════════════════════════════════════════════════════════════════════════════
+
+V51_BARE_BRAND_NEGATIVE = [
+    # ── ride brands (must NOT fire ride) ──
+    ("uber", {}),
+    ("lyft", {}),
+    ("ola", {}),
+    ("cab", {}),
+    ("taxi", {}),
+    ("uber is a great company", {}),
+    ("lyft stock is up", {}),
+    ("uber or lyft?", {}),
+    ("do you use uber", {}),
+    ("uber has a new feature", {}),
+    ("lyft is cheaper", {}),
+    ("uber drivers are nice", {}),
+    ("I work at uber", {}),
+    ("my friend works at lyft", {}),
+    ("uber is down", {}),
+    ("the uber app crashed", {}),
+    ("lyft app", {}),
+    ("uber ratings", {}),
+
+    # ── money brands (must NOT fire money) ──
+    ("venmo", {}),
+    ("cashapp", {}),
+    ("zelle", {}),
+    ("paypal", {}),
+    ("gpay", {}),
+    ("venmo is good", {}),
+    ("cashapp or venmo", {}),
+    ("do you have venmo", {}),
+    ("what's your venmo", {}),
+    ("I use cashapp", {}),
+    ("venmo is down", {}),
+    ("the venmo app", {}),
+    ("cashapp has fees", {}),
+    ("zelle doesn't work", {}),
+    ("venmo or cashapp which is better", {}),
+    ("is venmo safe", {}),
+    ("does venmo charge fees", {}),
+
+    # ── food brands (must NOT fire food_order) ──
+    ("dominos", {}),
+    ("chipotle", {}),
+    ("pizza hut", {}),
+    ("mcdonald's", {}),
+    ("doordash", {}),
+    ("ubereats", {}),
+    ("swiggy", {}),
+    ("zomato", {}),
+    ("dominos is overrated", {}),
+    ("chipotle gives me stomach issues", {}),
+    ("doordash fees are crazy", {}),
+    ("ubereats or doordash", {}),
+    ("swiggy or zomato", {}),
+    ("dominos has good deals", {}),
+    ("I worked at chipotle", {}),
+    ("mcdonald's is mid", {}),
 ]
 
 
@@ -774,6 +844,7 @@ ALL_V51_BANKS = {
     "v51_bills_not_money":        V51_BILLS_NOT_MONEY,
     "v51_actual_money":           V51_ACTUAL_MONEY,
     "v51_strong_negation":        V51_STRONG_NEGATION,
+    "v51_bare_brand_negative":    V51_BARE_BRAND_NEGATIVE,
 
     # Positives (things that must fire)
     "v51_contact_boost":          V51_CONTACT_BOOST,
