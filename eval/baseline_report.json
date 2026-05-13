@@ -1,0 +1,5213 @@
+{
+  "generated_at": "2026-05-12T18:10:51",
+  "model_dir": "C:\\Users\\akash\\Downloads\\paychat-model\\saved_model",
+  "device": "cpu",
+  "test_exact_match": 98.57328145265889,
+  "total": 125,
+  "passed": 113,
+  "failed": 12,
+  "ms_per_case": 52.76541328430176,
+  "by_tag": {
+    "smoke": {
+      "total": 14,
+      "passed": 10
+    },
+    "negation": {
+      "total": 8,
+      "passed": 6
+    },
+    "past_tense": {
+      "total": 7,
+      "passed": 7
+    },
+    "multi_intent": {
+      "total": 6,
+      "passed": 3
+    },
+    "ambiguous": {
+      "total": 4,
+      "passed": 4
+    },
+    "chitchat": {
+      "total": 6,
+      "passed": 6
+    },
+    "false_positive_bait": {
+      "total": 7,
+      "passed": 7
+    },
+    "typo": {
+      "total": 1,
+      "passed": 1
+    },
+    "slang": {
+      "total": 4,
+      "passed": 4
+    },
+    "numerics": {
+      "total": 3,
+      "passed": 3
+    },
+    "code_mixed": {
+      "total": 4,
+      "passed": 4
+    },
+    "long": {
+      "total": 1,
+      "passed": 1
+    },
+    "edge_missing_slot": {
+      "total": 1,
+      "passed": 1
+    },
+    "edge_pronoun": {
+      "total": 3,
+      "passed": 3
+    },
+    "edge_negation_marker": {
+      "total": 1,
+      "passed": 0
+    },
+    "edge_multi_recipient": {
+      "total": 1,
+      "passed": 1
+    },
+    "alarm_with_note": {
+      "total": 1,
+      "passed": 1
+    },
+    "alarm_missing_note": {
+      "total": 1,
+      "passed": 1
+    },
+    "alarm_missing_all": {
+      "total": 1,
+      "passed": 1
+    },
+    "maps_simple": {
+      "total": 2,
+      "passed": 2
+    },
+    "maps_query_not_action": {
+      "total": 1,
+      "passed": 1
+    },
+    "money_split": {
+      "total": 4,
+      "passed": 4
+    },
+    "query_not_action": {
+      "total": 1,
+      "passed": 1
+    },
+    "health_implicit": {
+      "total": 1,
+      "passed": 1
+    },
+    "weather_minimal": {
+      "total": 2,
+      "passed": 1
+    },
+    "question_form": {
+      "total": 5,
+      "passed": 4
+    },
+    "idiomatic_false_pos": {
+      "total": 8,
+      "passed": 8
+    },
+    "present_activity": {
+      "total": 3,
+      "passed": 3
+    },
+    "third_person": {
+      "total": 3,
+      "passed": 3
+    },
+    "ultra_short": {
+      "total": 3,
+      "passed": 3
+    },
+    "bare_word": {
+      "total": 3,
+      "passed": 3
+    },
+    "v5_context_buildup": {
+      "total": 3,
+      "passed": 3
+    },
+    "v5_confirmation": {
+      "total": 3,
+      "passed": 3
+    },
+    "v5_confirm_negative": {
+      "total": 2,
+      "passed": 2
+    },
+    "v5_context_negative": {
+      "total": 2,
+      "passed": 2
+    },
+    "v5_correction": {
+      "total": 1,
+      "passed": 1
+    },
+    "v5_no_carryforward": {
+      "total": 1,
+      "passed": 1
+    },
+    "v5_disambiguation": {
+      "total": 2,
+      "passed": 2
+    },
+    "v5_single_with_context": {
+      "total": 1,
+      "passed": 1
+    }
+  },
+  "per_intent": {
+    "money": {
+      "tp": 16,
+      "fp": 2,
+      "fn": 0
+    },
+    "alarm": {
+      "tp": 10,
+      "fp": 3,
+      "fn": 0
+    },
+    "contact": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 2
+    },
+    "calendar": {
+      "tp": 4,
+      "fp": 2,
+      "fn": 0
+    },
+    "maps": {
+      "tp": 6,
+      "fp": 3,
+      "fn": 0
+    },
+    "food_order": {
+      "tp": 9,
+      "fp": 0,
+      "fn": 0
+    },
+    "ride": {
+      "tp": 9,
+      "fp": 0,
+      "fn": 0
+    },
+    "travel": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0
+    },
+    "shopping": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0
+    },
+    "music": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0
+    },
+    "video": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0
+    },
+    "tickets": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0
+    },
+    "reservation": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0
+    },
+    "task": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0
+    },
+    "note": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0
+    },
+    "bills": {
+      "tp": 4,
+      "fp": 1,
+      "fn": 0
+    },
+    "health": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0
+    },
+    "weather": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 1
+    }
+  },
+  "results": [
+    {
+      "text": "venmo me 20 bucks for pizza",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9806259870529175,
+          0.57
+        ],
+        [
+          "food_order",
+          0.15421141684055328,
+          0.58
+        ],
+        [
+          "bills",
+          0.11159910261631012,
+          0.18
+        ],
+        [
+          "reservation",
+          0.04838540032505989,
+          0.63
+        ],
+        [
+          "calendar",
+          0.04697107523679733,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "remind me to call mom tomorrow at 6pm",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "alarm",
+        "contact"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": false,
+      "extra": [],
+      "missed": [
+        "contact"
+      ],
+      "top5": [
+        [
+          "alarm",
+          0.9838617444038391,
+          0.47
+        ],
+        [
+          "contact",
+          0.8173448443412781,
+          0.84
+        ],
+        [
+          "task",
+          0.14682939648628235,
+          0.75
+        ],
+        [
+          "calendar",
+          0.10058166086673737,
+          0.27
+        ],
+        [
+          "maps",
+          0.07030580192804337,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "let's get sushi tonight, doordash it",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9520148038864136,
+          0.58
+        ],
+        [
+          "ride",
+          0.04179605841636658,
+          0.61
+        ],
+        [
+          "video",
+          0.03728044778108597,
+          0.31
+        ],
+        [
+          "bills",
+          0.0366017110645771,
+          0.18
+        ],
+        [
+          "contact",
+          0.0339311882853508,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "uber to JFK at 5am tomorrow",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "ride",
+        "maps"
+      ],
+      "fired": [
+        "alarm",
+        "maps",
+        "ride"
+      ],
+      "match": false,
+      "extra": [
+        "alarm"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.9737889170646667,
+          0.47
+        ],
+        [
+          "ride",
+          0.9517056941986084,
+          0.61
+        ],
+        [
+          "alarm",
+          0.789576530456543,
+          0.47
+        ],
+        [
+          "calendar",
+          0.09182897210121155,
+          0.27
+        ],
+        [
+          "task",
+          0.08560103178024292,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "flights to Tokyo next month",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "travel"
+      ],
+      "fired": [
+        "travel"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "travel",
+          0.9604548811912537,
+          0.15
+        ],
+        [
+          "calendar",
+          0.13730375468730927,
+          0.27
+        ],
+        [
+          "maps",
+          0.048278626054525375,
+          0.47
+        ],
+        [
+          "health",
+          0.047261446714401245,
+          0.88
+        ],
+        [
+          "tickets",
+          0.0452827587723732,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "play Anti-Hero by Taylor Swift",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "music"
+      ],
+      "fired": [
+        "music"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "music",
+          0.950504720211029,
+          0.79
+        ],
+        [
+          "note",
+          0.05914807319641113,
+          0.15
+        ],
+        [
+          "alarm",
+          0.04639420285820961,
+          0.47
+        ],
+        [
+          "contact",
+          0.04515024647116661,
+          0.84
+        ],
+        [
+          "money",
+          0.04109600931406021,
+          0.57
+        ]
+      ]
+    },
+    {
+      "text": "movie night, watching Oppenheimer",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "video"
+      ],
+      "fired": [
+        "calendar",
+        "video"
+      ],
+      "match": false,
+      "extra": [
+        "calendar"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "video",
+          0.9328750371932983,
+          0.31
+        ],
+        [
+          "calendar",
+          0.6325341463088989,
+          0.27
+        ],
+        [
+          "reservation",
+          0.12121744453907013,
+          0.63
+        ],
+        [
+          "tickets",
+          0.062081124633550644,
+          0.3
+        ],
+        [
+          "weather",
+          0.04995536431670189,
+          0.15
+        ]
+      ]
+    },
+    {
+      "text": "book a table at Blue Bottle for 4 people friday at 7",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "reservation"
+      ],
+      "fired": [
+        "calendar",
+        "reservation"
+      ],
+      "match": false,
+      "extra": [
+        "calendar"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "reservation",
+          0.9566817283630371,
+          0.63
+        ],
+        [
+          "calendar",
+          0.7809826731681824,
+          0.27
+        ],
+        [
+          "money",
+          0.06923089921474457,
+          0.57
+        ],
+        [
+          "video",
+          0.06676190346479416,
+          0.31
+        ],
+        [
+          "alarm",
+          0.06378698348999023,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "rent due friday, transfer 1200",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "bills",
+        "money"
+      ],
+      "fired": [
+        "money",
+        "bills"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "bills",
+          0.9667358994483948,
+          0.18
+        ],
+        [
+          "money",
+          0.8789129257202148,
+          0.57
+        ],
+        [
+          "calendar",
+          0.07533449679613113,
+          0.27
+        ],
+        [
+          "music",
+          0.055557746440172195,
+          0.79
+        ],
+        [
+          "task",
+          0.054758235812187195,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "is it gonna rain in mumbai tomorrow",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "weather"
+      ],
+      "fired": [
+        "weather"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "weather",
+          0.9308432936668396,
+          0.15
+        ],
+        [
+          "money",
+          0.05032284930348396,
+          0.57
+        ],
+        [
+          "music",
+          0.04883698746562004,
+          0.79
+        ],
+        [
+          "task",
+          0.04574594646692276,
+          0.75
+        ],
+        [
+          "calendar",
+          0.04553147405385971,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "I love Paris",
+      "context": null,
+      "tag": "smoke",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "travel",
+          0.018047770485281944,
+          0.15
+        ],
+        [
+          "maps",
+          0.015696045011281967,
+          0.47
+        ],
+        [
+          "music",
+          0.012827794067561626,
+          0.79
+        ],
+        [
+          "calendar",
+          0.012655740603804588,
+          0.27
+        ],
+        [
+          "weather",
+          0.012008092366158962,
+          0.15
+        ]
+      ]
+    },
+    {
+      "text": "watched Stranger Things last week",
+      "context": null,
+      "tag": "smoke",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "video",
+          0.023909742012619972,
+          0.31
+        ],
+        [
+          "shopping",
+          0.012221215292811394,
+          0.19
+        ],
+        [
+          "calendar",
+          0.011911840178072453,
+          0.27
+        ],
+        [
+          "tickets",
+          0.011602436192333698,
+          0.3
+        ],
+        [
+          "food_order",
+          0.01138867624104023,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "hey whats up",
+      "context": null,
+      "tag": "smoke",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.019694754853844643,
+          0.57
+        ],
+        [
+          "contact",
+          0.018572738394141197,
+          0.84
+        ],
+        [
+          "maps",
+          0.013705828227102757,
+          0.47
+        ],
+        [
+          "calendar",
+          0.012645800597965717,
+          0.27
+        ],
+        [
+          "health",
+          0.010940991342067719,
+          0.88
+        ]
+      ]
+    },
+    {
+      "text": "book me a doctor appointment for monday",
+      "context": null,
+      "tag": "smoke",
+      "expected": [
+        "health",
+        "calendar"
+      ],
+      "fired": [
+        "calendar",
+        "health"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.93454909324646,
+          0.27
+        ],
+        [
+          "health",
+          0.9335073232650757,
+          0.88
+        ],
+        [
+          "alarm",
+          0.1128939837217331,
+          0.47
+        ],
+        [
+          "food_order",
+          0.08450175076723099,
+          0.58
+        ],
+        [
+          "contact",
+          0.0816439762711525,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "I'm not going to call mom",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.015425710938870907,
+          0.84
+        ],
+        [
+          "task",
+          0.012296082451939583,
+          0.75
+        ],
+        [
+          "money",
+          0.01204431802034378,
+          0.57
+        ],
+        [
+          "bills",
+          0.011563565582036972,
+          0.18
+        ],
+        [
+          "calendar",
+          0.011261442676186562,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "don't remind me to do it",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.02395321987569332,
+          0.47
+        ],
+        [
+          "money",
+          0.014035362750291824,
+          0.57
+        ],
+        [
+          "ride",
+          0.011349845677614212,
+          0.61
+        ],
+        [
+          "maps",
+          0.011250430718064308,
+          0.47
+        ],
+        [
+          "calendar",
+          0.010504336096346378,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "no need to book an uber",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.015431534498929977,
+          0.61
+        ],
+        [
+          "bills",
+          0.013332121074199677,
+          0.18
+        ],
+        [
+          "money",
+          0.013093797490000725,
+          0.57
+        ],
+        [
+          "shopping",
+          0.011253857985138893,
+          0.19
+        ],
+        [
+          "task",
+          0.011241110041737556,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "I won't be playing music tonight",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "bills",
+          0.01264086551964283,
+          0.18
+        ],
+        [
+          "calendar",
+          0.012373052537441254,
+          0.27
+        ],
+        [
+          "task",
+          0.012187822721898556,
+          0.75
+        ],
+        [
+          "money",
+          0.01046396978199482,
+          0.57
+        ],
+        [
+          "food_order",
+          0.010233907960355282,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "don't transfer the rent yet",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [
+        "money",
+        "bills"
+      ],
+      "match": false,
+      "extra": [
+        "bills",
+        "money"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "bills",
+          0.951481819152832,
+          0.18
+        ],
+        [
+          "money",
+          0.7196635007858276,
+          0.57
+        ],
+        [
+          "task",
+          0.06442976742982864,
+          0.75
+        ],
+        [
+          "alarm",
+          0.04986065253615379,
+          0.47
+        ],
+        [
+          "music",
+          0.04920947179198265,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "cancel the reminder for 6pm",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [
+        "alarm"
+      ],
+      "match": false,
+      "extra": [
+        "alarm"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.6801498532295227,
+          0.47
+        ],
+        [
+          "calendar",
+          0.07503814250230789,
+          0.27
+        ],
+        [
+          "money",
+          0.022358281537890434,
+          0.57
+        ],
+        [
+          "bills",
+          0.022339195013046265,
+          0.18
+        ],
+        [
+          "task",
+          0.021402867510914803,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "forget the doctor appointment",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "task",
+          0.01269246730953455,
+          0.75
+        ],
+        [
+          "calendar",
+          0.012339853681623936,
+          0.27
+        ],
+        [
+          "note",
+          0.012020464986562729,
+          0.15
+        ],
+        [
+          "maps",
+          0.011856209486722946,
+          0.47
+        ],
+        [
+          "alarm",
+          0.01134728267788887,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "I'm not paying for pizza",
+      "context": null,
+      "tag": "negation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.014319225214421749,
+          0.57
+        ],
+        [
+          "bills",
+          0.011919468641281128,
+          0.18
+        ],
+        [
+          "food_order",
+          0.0113050676882267,
+          0.58
+        ],
+        [
+          "calendar",
+          0.010912441648542881,
+          0.27
+        ],
+        [
+          "maps",
+          0.010310777463018894,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "called mom yesterday",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.012960640713572502,
+          0.84
+        ],
+        [
+          "health",
+          0.010937445797026157,
+          0.88
+        ],
+        [
+          "calendar",
+          0.010849425569176674,
+          0.27
+        ],
+        [
+          "maps",
+          0.010802936740219593,
+          0.47
+        ],
+        [
+          "food_order",
+          0.010757863521575928,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "paid rent on friday already",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "bills",
+          0.014099586755037308,
+          0.18
+        ],
+        [
+          "contact",
+          0.01224015187472105,
+          0.84
+        ],
+        [
+          "task",
+          0.011624827980995178,
+          0.75
+        ],
+        [
+          "money",
+          0.011308507062494755,
+          0.57
+        ],
+        [
+          "calendar",
+          0.010864260606467724,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "I ubered home last night",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.013083850964903831,
+          0.27
+        ],
+        [
+          "ride",
+          0.011885781772434711,
+          0.61
+        ],
+        [
+          "contact",
+          0.011846895329654217,
+          0.84
+        ],
+        [
+          "alarm",
+          0.010874319821596146,
+          0.47
+        ],
+        [
+          "maps",
+          0.010529926046729088,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "ordered sushi already",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.01199226826429367,
+          0.58
+        ],
+        [
+          "contact",
+          0.011812519282102585,
+          0.84
+        ],
+        [
+          "maps",
+          0.011137095279991627,
+          0.47
+        ],
+        [
+          "money",
+          0.010836896486580372,
+          0.57
+        ],
+        [
+          "task",
+          0.01051847543567419,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "bought concert tickets last week",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "tickets",
+          0.012221538461744785,
+          0.3
+        ],
+        [
+          "contact",
+          0.01161055825650692,
+          0.84
+        ],
+        [
+          "maps",
+          0.011408558115363121,
+          0.47
+        ],
+        [
+          "calendar",
+          0.010977817699313164,
+          0.27
+        ],
+        [
+          "food_order",
+          0.010930170305073261,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "set the alarm last night before bed",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.013253742828965187,
+          0.47
+        ],
+        [
+          "contact",
+          0.012251299805939198,
+          0.84
+        ],
+        [
+          "ride",
+          0.0119920764118433,
+          0.61
+        ],
+        [
+          "calendar",
+          0.010537629947066307,
+          0.27
+        ],
+        [
+          "task",
+          0.010335003025829792,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "watched the game yesterday",
+      "context": null,
+      "tag": "past_tense",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.012142164632678032,
+          0.84
+        ],
+        [
+          "maps",
+          0.011065020225942135,
+          0.47
+        ],
+        [
+          "food_order",
+          0.01075691357254982,
+          0.58
+        ],
+        [
+          "calendar",
+          0.010688084177672863,
+          0.27
+        ],
+        [
+          "money",
+          0.010477101430296898,
+          0.57
+        ]
+      ]
+    },
+    {
+      "text": "remind me to pay rent friday",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "alarm",
+        "bills"
+      ],
+      "fired": [
+        "money",
+        "alarm",
+        "bills"
+      ],
+      "match": false,
+      "extra": [
+        "money"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.96576327085495,
+          0.47
+        ],
+        [
+          "money",
+          0.7408449649810791,
+          0.57
+        ],
+        [
+          "bills",
+          0.5993506908416748,
+          0.18
+        ],
+        [
+          "food_order",
+          0.09574150294065475,
+          0.58
+        ],
+        [
+          "contact",
+          0.07674241811037064,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "doordash sushi at 8 and remind me to take meds at 9",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "food_order",
+        "alarm"
+      ],
+      "fired": [
+        "alarm",
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9493563771247864,
+          0.58
+        ],
+        [
+          "alarm",
+          0.8841943144798279,
+          0.47
+        ],
+        [
+          "bills",
+          0.0840216875076294,
+          0.18
+        ],
+        [
+          "ride",
+          0.06898383796215057,
+          0.61
+        ],
+        [
+          "video",
+          0.05949294567108154,
+          0.31
+        ]
+      ]
+    },
+    {
+      "text": "lunch with sarah friday at 1 at sweetgreen",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "calendar",
+        "contact"
+      ],
+      "fired": [
+        "calendar",
+        "maps"
+      ],
+      "match": false,
+      "extra": [
+        "maps"
+      ],
+      "missed": [
+        "contact"
+      ],
+      "top5": [
+        [
+          "calendar",
+          0.9595838189125061,
+          0.27
+        ],
+        [
+          "contact",
+          0.818417489528656,
+          0.84
+        ],
+        [
+          "maps",
+          0.7254265546798706,
+          0.47
+        ],
+        [
+          "reservation",
+          0.07427410036325455,
+          0.63
+        ],
+        [
+          "task",
+          0.07293517142534256,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "oppenheimer at amc tonight at 9",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "video",
+        "tickets"
+      ],
+      "fired": [
+        "maps",
+        "video",
+        "tickets"
+      ],
+      "match": false,
+      "extra": [
+        "maps"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "tickets",
+          0.9400027394294739,
+          0.3
+        ],
+        [
+          "video",
+          0.8744432926177979,
+          0.31
+        ],
+        [
+          "maps",
+          0.5082609057426453,
+          0.47
+        ],
+        [
+          "ride",
+          0.08934437483549118,
+          0.61
+        ],
+        [
+          "music",
+          0.08736633509397507,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "rent due friday transfer 1200 to landlord",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "bills",
+        "money"
+      ],
+      "fired": [
+        "money",
+        "bills"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "bills",
+          0.9608559608459473,
+          0.18
+        ],
+        [
+          "money",
+          0.9494389295578003,
+          0.57
+        ],
+        [
+          "music",
+          0.07100245356559753,
+          0.79
+        ],
+        [
+          "task",
+          0.07012533396482468,
+          0.75
+        ],
+        [
+          "calendar",
+          0.0671471655368805,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "just landed at jfk, uber me home and order chipotle on the way",
+      "context": null,
+      "tag": "multi_intent",
+      "expected": [
+        "ride",
+        "maps",
+        "food_order"
+      ],
+      "fired": [
+        "maps",
+        "food_order",
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.942943274974823,
+          0.47
+        ],
+        [
+          "ride",
+          0.9407346248626709,
+          0.61
+        ],
+        [
+          "food_order",
+          0.9187371134757996,
+          0.58
+        ],
+        [
+          "alarm",
+          0.14893852174282074,
+          0.47
+        ],
+        [
+          "video",
+          0.10959797352552414,
+          0.31
+        ]
+      ]
+    },
+    {
+      "text": "play that thing",
+      "context": null,
+      "tag": "ambiguous",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.012736341916024685,
+          0.57
+        ],
+        [
+          "contact",
+          0.012598888017237186,
+          0.84
+        ],
+        [
+          "calendar",
+          0.012338274158537388,
+          0.27
+        ],
+        [
+          "alarm",
+          0.011218818835914135,
+          0.47
+        ],
+        [
+          "maps",
+          0.011060241609811783,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "set it for 6",
+      "context": null,
+      "tag": "ambiguous",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.014753885567188263,
+          0.47
+        ],
+        [
+          "money",
+          0.013448181562125683,
+          0.57
+        ],
+        [
+          "ride",
+          0.011470403522253036,
+          0.61
+        ],
+        [
+          "contact",
+          0.011098437942564487,
+          0.84
+        ],
+        [
+          "bills",
+          0.009881511330604553,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "send 20",
+      "context": null,
+      "tag": "ambiguous",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.060442905873060226,
+          0.57
+        ],
+        [
+          "contact",
+          0.0157172828912735,
+          0.84
+        ],
+        [
+          "maps",
+          0.01246266346424818,
+          0.47
+        ],
+        [
+          "alarm",
+          0.012179345823824406,
+          0.47
+        ],
+        [
+          "bills",
+          0.011573843657970428,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "check on mom",
+      "context": null,
+      "tag": "ambiguous",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.013667714782059193,
+          0.84
+        ],
+        [
+          "task",
+          0.01340411975979805,
+          0.75
+        ],
+        [
+          "calendar",
+          0.011468823067843914,
+          0.27
+        ],
+        [
+          "maps",
+          0.01121450960636139,
+          0.47
+        ],
+        [
+          "alarm",
+          0.010924001224339008,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "ttyl",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.013176990672945976,
+          0.84
+        ],
+        [
+          "alarm",
+          0.012859515845775604,
+          0.47
+        ],
+        [
+          "ride",
+          0.012275929562747478,
+          0.61
+        ],
+        [
+          "maps",
+          0.011414900422096252,
+          0.47
+        ],
+        [
+          "food_order",
+          0.010362927801907063,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "lol",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.012769216671586037,
+          0.47
+        ],
+        [
+          "maps",
+          0.012281411327421665,
+          0.47
+        ],
+        [
+          "contact",
+          0.011899913661181927,
+          0.84
+        ],
+        [
+          "ride",
+          0.011055005714297295,
+          0.61
+        ],
+        [
+          "food_order",
+          0.010901577770709991,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "nice",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.014046506956219673,
+          0.47
+        ],
+        [
+          "maps",
+          0.012164817191660404,
+          0.47
+        ],
+        [
+          "contact",
+          0.011346973478794098,
+          0.84
+        ],
+        [
+          "ride",
+          0.011062276549637318,
+          0.61
+        ],
+        [
+          "food_order",
+          0.01050662063062191,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "k",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.014074706472456455,
+          0.47
+        ],
+        [
+          "contact",
+          0.012379370629787445,
+          0.84
+        ],
+        [
+          "maps",
+          0.011044731363654137,
+          0.47
+        ],
+        [
+          "calendar",
+          0.01077867392450571,
+          0.27
+        ],
+        [
+          "food_order",
+          0.010697748512029648,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "yeah for sure",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.01180700957775116,
+          0.47
+        ],
+        [
+          "contact",
+          0.010976254008710384,
+          0.84
+        ],
+        [
+          "bills",
+          0.010872580111026764,
+          0.18
+        ],
+        [
+          "food_order",
+          0.010871026664972305,
+          0.58
+        ],
+        [
+          "money",
+          0.010830599814653397,
+          0.57
+        ]
+      ]
+    },
+    {
+      "text": "sup",
+      "context": null,
+      "tag": "chitchat",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.01369189191609621,
+          0.47
+        ],
+        [
+          "contact",
+          0.012971539981663227,
+          0.84
+        ],
+        [
+          "maps",
+          0.011525128968060017,
+          0.47
+        ],
+        [
+          "ride",
+          0.01147958729416132,
+          0.61
+        ],
+        [
+          "food_order",
+          0.01107033807784319,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "Bills lost the game",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.012550976127386093,
+          0.27
+        ],
+        [
+          "money",
+          0.011346935294568539,
+          0.57
+        ],
+        [
+          "food_order",
+          0.01126054022461176,
+          0.58
+        ],
+        [
+          "maps",
+          0.01105291023850441,
+          0.47
+        ],
+        [
+          "contact",
+          0.011035047471523285,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "music to my ears",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.04790665954351425,
+          0.47
+        ],
+        [
+          "music",
+          0.04764070734381676,
+          0.79
+        ],
+        [
+          "maps",
+          0.026117246598005295,
+          0.47
+        ],
+        [
+          "contact",
+          0.02532515488564968,
+          0.84
+        ],
+        [
+          "tickets",
+          0.02154785767197609,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "I work in finance",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.013033941388130188,
+          0.57
+        ],
+        [
+          "maps",
+          0.011955858208239079,
+          0.47
+        ],
+        [
+          "calendar",
+          0.011413060128688812,
+          0.27
+        ],
+        [
+          "task",
+          0.01100684143602848,
+          0.75
+        ],
+        [
+          "ride",
+          0.010565257631242275,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "we should map out our plans",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.026062989607453346,
+          0.27
+        ],
+        [
+          "task",
+          0.016938423737883568,
+          0.75
+        ],
+        [
+          "travel",
+          0.014479084871709347,
+          0.15
+        ],
+        [
+          "maps",
+          0.013662527315318584,
+          0.47
+        ],
+        [
+          "money",
+          0.012910028919577599,
+          0.57
+        ]
+      ]
+    },
+    {
+      "text": "dinner reservations make me nervous",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.017107922583818436,
+          0.27
+        ],
+        [
+          "alarm",
+          0.015742827206850052,
+          0.47
+        ],
+        [
+          "money",
+          0.01554892584681511,
+          0.57
+        ],
+        [
+          "health",
+          0.013324244879186153,
+          0.88
+        ],
+        [
+          "food_order",
+          0.012707695364952087,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "she's a contact lens specialist",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "health",
+          0.0124581977725029,
+          0.88
+        ],
+        [
+          "shopping",
+          0.012222498655319214,
+          0.19
+        ],
+        [
+          "maps",
+          0.011788221076130867,
+          0.47
+        ],
+        [
+          "contact",
+          0.011547558940947056,
+          0.84
+        ],
+        [
+          "ride",
+          0.010988269001245499,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "the weather of opinion has shifted",
+      "context": null,
+      "tag": "false_positive_bait",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.012793253175914288,
+          0.47
+        ],
+        [
+          "calendar",
+          0.012004822492599487,
+          0.27
+        ],
+        [
+          "money",
+          0.011948813684284687,
+          0.57
+        ],
+        [
+          "bills",
+          0.011030968278646469,
+          0.18
+        ],
+        [
+          "food_order",
+          0.010483584366738796,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "venmoo me 20",
+      "context": null,
+      "tag": "typo",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.956628680229187,
+          0.57
+        ],
+        [
+          "alarm",
+          0.06677015125751495,
+          0.47
+        ],
+        [
+          "maps",
+          0.04283779487013817,
+          0.47
+        ],
+        [
+          "food_order",
+          0.037291333079338074,
+          0.58
+        ],
+        [
+          "contact",
+          0.036183953285217285,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "doordash it bro",
+      "context": null,
+      "tag": "slang",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9268016815185547,
+          0.58
+        ],
+        [
+          "bills",
+          0.03345969691872597,
+          0.18
+        ],
+        [
+          "ride",
+          0.030695665627717972,
+          0.61
+        ],
+        [
+          "maps",
+          0.02947058342397213,
+          0.47
+        ],
+        [
+          "video",
+          0.02920028381049633,
+          0.31
+        ]
+      ]
+    },
+    {
+      "text": "ubering home",
+      "context": null,
+      "tag": "slang",
+      "expected": [
+        "ride",
+        "maps"
+      ],
+      "fired": [
+        "maps",
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.972944974899292,
+          0.47
+        ],
+        [
+          "ride",
+          0.9492583870887756,
+          0.61
+        ],
+        [
+          "alarm",
+          0.08419350534677505,
+          0.47
+        ],
+        [
+          "task",
+          0.08227027207612991,
+          0.75
+        ],
+        [
+          "food_order",
+          0.07948468625545502,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "spotify it pls",
+      "context": null,
+      "tag": "slang",
+      "expected": [
+        "music"
+      ],
+      "fired": [
+        "music"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "music",
+          0.9415247440338135,
+          0.79
+        ],
+        [
+          "note",
+          0.06548287719488144,
+          0.15
+        ],
+        [
+          "contact",
+          0.04684166610240936,
+          0.84
+        ],
+        [
+          "money",
+          0.04489048197865486,
+          0.57
+        ],
+        [
+          "ride",
+          0.041280414909124374,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "netflix and chill tonight",
+      "context": null,
+      "tag": "slang",
+      "expected": [
+        "video"
+      ],
+      "fired": [
+        "video"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "video",
+          0.9404206871986389,
+          0.31
+        ],
+        [
+          "calendar",
+          0.2082015722990036,
+          0.27
+        ],
+        [
+          "reservation",
+          0.11319666355848312,
+          0.63
+        ],
+        [
+          "bills",
+          0.10540014505386353,
+          0.18
+        ],
+        [
+          "task",
+          0.05666878819465637,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "send $1,200.50 to alex via venmo for last month rent",
+      "context": null,
+      "tag": "numerics",
+      "expected": [
+        "money",
+        "bills"
+      ],
+      "fired": [
+        "money",
+        "bills"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9792147874832153,
+          0.57
+        ],
+        [
+          "bills",
+          0.8452073931694031,
+          0.18
+        ],
+        [
+          "calendar",
+          0.07490712404251099,
+          0.27
+        ],
+        [
+          "contact",
+          0.06902164220809937,
+          0.84
+        ],
+        [
+          "music",
+          0.0590258464217186,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "set alarm for 14:30 tomorrow",
+      "context": null,
+      "tag": "numerics",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.9758220314979553,
+          0.47
+        ],
+        [
+          "calendar",
+          0.06904996931552887,
+          0.27
+        ],
+        [
+          "ride",
+          0.04008546099066734,
+          0.61
+        ],
+        [
+          "maps",
+          0.03867295756936073,
+          0.47
+        ],
+        [
+          "bills",
+          0.03699525445699692,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "lunch on may 15th at noon",
+      "context": null,
+      "tag": "numerics",
+      "expected": [
+        "calendar"
+      ],
+      "fired": [
+        "calendar"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.9638979434967041,
+          0.27
+        ],
+        [
+          "reservation",
+          0.05708286911249161,
+          0.63
+        ],
+        [
+          "health",
+          0.052708402276039124,
+          0.88
+        ],
+        [
+          "money",
+          0.046746816486120224,
+          0.57
+        ],
+        [
+          "food_order",
+          0.042071226984262466,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "yaar venmo me 20 for pizza",
+      "context": null,
+      "tag": "code_mixed",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9794946908950806,
+          0.57
+        ],
+        [
+          "food_order",
+          0.10962813347578049,
+          0.58
+        ],
+        [
+          "bills",
+          0.09494210034608841,
+          0.18
+        ],
+        [
+          "reservation",
+          0.04663918539881706,
+          0.63
+        ],
+        [
+          "calendar",
+          0.04649544134736061,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "mom ko phone karna hai",
+      "context": null,
+      "tag": "code_mixed",
+      "expected": [
+        "contact"
+      ],
+      "fired": [
+        "contact"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.9358769059181213,
+          0.84
+        ],
+        [
+          "bills",
+          0.04894965514540672,
+          0.18
+        ],
+        [
+          "alarm",
+          0.039550479501485825,
+          0.47
+        ],
+        [
+          "ride",
+          0.03818315267562866,
+          0.61
+        ],
+        [
+          "tickets",
+          0.033949773758649826,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "paani lao please",
+      "context": null,
+      "tag": "code_mixed",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.17609237134456635,
+          0.47
+        ],
+        [
+          "ride",
+          0.04899057373404503,
+          0.61
+        ],
+        [
+          "food_order",
+          0.047903627157211304,
+          0.58
+        ],
+        [
+          "music",
+          0.032819509506225586,
+          0.79
+        ],
+        [
+          "contact",
+          0.030547481030225754,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "kal subah 6 baje uber book kar dena to airport",
+      "context": null,
+      "tag": "code_mixed",
+      "expected": [
+        "ride",
+        "maps",
+        "alarm"
+      ],
+      "fired": [
+        "alarm",
+        "maps",
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.9738024473190308,
+          0.47
+        ],
+        [
+          "ride",
+          0.9247473478317261,
+          0.61
+        ],
+        [
+          "alarm",
+          0.9239304065704346,
+          0.47
+        ],
+        [
+          "reservation",
+          0.13271629810333252,
+          0.63
+        ],
+        [
+          "food_order",
+          0.11267008632421494,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "hey so I was thinking maybe we could do dinner friday at sweetgreen at 7 and then catch oppenheimer after",
+      "context": null,
+      "tag": "long",
+      "expected": [
+        "calendar",
+        "reservation",
+        "video"
+      ],
+      "fired": [
+        "calendar",
+        "video",
+        "reservation"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.9590356349945068,
+          0.27
+        ],
+        [
+          "reservation",
+          0.92042076587677,
+          0.63
+        ],
+        [
+          "video",
+          0.8275395631790161,
+          0.31
+        ],
+        [
+          "tickets",
+          0.20902225375175476,
+          0.3
+        ],
+        [
+          "bills",
+          0.1154562309384346,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "hey can you remind me about the thing tomorrow",
+      "context": null,
+      "tag": "edge_missing_slot",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.9634325504302979,
+          0.47
+        ],
+        [
+          "calendar",
+          0.1640075147151947,
+          0.27
+        ],
+        [
+          "money",
+          0.05573305860161781,
+          0.57
+        ],
+        [
+          "contact",
+          0.04114660620689392,
+          0.84
+        ],
+        [
+          "food_order",
+          0.03837276250123978,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "call dad",
+      "context": null,
+      "tag": "edge_pronoun",
+      "expected": [
+        "contact"
+      ],
+      "fired": [
+        "contact"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.9571285843849182,
+          0.84
+        ],
+        [
+          "ride",
+          0.04547704756259918,
+          0.61
+        ],
+        [
+          "maps",
+          0.03894622623920441,
+          0.47
+        ],
+        [
+          "bills",
+          0.03883850574493408,
+          0.18
+        ],
+        [
+          "task",
+          0.03759285435080528,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "call them",
+      "context": null,
+      "tag": "edge_pronoun",
+      "expected": [
+        "contact"
+      ],
+      "fired": [
+        "contact"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.9409654140472412,
+          0.84
+        ],
+        [
+          "maps",
+          0.040110841393470764,
+          0.47
+        ],
+        [
+          "ride",
+          0.03710683807730675,
+          0.61
+        ],
+        [
+          "tickets",
+          0.03517622873187065,
+          0.3
+        ],
+        [
+          "calendar",
+          0.03397902473807335,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "send him 50",
+      "context": null,
+      "tag": "edge_pronoun",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9158589839935303,
+          0.57
+        ],
+        [
+          "contact",
+          0.035611651837825775,
+          0.84
+        ],
+        [
+          "maps",
+          0.034273676574230194,
+          0.47
+        ],
+        [
+          "calendar",
+          0.03252016007900238,
+          0.27
+        ],
+        [
+          "tickets",
+          0.02654070407152176,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "don't forget to book the flight for next month",
+      "context": null,
+      "tag": "edge_negation_marker",
+      "expected": [
+        "travel"
+      ],
+      "fired": [
+        "alarm",
+        "travel"
+      ],
+      "match": false,
+      "extra": [
+        "alarm"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "travel",
+          0.9317697882652283,
+          0.15
+        ],
+        [
+          "alarm",
+          0.8118889331817627,
+          0.47
+        ],
+        [
+          "calendar",
+          0.09511364996433258,
+          0.27
+        ],
+        [
+          "health",
+          0.09318891912698746,
+          0.88
+        ],
+        [
+          "task",
+          0.07212889194488525,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "need to call dad and mom and uncle",
+      "context": null,
+      "tag": "edge_multi_recipient",
+      "expected": [
+        "contact"
+      ],
+      "fired": [
+        "contact"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.944409191608429,
+          0.84
+        ],
+        [
+          "task",
+          0.09342914074659348,
+          0.75
+        ],
+        [
+          "alarm",
+          0.07253692299127579,
+          0.47
+        ],
+        [
+          "bills",
+          0.04538271203637123,
+          0.18
+        ],
+        [
+          "maps",
+          0.03754320368170738,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "wake me up at 5am for the gym",
+      "context": null,
+      "tag": "alarm_with_note",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.970966637134552,
+          0.47
+        ],
+        [
+          "task",
+          0.07903362065553665,
+          0.75
+        ],
+        [
+          "calendar",
+          0.0603252612054348,
+          0.27
+        ],
+        [
+          "bills",
+          0.04767177626490593,
+          0.18
+        ],
+        [
+          "money",
+          0.046763479709625244,
+          0.57
+        ]
+      ]
+    },
+    {
+      "text": "remind me at 9",
+      "context": null,
+      "tag": "alarm_missing_note",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.9200903177261353,
+          0.47
+        ],
+        [
+          "money",
+          0.04031464457511902,
+          0.57
+        ],
+        [
+          "task",
+          0.033751051872968674,
+          0.75
+        ],
+        [
+          "contact",
+          0.02722933329641819,
+          0.84
+        ],
+        [
+          "ride",
+          0.026469921693205833,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "set a reminder",
+      "context": null,
+      "tag": "alarm_missing_all",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.9562591314315796,
+          0.47
+        ],
+        [
+          "contact",
+          0.049960482865571976,
+          0.84
+        ],
+        [
+          "bills",
+          0.033766645938158035,
+          0.18
+        ],
+        [
+          "music",
+          0.03299899399280548,
+          0.79
+        ],
+        [
+          "ride",
+          0.03266505151987076,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "navigate to starbucks",
+      "context": null,
+      "tag": "maps_simple",
+      "expected": [
+        "maps"
+      ],
+      "fired": [
+        "maps"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.9317963123321533,
+          0.47
+        ],
+        [
+          "calendar",
+          0.04045487567782402,
+          0.27
+        ],
+        [
+          "food_order",
+          0.03666166961193085,
+          0.58
+        ],
+        [
+          "health",
+          0.034581687301397324,
+          0.88
+        ],
+        [
+          "travel",
+          0.033986352384090424,
+          0.15
+        ]
+      ]
+    },
+    {
+      "text": "where am I",
+      "context": null,
+      "tag": "maps_query_not_action",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.3266008496284485,
+          0.47
+        ],
+        [
+          "money",
+          0.060050658881664276,
+          0.57
+        ],
+        [
+          "health",
+          0.02513844147324562,
+          0.88
+        ],
+        [
+          "weather",
+          0.021596603095531464,
+          0.15
+        ],
+        [
+          "alarm",
+          0.021540900692343712,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "directions home",
+      "context": null,
+      "tag": "maps_simple",
+      "expected": [
+        "maps"
+      ],
+      "fired": [
+        "maps"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.9683493375778198,
+          0.47
+        ],
+        [
+          "ride",
+          0.07348509132862091,
+          0.61
+        ],
+        [
+          "food_order",
+          0.04888945445418358,
+          0.58
+        ],
+        [
+          "task",
+          0.04792408645153046,
+          0.75
+        ],
+        [
+          "calendar",
+          0.045990850776433945,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "split the dinner bill 4 ways",
+      "context": null,
+      "tag": "money_split",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9671136140823364,
+          0.57
+        ],
+        [
+          "bills",
+          0.05418943241238594,
+          0.18
+        ],
+        [
+          "reservation",
+          0.035717274993658066,
+          0.63
+        ],
+        [
+          "tickets",
+          0.03509648144245148,
+          0.3
+        ],
+        [
+          "ride",
+          0.03479554131627083,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "how much did I spend on food this month",
+      "context": null,
+      "tag": "query_not_action",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.024583948776125908,
+          0.57
+        ],
+        [
+          "contact",
+          0.011558879166841507,
+          0.84
+        ],
+        [
+          "maps",
+          0.01151910051703453,
+          0.47
+        ],
+        [
+          "food_order",
+          0.010835735127329826,
+          0.58
+        ],
+        [
+          "bills",
+          0.010426517575979233,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "feeling sick, need a doctor",
+      "context": null,
+      "tag": "health_implicit",
+      "expected": [
+        "health"
+      ],
+      "fired": [
+        "health"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "health",
+          0.9501667618751526,
+          0.88
+        ],
+        [
+          "contact",
+          0.05997033417224884,
+          0.84
+        ],
+        [
+          "calendar",
+          0.052701689302921295,
+          0.27
+        ],
+        [
+          "food_order",
+          0.04684075340628624,
+          0.58
+        ],
+        [
+          "task",
+          0.046079397201538086,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "weather",
+      "context": null,
+      "tag": "weather_minimal",
+      "expected": [
+        "weather"
+      ],
+      "fired": [],
+      "match": false,
+      "extra": [],
+      "missed": [
+        "weather"
+      ],
+      "top5": [
+        [
+          "alarm",
+          0.01216433010995388,
+          0.47
+        ],
+        [
+          "weather",
+          0.011725599877536297,
+          0.15
+        ],
+        [
+          "maps",
+          0.011558025144040585,
+          0.47
+        ],
+        [
+          "contact",
+          0.011411870829761028,
+          0.84
+        ],
+        [
+          "food_order",
+          0.010666747577488422,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "what's the weather",
+      "context": null,
+      "tag": "weather_minimal",
+      "expected": [
+        "weather"
+      ],
+      "fired": [
+        "weather"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "weather",
+          0.7560420036315918,
+          0.15
+        ],
+        [
+          "health",
+          0.03782330080866814,
+          0.88
+        ],
+        [
+          "money",
+          0.03172196447849274,
+          0.57
+        ],
+        [
+          "contact",
+          0.031218210235238075,
+          0.84
+        ],
+        [
+          "task",
+          0.029064418748021126,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "can you venmo me 30 for dinner",
+      "context": null,
+      "tag": "question_form",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9741206765174866,
+          0.57
+        ],
+        [
+          "calendar",
+          0.056994564831256866,
+          0.27
+        ],
+        [
+          "bills",
+          0.047403689473867416,
+          0.18
+        ],
+        [
+          "reservation",
+          0.04285666346549988,
+          0.63
+        ],
+        [
+          "maps",
+          0.04128286615014076,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "should we order pizza",
+      "context": null,
+      "tag": "question_form",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9511163234710693,
+          0.58
+        ],
+        [
+          "ride",
+          0.04047426953911781,
+          0.61
+        ],
+        [
+          "alarm",
+          0.03544073551893234,
+          0.47
+        ],
+        [
+          "maps",
+          0.035190828144550323,
+          0.47
+        ],
+        [
+          "bills",
+          0.034739669412374496,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "wanna uber there",
+      "context": null,
+      "tag": "question_form",
+      "expected": [
+        "ride"
+      ],
+      "fired": [
+        "maps",
+        "ride"
+      ],
+      "match": false,
+      "extra": [
+        "maps"
+      ],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.9753124713897705,
+          0.61
+        ],
+        [
+          "maps",
+          0.8125389218330383,
+          0.47
+        ],
+        [
+          "food_order",
+          0.09059355407953262,
+          0.58
+        ],
+        [
+          "reservation",
+          0.05781268700957298,
+          0.63
+        ],
+        [
+          "task",
+          0.04932611063122749,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "can you remind me at 3pm",
+      "context": null,
+      "tag": "question_form",
+      "expected": [
+        "alarm"
+      ],
+      "fired": [
+        "alarm"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.95778888463974,
+          0.47
+        ],
+        [
+          "calendar",
+          0.05134124681353569,
+          0.27
+        ],
+        [
+          "contact",
+          0.03344305232167244,
+          0.84
+        ],
+        [
+          "money",
+          0.031948987394571304,
+          0.57
+        ],
+        [
+          "maps",
+          0.031180663034319878,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "should I book the flight",
+      "context": null,
+      "tag": "question_form",
+      "expected": [
+        "travel"
+      ],
+      "fired": [
+        "travel"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "travel",
+          0.9439672827720642,
+          0.15
+        ],
+        [
+          "task",
+          0.11626353859901428,
+          0.75
+        ],
+        [
+          "calendar",
+          0.07131216675043106,
+          0.27
+        ],
+        [
+          "note",
+          0.06034618243575096,
+          0.15
+        ],
+        [
+          "health",
+          0.05015643686056137,
+          0.88
+        ]
+      ]
+    },
+    {
+      "text": "playing it safe",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.015223436988890171,
+          0.57
+        ],
+        [
+          "food_order",
+          0.01451549120247364,
+          0.58
+        ],
+        [
+          "alarm",
+          0.013726470060646534,
+          0.47
+        ],
+        [
+          "ride",
+          0.01362940389662981,
+          0.61
+        ],
+        [
+          "contact",
+          0.012089782394468784,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "riding the wave",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.022833995521068573,
+          0.61
+        ],
+        [
+          "money",
+          0.013471747748553753,
+          0.57
+        ],
+        [
+          "maps",
+          0.01250353455543518,
+          0.47
+        ],
+        [
+          "contact",
+          0.011805635876953602,
+          0.84
+        ],
+        [
+          "food_order",
+          0.010858061723411083,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "watch your back",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.020352089777588844,
+          0.47
+        ],
+        [
+          "money",
+          0.016715561971068382,
+          0.57
+        ],
+        [
+          "contact",
+          0.01441611722111702,
+          0.84
+        ],
+        [
+          "task",
+          0.011479024775326252,
+          0.75
+        ],
+        [
+          "ride",
+          0.011213324032723904,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "good call",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.012579274363815784,
+          0.84
+        ],
+        [
+          "maps",
+          0.012040487490594387,
+          0.47
+        ],
+        [
+          "alarm",
+          0.012008092366158962,
+          0.47
+        ],
+        [
+          "ride",
+          0.011685110628604889,
+          0.61
+        ],
+        [
+          "task",
+          0.011311161331832409,
+          0.75
+        ]
+      ]
+    },
+    {
+      "text": "noted",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.01614035852253437,
+          0.47
+        ],
+        [
+          "note",
+          0.01472150906920433,
+          0.15
+        ],
+        [
+          "maps",
+          0.013335445895791054,
+          0.47
+        ],
+        [
+          "contact",
+          0.010877068154513836,
+          0.84
+        ],
+        [
+          "calendar",
+          0.010677254758775234,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "pay attention",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.019632592797279358,
+          0.47
+        ],
+        [
+          "money",
+          0.011401289142668247,
+          0.57
+        ],
+        [
+          "bills",
+          0.011158847250044346,
+          0.18
+        ],
+        [
+          "task",
+          0.01101733185350895,
+          0.75
+        ],
+        [
+          "contact",
+          0.010925491340458393,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "splitting hairs",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "shopping",
+          0.04878250136971474,
+          0.19
+        ],
+        [
+          "health",
+          0.03477810323238373,
+          0.88
+        ],
+        [
+          "note",
+          0.03259330987930298,
+          0.15
+        ],
+        [
+          "reservation",
+          0.031187398359179497,
+          0.63
+        ],
+        [
+          "music",
+          0.028786372393369675,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "that's a tall order",
+      "context": null,
+      "tag": "idiomatic_false_pos",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "alarm",
+          0.013202629052102566,
+          0.47
+        ],
+        [
+          "maps",
+          0.012772733345627785,
+          0.47
+        ],
+        [
+          "food_order",
+          0.011903002858161926,
+          0.58
+        ],
+        [
+          "contact",
+          0.010511926375329494,
+          0.84
+        ],
+        [
+          "health",
+          0.010374896228313446,
+          0.88
+        ]
+      ]
+    },
+    {
+      "text": "I'm watching tv",
+      "context": null,
+      "tag": "present_activity",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.012205453589558601,
+          0.27
+        ],
+        [
+          "maps",
+          0.010907460004091263,
+          0.47
+        ],
+        [
+          "money",
+          0.010853121988475323,
+          0.57
+        ],
+        [
+          "food_order",
+          0.010617591440677643,
+          0.58
+        ],
+        [
+          "contact",
+          0.010487493127584457,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "I'm cooking dinner",
+      "context": null,
+      "tag": "present_activity",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.014719918370246887,
+          0.57
+        ],
+        [
+          "calendar",
+          0.014012826606631279,
+          0.27
+        ],
+        [
+          "maps",
+          0.011884891428053379,
+          0.47
+        ],
+        [
+          "alarm",
+          0.01072766538709402,
+          0.47
+        ],
+        [
+          "food_order",
+          0.010564371012151241,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "she's on the phone",
+      "context": null,
+      "tag": "present_activity",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "contact",
+          0.013328051194548607,
+          0.84
+        ],
+        [
+          "maps",
+          0.011999157257378101,
+          0.47
+        ],
+        [
+          "calendar",
+          0.011320626363158226,
+          0.27
+        ],
+        [
+          "money",
+          0.011214620433747768,
+          0.57
+        ],
+        [
+          "ride",
+          0.010960451327264309,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "he ordered food from doordash",
+      "context": null,
+      "tag": "third_person",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.012276576831936836,
+          0.58
+        ],
+        [
+          "maps",
+          0.011771473102271557,
+          0.47
+        ],
+        [
+          "contact",
+          0.011673260480165482,
+          0.84
+        ],
+        [
+          "ride",
+          0.010439818724989891,
+          0.61
+        ],
+        [
+          "calendar",
+          0.010286334902048111,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "she paid 200 for that bag",
+      "context": null,
+      "tag": "third_person",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.014174465090036392,
+          0.57
+        ],
+        [
+          "ride",
+          0.011198488995432854,
+          0.61
+        ],
+        [
+          "contact",
+          0.011173968203365803,
+          0.84
+        ],
+        [
+          "maps",
+          0.011084201745688915,
+          0.47
+        ],
+        [
+          "calendar",
+          0.010715649463236332,
+          0.27
+        ]
+      ]
+    },
+    {
+      "text": "they booked a flight to Tokyo",
+      "context": null,
+      "tag": "third_person",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "travel",
+          0.011987663805484772,
+          0.15
+        ],
+        [
+          "calendar",
+          0.011411402374505997,
+          0.27
+        ],
+        [
+          "task",
+          0.011096532456576824,
+          0.75
+        ],
+        [
+          "maps",
+          0.010773702524602413,
+          0.47
+        ],
+        [
+          "alarm",
+          0.010493392124772072,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "uber please",
+      "context": null,
+      "tag": "ultra_short",
+      "expected": [
+        "ride"
+      ],
+      "fired": [
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.9381280541419983,
+          0.61
+        ],
+        [
+          "food_order",
+          0.040381964296102524,
+          0.58
+        ],
+        [
+          "bills",
+          0.0352187342941761,
+          0.18
+        ],
+        [
+          "tickets",
+          0.035011082887649536,
+          0.3
+        ],
+        [
+          "maps",
+          0.034107524901628494,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "venmo me",
+      "context": null,
+      "tag": "ultra_short",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.956625759601593,
+          0.57
+        ],
+        [
+          "bills",
+          0.06655360758304596,
+          0.18
+        ],
+        [
+          "alarm",
+          0.04213695228099823,
+          0.47
+        ],
+        [
+          "maps",
+          0.037407632917165756,
+          0.47
+        ],
+        [
+          "music",
+          0.03236391395330429,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "order food",
+      "context": null,
+      "tag": "ultra_short",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9578724503517151,
+          0.58
+        ],
+        [
+          "maps",
+          0.05213652923703194,
+          0.47
+        ],
+        [
+          "ride",
+          0.04964948445558548,
+          0.61
+        ],
+        [
+          "bills",
+          0.03647397831082344,
+          0.18
+        ],
+        [
+          "health",
+          0.033939674496650696,
+          0.88
+        ]
+      ]
+    },
+    {
+      "text": "uber",
+      "context": null,
+      "tag": "bare_word",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.04415247216820717,
+          0.61
+        ],
+        [
+          "maps",
+          0.01540164090692997,
+          0.47
+        ],
+        [
+          "contact",
+          0.012463225983083248,
+          0.84
+        ],
+        [
+          "food_order",
+          0.011536981910467148,
+          0.58
+        ],
+        [
+          "bills",
+          0.011336348950862885,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "venmo",
+      "context": null,
+      "tag": "bare_word",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.027698561549186707,
+          0.57
+        ],
+        [
+          "maps",
+          0.014036900363862514,
+          0.47
+        ],
+        [
+          "food_order",
+          0.014025936834514141,
+          0.58
+        ],
+        [
+          "contact",
+          0.014012240804731846,
+          0.84
+        ],
+        [
+          "bills",
+          0.01238050777465105,
+          0.18
+        ]
+      ]
+    },
+    {
+      "text": "spotify",
+      "context": null,
+      "tag": "bare_word",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "music",
+          0.01952313631772995,
+          0.79
+        ],
+        [
+          "maps",
+          0.014166011475026608,
+          0.47
+        ],
+        [
+          "contact",
+          0.013514292426407337,
+          0.84
+        ],
+        [
+          "tickets",
+          0.01217623706907034,
+          0.3
+        ],
+        [
+          "ride",
+          0.012135823257267475,
+          0.61
+        ]
+      ]
+    },
+    {
+      "text": "lets go halves on dinner",
+      "context": null,
+      "tag": "money_split",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9669986367225647,
+          0.57
+        ],
+        [
+          "calendar",
+          0.046234823763370514,
+          0.27
+        ],
+        [
+          "maps",
+          0.039715249091386795,
+          0.47
+        ],
+        [
+          "bills",
+          0.03838907182216644,
+          0.18
+        ],
+        [
+          "reservation",
+          0.037233464419841766,
+          0.63
+        ]
+      ]
+    },
+    {
+      "text": "chip in 15 each",
+      "context": null,
+      "tag": "money_split",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9489763975143433,
+          0.57
+        ],
+        [
+          "maps",
+          0.03725949674844742,
+          0.47
+        ],
+        [
+          "bills",
+          0.03496004641056061,
+          0.18
+        ],
+        [
+          "alarm",
+          0.03460608422756195,
+          0.47
+        ],
+        [
+          "tickets",
+          0.03149981051683426,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "going dutch on this one",
+      "context": null,
+      "tag": "money_split",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9637402296066284,
+          0.57
+        ],
+        [
+          "bills",
+          0.05917195975780487,
+          0.18
+        ],
+        [
+          "note",
+          0.037477534264326096,
+          0.15
+        ],
+        [
+          "maps",
+          0.036013148725032806,
+          0.47
+        ],
+        [
+          "tickets",
+          0.035311128944158554,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "dominos?",
+      "context": "bro I'm so hungry | same, haven't eaten all day",
+      "tag": "v5_context_buildup",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9525127410888672,
+          0.58
+        ],
+        [
+          "alarm",
+          0.04282756894826889,
+          0.47
+        ],
+        [
+          "bills",
+          0.037272609770298004,
+          0.18
+        ],
+        [
+          "ride",
+          0.036512020975351334,
+          0.61
+        ],
+        [
+          "video",
+          0.034900035709142685,
+          0.31
+        ]
+      ]
+    },
+    {
+      "text": "uber?",
+      "context": "I'm running late | the train is delayed",
+      "tag": "v5_context_buildup",
+      "expected": [
+        "ride"
+      ],
+      "fired": [
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.9739857316017151,
+          0.61
+        ],
+        [
+          "food_order",
+          0.11323333531618118,
+          0.58
+        ],
+        [
+          "bills",
+          0.0743139237165451,
+          0.18
+        ],
+        [
+          "alarm",
+          0.062213074415922165,
+          0.47
+        ],
+        [
+          "shopping",
+          0.04869953170418739,
+          0.19
+        ]
+      ]
+    },
+    {
+      "text": "let's split it",
+      "context": "dinner was 120 total | that's expensive",
+      "tag": "v5_context_buildup",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9690301418304443,
+          0.57
+        ],
+        [
+          "bills",
+          0.0444723442196846,
+          0.18
+        ],
+        [
+          "calendar",
+          0.04281608760356903,
+          0.27
+        ],
+        [
+          "maps",
+          0.03939724713563919,
+          0.47
+        ],
+        [
+          "tickets",
+          0.03790867328643799,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "yeah do it",
+      "context": "should we order pizza tonight",
+      "tag": "v5_confirmation",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9518958926200867,
+          0.58
+        ],
+        [
+          "ride",
+          0.04115361347794533,
+          0.61
+        ],
+        [
+          "alarm",
+          0.036557793617248535,
+          0.47
+        ],
+        [
+          "note",
+          0.035897146910429,
+          0.15
+        ],
+        [
+          "maps",
+          0.03533153608441353,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "sure",
+      "context": "uber to the airport?",
+      "tag": "v5_confirmation",
+      "expected": [
+        "ride"
+      ],
+      "fired": [
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.9682460427284241,
+          0.61
+        ],
+        [
+          "maps",
+          0.07274094223976135,
+          0.47
+        ],
+        [
+          "food_order",
+          0.048429496586322784,
+          0.58
+        ],
+        [
+          "tickets",
+          0.039787400513887405,
+          0.3
+        ],
+        [
+          "travel",
+          0.039061930030584335,
+          0.15
+        ]
+      ]
+    },
+    {
+      "text": "ok sending",
+      "context": "venmo me 20 for the pizza",
+      "tag": "v5_confirmation",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9615513682365417,
+          0.57
+        ],
+        [
+          "food_order",
+          0.04210275411605835,
+          0.58
+        ],
+        [
+          "maps",
+          0.041539158672094345,
+          0.47
+        ],
+        [
+          "bills",
+          0.040215738117694855,
+          0.18
+        ],
+        [
+          "music",
+          0.03336917608976364,
+          0.79
+        ]
+      ]
+    },
+    {
+      "text": "yeah",
+      "context": "that movie was wild",
+      "tag": "v5_confirm_negative",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.011974811553955078,
+          0.61
+        ],
+        [
+          "food_order",
+          0.011603250168263912,
+          0.58
+        ],
+        [
+          "calendar",
+          0.011159878224134445,
+          0.27
+        ],
+        [
+          "money",
+          0.01104910671710968,
+          0.57
+        ],
+        [
+          "maps",
+          0.010943999513983727,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "same",
+      "context": "I'm so tired today",
+      "tag": "v5_confirm_negative",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.012728902511298656,
+          0.27
+        ],
+        [
+          "alarm",
+          0.01153096929192543,
+          0.47
+        ],
+        [
+          "ride",
+          0.010957447811961174,
+          0.61
+        ],
+        [
+          "task",
+          0.010599308647215366,
+          0.75
+        ],
+        [
+          "food_order",
+          0.010366038419306278,
+          0.58
+        ]
+      ]
+    },
+    {
+      "text": "dominos",
+      "context": "what's your favorite app",
+      "tag": "v5_context_negative",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "maps",
+          0.014513998292386532,
+          0.47
+        ],
+        [
+          "music",
+          0.012726709246635437,
+          0.79
+        ],
+        [
+          "calendar",
+          0.011946100741624832,
+          0.27
+        ],
+        [
+          "task",
+          0.010399432852864265,
+          0.75
+        ],
+        [
+          "tickets",
+          0.010250851511955261,
+          0.3
+        ]
+      ]
+    },
+    {
+      "text": "uber",
+      "context": "their stock went up today",
+      "tag": "v5_context_negative",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "calendar",
+          0.01245678961277008,
+          0.27
+        ],
+        [
+          "money",
+          0.011237808503210545,
+          0.57
+        ],
+        [
+          "ride",
+          0.011225279420614243,
+          0.61
+        ],
+        [
+          "maps",
+          0.011027015745639801,
+          0.47
+        ],
+        [
+          "contact",
+          0.01018068939447403,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "actually make it lyft",
+      "context": "uber to the airport",
+      "tag": "v5_correction",
+      "expected": [
+        "ride"
+      ],
+      "fired": [
+        "ride"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.9593738913536072,
+          0.61
+        ],
+        [
+          "money",
+          0.059306155890226364,
+          0.57
+        ],
+        [
+          "food_order",
+          0.04370681196451187,
+          0.58
+        ],
+        [
+          "tickets",
+          0.04001213237643242,
+          0.3
+        ],
+        [
+          "shopping",
+          0.0394134521484375,
+          0.19
+        ]
+      ]
+    },
+    {
+      "text": "that was a good game last night",
+      "context": "order pizza from dominos",
+      "tag": "v5_no_carryforward",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.013718066737055779,
+          0.58
+        ],
+        [
+          "calendar",
+          0.013543699868023396,
+          0.27
+        ],
+        [
+          "ride",
+          0.010886470787227154,
+          0.61
+        ],
+        [
+          "maps",
+          0.010592958889901638,
+          0.47
+        ],
+        [
+          "contact",
+          0.010529552586376667,
+          0.84
+        ]
+      ]
+    },
+    {
+      "text": "sure",
+      "context": "should we order pizza",
+      "tag": "v5_disambiguation",
+      "expected": [
+        "food_order"
+      ],
+      "fired": [
+        "food_order"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "food_order",
+          0.9547051787376404,
+          0.58
+        ],
+        [
+          "ride",
+          0.047528356313705444,
+          0.61
+        ],
+        [
+          "maps",
+          0.03724878281354904,
+          0.47
+        ],
+        [
+          "bills",
+          0.036295559257268906,
+          0.18
+        ],
+        [
+          "alarm",
+          0.03620253875851631,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "sure",
+      "context": "that movie was really good",
+      "tag": "v5_disambiguation",
+      "expected": [],
+      "fired": [],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "ride",
+          0.012159192003309727,
+          0.61
+        ],
+        [
+          "maps",
+          0.011681157164275646,
+          0.47
+        ],
+        [
+          "food_order",
+          0.011126051656901836,
+          0.58
+        ],
+        [
+          "calendar",
+          0.010944624431431293,
+          0.27
+        ],
+        [
+          "alarm",
+          0.010502026416361332,
+          0.47
+        ]
+      ]
+    },
+    {
+      "text": "venmo me 20 for pizza",
+      "context": "what's up | nothing much",
+      "tag": "v5_single_with_context",
+      "expected": [
+        "money"
+      ],
+      "fired": [
+        "money"
+      ],
+      "match": true,
+      "extra": [],
+      "missed": [],
+      "top5": [
+        [
+          "money",
+          0.9615426659584045,
+          0.57
+        ],
+        [
+          "maps",
+          0.04129251092672348,
+          0.47
+        ],
+        [
+          "food_order",
+          0.040403615683317184,
+          0.58
+        ],
+        [
+          "calendar",
+          0.03556723892688751,
+          0.27
+        ],
+        [
+          "bills",
+          0.03445056453347206,
+          0.18
+        ]
+      ]
+    }
+  ]
+}
