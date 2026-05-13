@@ -71,10 +71,13 @@ from v4_failure_modes import (
 # as context for classifying the current message.
 from v5_multiturn import ALL_V5_BANKS
 
-# v5.1 regression fixes — massive targeted banks for the 12 seed-suite
-# failures that appeared after v5 retrain (alarm/calendar/maps overfiring,
-# contact threshold too high, negation gaps, bare word gaps).
+# v5.1 regression fixes (legacy, still imported for compatibility)
 from v5_regression_fixes import ALL_V51_BANKS
+
+# v5.1 SMART MODEL — teaches the model to UNDERSTAND intent, not match keywords.
+# 7 skills: time ownership, place ownership, bare word intelligence, negation
+# spectrum, person ownership, bills vs money, action modifiers.
+from v51_smart_model import ALL_SMART_BANKS
 
 random.seed(42)
 
@@ -1761,6 +1764,65 @@ def generate_dataset(n_per_intent=600):
 
     for bank_name, bank in ALL_V51_BANKS.items():
         multiplier = _V51_MULTIPLIERS.get(bank_name, 10)
+        for template, intent_flags in bank:
+            for _ in range(multiplier):
+                text = augment(fill(template))
+                labels = _zeros()
+                labels.update(intent_flags)
+                dataset.append(make_example(text, bank_name, labels))
+
+    # ═════════════════════════════════════════════════════════════════════
+    # v5.1 SMART MODEL — 7 skills that make the model actually understand
+    # intent instead of blindly matching keywords.
+    #
+    # Every skill uses contrastive pairs: same word, different context,
+    # different outcome. This is how the model learns to THINK.
+    #
+    # High multipliers because these override prior training biases.
+    # ═════════════════════════════════════════════════════════════════════
+
+    _SMART_MULTIPLIERS = {
+        # Skill 1: Time ownership (most critical — alarm overfires hardest)
+        "smart_time_ride":          20,
+        "smart_time_travel":        18,
+        "smart_time_video":         18,
+        "smart_time_food":          18,
+        "smart_time_reservation":   18,
+        "smart_time_health":        18,
+        "smart_time_calendar":      15,
+        "smart_time_alarm":         12,  # contrastive (lower — already have alarm data)
+        "smart_time_multi_alarm":   12,  # when alarm IS correct
+
+        # Skill 2: Place ownership (maps overfires on venues)
+        "smart_place_venue":        20,
+        "smart_place_navigation":   12,  # contrastive
+        "smart_ride_not_maps":      20,
+        "smart_ride_with_maps":     12,  # contrastive
+
+        # Skill 3: Bare word intelligence
+        "smart_bare_action":        22,  # heavy — this is the "smart" behavior
+        "smart_bare_info":          20,  # contrastive negatives
+
+        # Skill 4: Negation
+        "smart_dont_forget":        20,  # "don't forget" ≠ alarm
+        "smart_actual_negation":    18,
+
+        # Skill 5: Person ownership
+        "smart_third_person":       15,
+
+        # Skill 6: Bills vs money
+        "smart_bills":              18,
+
+        # Skill 7: Action modifiers
+        "smart_action_modifiers":   15,
+
+        # Bonus
+        "smart_present_activity":   15,
+        "smart_contact":            18,
+    }
+
+    for bank_name, bank in ALL_SMART_BANKS.items():
+        multiplier = _SMART_MULTIPLIERS.get(bank_name, 12)
         for template, intent_flags in bank:
             for _ in range(multiplier):
                 text = augment(fill(template))
