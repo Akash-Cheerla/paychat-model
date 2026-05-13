@@ -17,6 +17,8 @@ from pathlib import Path
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from smart_postprocess import smart_suppress
+
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIR = ROOT / "saved_model"
 SEED_FILE = ROOT / "eval" / "seed_tests.jsonl"
@@ -65,7 +67,9 @@ def main() -> None:
         with torch.no_grad():
             logits = mdl(**enc).logits[0]
         probs = torch.sigmoid(logits).cpu().tolist()
-        fired = [labels[i] for i in range(len(labels)) if probs[i] >= thresholds.get(labels[i], 0.5)]
+        fired_raw = [labels[i] for i in range(len(labels)) if probs[i] >= thresholds.get(labels[i], 0.5)]
+        # v5.1: smart post-processing — suppress false co-fires
+        fired = smart_suppress(case["text"], fired_raw)
         expected = list(case.get("intents", []))
         results.append({
             "text": case["text"],

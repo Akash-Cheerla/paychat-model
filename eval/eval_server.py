@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slot_filler import extract_slots, needs_clarification, SLOT_SCHEMA  # noqa: E402
 from trigger_filter import should_process, matched_intents  # noqa: E402
 from context_accumulator import ConversationContext  # noqa: E402
+from smart_postprocess import smart_suppress  # noqa: E402
 
 # v5 conversation context — tracks multi-turn history per chat room
 CONV_CTX = ConversationContext(window_size=5, stale_seconds=1800)
@@ -142,7 +143,9 @@ def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]
                 "fired": ps[i] >= thr,
             })
         scores.sort(key=lambda s: -s["prob"])
-        fired = [s["intent"] for s in scores if s["fired"]]
+        fired_raw = [s["intent"] for s in scores if s["fired"]]
+        # v5.1: smart post-processing — suppress false co-fires
+        fired = smart_suppress(text, fired_raw)
         # v4: deterministic slot extraction for the fired intents
         slots = extract_slots(text, fired) if fired else {}
         clar = needs_clarification(slots)
@@ -193,7 +196,9 @@ def run_model_with_context(text: str, context: str | None = None, use_trigger: b
             "fired": probs[i] >= thr,
         })
     scores.sort(key=lambda s: -s["prob"])
-    fired = [s["intent"] for s in scores if s["fired"]]
+    fired_raw = [s["intent"] for s in scores if s["fired"]]
+    # v5.1: smart post-processing — suppress false co-fires
+    fired = smart_suppress(text, fired_raw)
     slots = extract_slots(text, fired) if fired else {}
     clar = needs_clarification(slots)
     return {

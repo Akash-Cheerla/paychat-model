@@ -61,7 +61,7 @@
 {"text": "yaar venmo me 20 for pizza", "intents": ["money"], "entities": {"amount": "20", "note": "pizza", "app": "venmo"}, "tag": "code_mixed"}
 {"text": "mom ko phone karna hai", "intents": ["contact"], "entities": {"name": "mom"}, "tag": "code_mixed"}
 {"text": "paani lao please", "intents": [], "entities": {}, "tag": "code_mixed"}
-{"text": "kal subah 6 baje uber book kar dena to airport", "intents": ["ride", "maps", "alarm"], "entities": {"destination": "airport", "time": "tomorrow 6am", "app": "uber"}, "tag": "code_mixed"}
+{"text": "kal subah 6 baje uber book kar dena to airport", "intents": ["ride", "maps"], "entities": {"destination": "airport", "time": "tomorrow 6am", "app": "uber"}, "tag": "code_mixed"}
 {"text": "hey so I was thinking maybe we could do dinner friday at sweetgreen at 7 and then catch oppenheimer after", "intents": ["calendar", "reservation", "video"], "entities": {"title": "dinner", "place": "sweetgreen", "time": "friday 7pm"}, "tag": "long"}
 {"text": "hey can you remind me about the thing tomorrow", "intents": ["alarm"], "entities": {"time": "tomorrow", "note": "MISSING_REQUIRES_CLARIFICATION"}, "tag": "edge_missing_slot"}
 {"text": "call dad", "intents": ["contact"], "entities": {"name": "dad"}, "tag": "edge_pronoun"}
