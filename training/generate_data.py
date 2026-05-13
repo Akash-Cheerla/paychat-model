@@ -1752,7 +1752,7 @@ def generate_dataset(n_per_intent=600):
         "v51_bills_not_money":        15,  # money fires on "pay rent"
         "v51_actual_money":           10,  # contrastive positive
         "v51_strong_negation":        15,  # negation must kill intent
-        "v51_bare_brand_negative":    18,  # bare "uber"/"venmo" must NOT fire
+        "v51_bare_brand_positive":    20,  # bare "uber"/"venmo" SHOULD fire in chat
         "v51_contact_boost":          15,  # contact threshold too high
         "v51_bare_word_boost":        18,  # bare "weather" needs heavy boost
         "v51_dont_forget_fixes":      15,  # "don't forget" ≠ alarm

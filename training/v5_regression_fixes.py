@@ -673,63 +673,76 @@ V51_BARE_WORD_BOOST = [
 # Only fires when combined with action words (uber please, venmo me, etc.)
 # ═════════════════════════════════════════════════════════════════════════════
 
-V51_BARE_BRAND_NEGATIVE = [
-    # ── ride brands (must NOT fire ride) ──
-    ("uber", {}),
-    ("lyft", {}),
-    ("ola", {}),
-    ("cab", {}),
-    ("taxi", {}),
+V51_BARE_BRAND_POSITIVE = [
+    # ── In a chat app, bare brand names ARE action requests ──
+    # "uber" = user wants a ride. "venmo" = user wants to pay/get paid.
+    # "dominos" = user wants food. "spotify" = user wants music.
+
+    # ride brands
+    ("uber", {"ride": 1}),
+    ("lyft", {"ride": 1}),
+    ("ola", {"ride": 1}),
+    ("cab", {"ride": 1}),
+    ("taxi", {"ride": 1}),
+    ("uber?", {"ride": 1}),
+    ("lyft?", {"ride": 1}),
+    ("cab?", {"ride": 1}),
+    ("ride?", {"ride": 1}),
+
+    # money brands
+    ("venmo", {"money": 1}),
+    ("cashapp", {"money": 1}),
+    ("zelle", {"money": 1}),
+    ("paypal", {"money": 1}),
+    ("gpay", {"money": 1}),
+    ("venmo?", {"money": 1}),
+    ("cashapp?", {"money": 1}),
+    ("split?", {"money": 1}),
+
+    # food brands
+    ("dominos", {"food_order": 1}),
+    ("chipotle", {"food_order": 1}),
+    ("pizza hut", {"food_order": 1}),
+    ("mcdonald's", {"food_order": 1}),
+    ("doordash", {"food_order": 1}),
+    ("ubereats", {"food_order": 1}),
+    ("swiggy", {"food_order": 1}),
+    ("zomato", {"food_order": 1}),
+    ("dominos?", {"food_order": 1}),
+    ("chipotle?", {"food_order": 1}),
+    ("pizza?", {"food_order": 1}),
+    ("sushi?", {"food_order": 1}),
+    ("mcd?", {"food_order": 1}),
+
+    # music brands
+    ("spotify", {"music": 1}),
+    ("apple music", {"music": 1}),
+    ("spotify?", {"music": 1}),
+
+    # video brands
+    ("netflix", {"video": 1}),
+    ("youtube", {"video": 1}),
+    ("hulu", {"video": 1}),
+    ("netflix?", {"video": 1}),
+
+    # ── Contrastive: brand in descriptive sentence = NOT actionable ──
+    # This teaches the model: bare brand = action, brand-in-sentence = info
     ("uber is a great company", {}),
     ("lyft stock is up", {}),
-    ("uber or lyft?", {}),
-    ("do you use uber", {}),
-    ("uber has a new feature", {}),
-    ("lyft is cheaper", {}),
     ("uber drivers are nice", {}),
     ("I work at uber", {}),
     ("my friend works at lyft", {}),
-    ("uber is down", {}),
-    ("the uber app crashed", {}),
-    ("lyft app", {}),
-    ("uber ratings", {}),
-
-    # ── money brands (must NOT fire money) ──
-    ("venmo", {}),
-    ("cashapp", {}),
-    ("zelle", {}),
-    ("paypal", {}),
-    ("gpay", {}),
-    ("venmo is good", {}),
-    ("cashapp or venmo", {}),
-    ("do you have venmo", {}),
-    ("what's your venmo", {}),
-    ("I use cashapp", {}),
     ("venmo is down", {}),
-    ("the venmo app", {}),
     ("cashapp has fees", {}),
-    ("zelle doesn't work", {}),
-    ("venmo or cashapp which is better", {}),
-    ("is venmo safe", {}),
-    ("does venmo charge fees", {}),
-
-    # ── food brands (must NOT fire food_order) ──
-    ("dominos", {}),
-    ("chipotle", {}),
-    ("pizza hut", {}),
-    ("mcdonald's", {}),
-    ("doordash", {}),
-    ("ubereats", {}),
-    ("swiggy", {}),
-    ("zomato", {}),
     ("dominos is overrated", {}),
     ("chipotle gives me stomach issues", {}),
     ("doordash fees are crazy", {}),
-    ("ubereats or doordash", {}),
-    ("swiggy or zomato", {}),
-    ("dominos has good deals", {}),
     ("I worked at chipotle", {}),
-    ("mcdonald's is mid", {}),
+    ("spotify has a new feature", {}),
+    ("netflix raised their prices", {}),
+    ("uber just IPO'd", {}),
+    ("I interviewed at uber", {}),
+    ("venmo got hacked apparently", {}),
 ]
 
 
@@ -844,7 +857,7 @@ ALL_V51_BANKS = {
     "v51_bills_not_money":        V51_BILLS_NOT_MONEY,
     "v51_actual_money":           V51_ACTUAL_MONEY,
     "v51_strong_negation":        V51_STRONG_NEGATION,
-    "v51_bare_brand_negative":    V51_BARE_BRAND_NEGATIVE,
+    "v51_bare_brand_positive":    V51_BARE_BRAND_POSITIVE,
 
     # Positives (things that must fire)
     "v51_contact_boost":          V51_CONTACT_BOOST,

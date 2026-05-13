@@ -102,9 +102,11 @@
 {"text": "uber please", "intents": ["ride"], "entities": {}, "tag": "ultra_short"}
 {"text": "venmo me", "intents": ["money"], "entities": {}, "tag": "ultra_short"}
 {"text": "order food", "intents": ["food_order"], "entities": {}, "tag": "ultra_short"}
-{"text": "uber", "intents": [], "entities": {}, "tag": "bare_word"}
-{"text": "venmo", "intents": [], "entities": {}, "tag": "bare_word"}
-{"text": "spotify", "intents": [], "entities": {}, "tag": "bare_word"}
+{"text": "uber", "intents": ["ride"], "entities": {}, "tag": "bare_word"}
+{"text": "venmo", "intents": ["money"], "entities": {}, "tag": "bare_word"}
+{"text": "spotify", "intents": ["music"], "entities": {}, "tag": "bare_word"}
+{"text": "dominos", "intents": ["food_order"], "entities": {}, "tag": "bare_word"}
+{"text": "weather", "intents": ["weather"], "entities": {}, "tag": "bare_word"}
 {"text": "lets go halves on dinner", "intents": ["money"], "entities": {}, "tag": "money_split"}
 {"text": "chip in 15 each", "intents": ["money"], "entities": {"amount": "15"}, "tag": "money_split"}
 {"text": "going dutch on this one", "intents": ["money"], "entities": {}, "tag": "money_split"}
