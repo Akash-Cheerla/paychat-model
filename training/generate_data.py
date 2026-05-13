@@ -71,6 +71,11 @@ from v4_failure_modes import (
 # as context for classifying the current message.
 from v5_multiturn import ALL_V5_BANKS
 
+# v5.1 regression fixes — massive targeted banks for the 12 seed-suite
+# failures that appeared after v5 retrain (alarm/calendar/maps overfiring,
+# contact threshold too high, negation gaps, bare word gaps).
+from v5_regression_fixes import ALL_V51_BANKS
+
 random.seed(42)
 
 # Use the v3 taxonomy (18 intents). Old code referencing INTENTS still works.
@@ -1727,6 +1732,40 @@ def generate_dataset(n_per_intent=600):
                 labels = _zeros()
                 labels.update(intent_flags)
                 dataset.append(make_example(cur_text, bank_name, labels, context=context_str))
+
+    # ═════════════════════════════════════════════════════════════════════
+    # v5.1 REGRESSION FIXES — targeted at the 12 seed-suite failures
+    # from v5 retrain. Each bank has high multipliers to compensate for
+    # the existing training data that's pulling in the wrong direction.
+    #
+    # Format: (template, intent_flags_dict)
+    # These are all single-turn (no context field).
+    # ═════════════════════════════════════════════════════════════════════
+
+    _V51_MULTIPLIERS = {
+        "v51_time_not_alarm":         15,  # critical — alarm overfires hardest
+        "v51_time_is_alarm":          10,  # contrastive positive
+        "v51_activity_not_calendar":  15,  # calendar overfires on activity
+        "v51_venue_not_maps":         15,  # maps overfires on venues
+        "v51_place_is_maps":          10,  # contrastive positive
+        "v51_ride_not_maps":          15,  # maps fires on "uber there"
+        "v51_bills_not_money":        15,  # money fires on "pay rent"
+        "v51_actual_money":           10,  # contrastive positive
+        "v51_strong_negation":        15,  # negation must kill intent
+        "v51_contact_boost":          15,  # contact threshold too high
+        "v51_bare_word_boost":        18,  # bare "weather" needs heavy boost
+        "v51_dont_forget_fixes":      12,  # "don't forget" ≠ alarm
+        "v51_question_form":          12,  # "wanna uber" = ride
+    }
+
+    for bank_name, bank in ALL_V51_BANKS.items():
+        multiplier = _V51_MULTIPLIERS.get(bank_name, 10)
+        for template, intent_flags in bank:
+            for _ in range(multiplier):
+                text = augment(fill(template))
+                labels = _zeros()
+                labels.update(intent_flags)
+                dataset.append(make_example(text, bank_name, labels))
 
     # ── Negatives ──
     # Two flavors:
