@@ -327,7 +327,8 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                 if not text:
                     continue
                 # v5: get conversation context for this room
-                ctx_str = CONV_CTX.get_context_string(room_id)
+                # Pass current text so accumulator skips context for rejections/filler
+                ctx_str = CONV_CTX.get_context_string(room_id, current_text=text)
                 # Run model with context in threadpool to avoid blocking.
                 r = await asyncio.to_thread(run_model_with_context, text, ctx_str)
                 # Record the turn so future messages have context
