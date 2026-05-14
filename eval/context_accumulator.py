@@ -69,6 +69,7 @@ class Turn:
     slots: dict[str, Any] = field(default_factory=dict)
     ts: float = field(default_factory=time.time)
     source: str = "model"  # "model" | "carried_forward" | "correction"
+    handled: bool = False   # True once intent was confirmed/acknowledged
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +122,8 @@ _CONFIRM_EXACT = {
     "please", "pls", "plz",
     "cool", "dope", "fire",
     "done", "deal",
+    # Status confirmations
+    "sent", "on it",
     # Hindi/Hinglish
     "haan", "ha", "theek hai", "thik hai", "chal", "chalo",
     "kar de", "kar do", "kardo", "karde",
@@ -170,6 +173,68 @@ _ADDITION_STARTERS = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+# Filler / acknowledgment messages — should be skipped in context string.
+# These add noise without semantic value for intent detection.
+_FILLER_EXACT = {
+    # Acknowledgments
+    "ok", "okay", "k", "kk", "kay", "got it", "gotcha", "noted",
+    "thanks", "thank you", "ty", "thx", "np", "no problem",
+    "cool", "nice", "great", "awesome", "perfect", "dope", "fire", "lit",
+    # Reactions
+    "lol", "lmao", "lmfao", "haha", "hahaha", "ha", "rofl",
+    "wow", "whoa", "damn", "dang", "yikes", "oof", "bruh",
+    "omg", "smh", "ikr", "fr", "facts", "word", "true",
+    # Minimal responses
+    "same", "mood", "bet", "ight", "aight", "nah", "nope",
+    "yeah", "yep", "yup", "ya", "yea", "ye", "yes",
+    "sure", "for sure", "fs", "absolutely", "definitely",
+    "sounds good", "sounds great", "sounds perfect",
+    # Greetings / closings
+    "hey", "hi", "yo", "sup", "whats up", "nm", "nothing much",
+    "bye", "later", "ttyl", "gn", "good night",
+    # Generic filler
+    "idk", "hmm", "hm", "mhm", "uh", "um",
+    "no cap", "deadass", "slay", "period", "say less",
+    "sent", "done", "deal", "on it",
+    # Reactions to updates
+    "got it thanks", "got it", "gotcha thanks",
+    # Common compound greetings / filler
+    "hey whats up", "hey what's up", "yo whats up", "what's good",
+    "nm you", "nothing much you", "not much",
+    "lmaooo", "lmaoo", "hahahaha", "hahah",
+}
+
+# Rejection / deferral words — these mark prior intents as handled
+# (the user said no or pushed it off, so the intent is no longer active)
+_REJECTION_EXACT = {
+    "nah", "nope", "no", "not now", "not yet",
+    "maybe later", "later", "pass", "im good", "i'm good",
+    "never mind", "nevermind", "nvm", "forget it",
+    "cancel", "cancel that", "scratch that", "nah forget it",
+    "changed my mind", "not anymore", "dont worry about it",
+    "don't worry about it",
+}
+
+# Cancellation patterns — more complex cancellations
+_CANCEL_PATTERNS = re.compile(
+    r"^(?:"
+    r"(?:wait\s+)?n(?:ah|vm|evermind)\b"
+    r"|(?:actually\s+)?(?:forget|cancel|scratch|skip)\s+(?:it|that)\b"
+    r"|(?:nah|no)\s+(?:let'?s\s+)?(?:not|just|stay|skip)\b"
+    r"|(?:wait\s+)?(?:let'?s\s+)?(?:just\s+)?stay\s+home\b"
+    r"|changed?\s+(?:my\s+)?mind"
+    r"|not\s+(?:anymore|any\s*more|now|yet|today|tonight)\b"
+    r"|don'?t\s+(?:worry|bother)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+# Pure filler: acknowledgments that should NEVER carry forward intents.
+# Computed as filler words minus confirmation words (which CAN carry forward).
+# "nice", "lol", "thanks" = pure filler (never actionable).
+# "yeah", "ok", "bet" = confirmations (CAN carry forward intents).
+_PURE_FILLER = _FILLER_EXACT - _CONFIRM_EXACT
 
 # Reference patterns — "same thing", "that again", "the usual"
 _REFERENCE_PATTERNS = re.compile(
@@ -318,11 +383,52 @@ class ConversationContext:
         source: str = "model",
     ) -> None:
         """Record a classified message into the conversation history.
-        Call this AFTER classification so future messages have context."""
+        Call this AFTER classification so future messages have context.
+
+        Also marks prior actionable turns as "handled" when the current
+        message is a filler/confirmation — so they stop bleeding into
+        future context.
+        """
         if chat_id not in self._convos:
             self._convos[chat_id] = []
 
-        self._convos[chat_id].append(Turn(
+        history = self._convos[chat_id]
+
+        # Mark prior actionable turns as handled if this message is
+        # a confirmation/acknowledgment (the intent was acted on)
+        text_clean = text.strip().lower().rstrip("!.?")
+        is_filler = text_clean in _FILLER_EXACT or len(text_clean) <= 2
+        is_confirm = self._is_confirmation(text)
+
+        if is_filler or is_confirm:
+            # Walk backward and mark the most recent unhandled actionable turn
+            for turn in reversed(history):
+                if turn.fired and not turn.handled:
+                    turn.handled = True
+                    break
+
+        # Rejection / cancellation: mark ALL prior unhandled intents as handled
+        # (the user said no / changed mind — all prior actionable intents are dead)
+        is_rejection = text_clean in _REJECTION_EXACT
+        is_cancel = bool(_CANCEL_PATTERNS.match(text_clean))
+        if is_rejection or is_cancel:
+            for turn in reversed(history):
+                if turn.fired and not turn.handled:
+                    turn.handled = True
+
+        # Same-intent chaining: if this message fires intent X,
+        # mark prior turns that also fired X as handled.
+        # This prevents intent chains (money→money→money) from bloating context
+        # and self-corrects context bleed (if A bleeds X into B, marking A as
+        # handled removes the source of bleed for future messages).
+        if fired:
+            fired_set = set(fired)
+            for turn in reversed(history):
+                if turn.fired and not turn.handled:
+                    if set(turn.fired) & fired_set:
+                        turn.handled = True
+
+        history.append(Turn(
             text=text,
             sender=sender,
             fired=fired or [],
@@ -331,8 +437,8 @@ class ConversationContext:
         ))
 
         # Trim to window size
-        if len(self._convos[chat_id]) > self.window_size:
-            self._convos[chat_id] = self._convos[chat_id][-self.window_size:]
+        if len(history) > self.window_size:
+            self._convos[chat_id] = history[-self.window_size:]
 
     def get_history(self, chat_id: str) -> list[Turn]:
         """Return the conversation history for a chat."""
@@ -464,26 +570,68 @@ class ConversationContext:
         In native mode (v5), returns current text (context is separate)."""
         return text
 
-    def get_context_string(self, chat_id: str) -> Optional[str]:
-        """Get the context string for the tokenizer's pair encoding.
+    def get_context_string(self, chat_id: str, current_text: str = None) -> Optional[str]:
+        """Get a SMART context string for the tokenizer's pair encoding.
+
+        Instead of blindly piping last N messages, this filters out:
+          - Filler / acknowledgment messages ("ok", "nice", "lol")
+          - Messages whose intents were already handled (confirmed)
+          - Very old context (only keeps last 2 meaningful messages)
+
+        If current_text is provided, returns None for:
+          - Rejections / cancellations ("nah", "maybe later", "nvm")
+          - Pure filler ("nice", "lol", "thanks") that isn't a confirmation
 
         Returns " | "-joined prior messages (matching training data format),
-        or None if no context. Usage:
-
-            ctx_str = accumulator.get_context_string(chat_id)
-            if ctx_str:
-                enc = tokenizer(ctx_str, current_text, ...)  # pair encoding
-            else:
-                enc = tokenizer(current_text, ...)            # single
+        or None if no useful context.
         """
+        # If current message is a rejection/cancellation, don't pollute with
+        # prior context (prevents "maybe later" after "order pizza" → false fire)
+        if current_text:
+            ct = current_text.strip().lower().rstrip("!.?")
+            if ct in _REJECTION_EXACT or _CANCEL_PATTERNS.match(ct):
+                return None
+            # Pure filler (reactions, acknowledgments) shouldn't get context
+            # (prevents "nice" after "order pizza" → false food_order)
+            # But confirmations ("yeah", "ok", "bet") SHOULD get context
+            if ct in _PURE_FILLER:
+                return None
+
         history = self._convos.get(chat_id, [])
         if not history:
             return None
-        # Use last N messages as context, joined by " | "
-        prior_texts = [t.text for t in history[-(self.window_size - 1):]]
-        if not prior_texts:
+
+        # Walk backward, collect up to 2 meaningful messages
+        meaningful = []
+        for turn in reversed(history):
+            # Skip stale messages (>5 min old)
+            if time.time() - turn.ts > 300:
+                break
+
+            text_clean = turn.text.strip().lower().rstrip("!.?")
+
+            # Skip pure filler / acknowledgment messages
+            if text_clean in _FILLER_EXACT:
+                continue
+
+            # Skip very short non-actionable messages (1-2 chars like "?", "k")
+            if len(text_clean) <= 2:
+                continue
+
+            # Skip messages whose intents were already handled/confirmed
+            # (they bleed into future messages otherwise)
+            if turn.handled and turn.fired:
+                continue
+
+            meaningful.append(turn.text)
+            if len(meaningful) >= 2:
+                break
+
+        if not meaningful:
             return None
-        return " | ".join(prior_texts)
+
+        meaningful.reverse()
+        return " | ".join(meaningful)
 
 
 # ---------------------------------------------------------------------------
