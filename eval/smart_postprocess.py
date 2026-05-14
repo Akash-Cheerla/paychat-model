@@ -13,6 +13,12 @@ Rules:
   2. Suppress maps when place is a venue (no navigation keywords)
   3. Suppress calendar on pure reminders (no calendar event keywords)
   4. Suppress reservation on casual "lunch/dinner" (no booking keywords)
+  5. Suppress ALL intents on ultra-short messages (≤2 chars, just punctuation)
+  6. Suppress shopping co-fire on reminder/alarm messages
+  7. Suppress health on coffee/food brand mentions (not health-related)
+  8. Suppress contact on "tell him/her" without call/phone keywords
+  9. Suppress note on idiomatic "note to self" phrases
+  10. Suppress alarm on "contact me" / "reach me" phrases
 """
 
 import re
@@ -60,13 +66,56 @@ _VENUE_PATTERN = re.compile(
 # Intents that "own" a time mention (if they fire, alarm shouldn't co-fire)
 _TIME_OWNING_INTENTS = {
     'ride', 'travel', 'video', 'tickets', 'food_order',
-    'reservation', 'health', 'calendar',
+    'reservation', 'health', 'calendar', 'contact',
 }
 
 # Intents that "own" a place mention (if they fire, maps shouldn't co-fire)
 _VENUE_OWNING_INTENTS = {
     'calendar', 'reservation', 'tickets', 'video',
 }
+
+# Rule 5: ultra-short / punctuation-only messages
+_PUNCTUATION_ONLY = re.compile(r'^[\s?!.,;\-…~]+$')
+
+# Rule 6: shopping co-fire suppression — shopping only when explicitly shopping
+_SHOPPING_KEYWORDS = re.compile(
+    r'\b(buy|shop|purchase|order from|get me a|pick up|grab|amazon|'
+    r'walmart|target|store|mall|cart|checkout)\b',
+    re.IGNORECASE,
+)
+
+# Rule 7: health false positive suppression — coffee shops / food brands
+_COFFEE_FOOD_BRANDS = re.compile(
+    r'\b(starbucks|dunkin|peets|coffee bean|blue bottle|'
+    r'mcdonalds|burger king|wendys|chipotle|subway|panera|'
+    r'chick.fil.a|popeyes|taco bell|kfc)\b',
+    re.IGNORECASE,
+)
+_HEALTH_KEYWORDS = re.compile(
+    r'\b(doctor|hospital|clinic|pharmacy|therapist|dentist|'
+    r'sick|ill|fever|pain|hurt|ache|symptom|appointment|checkup|'
+    r'medicine|prescription|emergency|urgent care|health|medical|'
+    r'mental health|anxiety|depression|therapy|counseling)\b',
+    re.IGNORECASE,
+)
+
+# Rule 8: contact false positive — "tell him/her" isn't a call request
+_CALL_KEYWORDS = re.compile(
+    r'\b(call|ring|phone|facetime|dial|text|message|dm|hit up|buzz)\b',
+    re.IGNORECASE,
+)
+_TELL_PATTERN = re.compile(
+    r'\b(tell\s+(him|her|them|everyone)|say\s+(hi|hey|hello|bye)|'
+    r'let\s+(him|her|them)\s+know|pass\s+(it|the|a|along))\b',
+    re.IGNORECASE,
+)
+
+# Rule 10: "contact me" / "reach me" / "get back to me" → not alarm
+_CONTACT_ME_PATTERN = re.compile(
+    r'\b(contact\s+me|reach\s+me|get\s+(back|in\s+touch)\s+(to|with)\s+me|'
+    r'hit\s+me\s+up|hmu|let\s+me\s+know)\b',
+    re.IGNORECASE,
+)
 
 
 def smart_suppress(text: str, fired: list[str], scores: dict[str, float] | None = None) -> list[str]:
@@ -83,6 +132,12 @@ def smart_suppress(text: str, fired: list[str], scores: dict[str, float] | None 
     """
     fired_set = set(fired)
     suppress = set()
+
+    # ── Rule 5: Punctuation-only → suppress everything ──
+    # "?", "!", ".." etc. should never trigger action cards.
+    text_stripped = text.strip()
+    if _PUNCTUATION_ONLY.match(text_stripped):
+        return []
 
     # ── Rule 1: Suppress alarm when time belongs to another intent ──
     # "uber at 5am" → 5am is for the ride. alarm only fires if user
@@ -114,6 +169,52 @@ def smart_suppress(text: str, fired: list[str], scores: dict[str, float] | None 
     if 'reservation' in fired_set and 'calendar' in fired_set:
         if not _BOOKING_KEYWORDS.search(text) and not _VENUE_PATTERN.search(text):
             suppress.add('reservation')
+
+    # ── Rule 6: Suppress shopping co-fire ──
+    # "remind me to buy groceries" → alarm fires, shopping co-fires spuriously.
+    # Shopping suppressed when alarm co-fires (it's a reminder, not a shopping trip)
+    # or when text has no shopping-specific keywords.
+    if 'shopping' in fired_set:
+        if 'alarm' in fired_set:
+            suppress.add('shopping')
+        elif len(fired_set) > 1 and not _SHOPPING_KEYWORDS.search(text):
+            suppress.add('shopping')
+
+    # ── Rule 7: Suppress health on coffee/food brand mentions ──
+    # "where's the nearest starbucks" → maps ✓, health ✗
+    if 'health' in fired_set:
+        if _COFFEE_FOOD_BRANDS.search(text) and not _HEALTH_KEYWORDS.search(text):
+            suppress.add('health')
+
+    # ── Rule 8: Suppress contact on "tell him/her" without call keywords ──
+    # "tell him i said hi" → NOT a call/contact request.
+    if 'contact' in fired_set:
+        if _TELL_PATTERN.search(text) and not _CALL_KEYWORDS.search(text):
+            suppress.add('contact')
+
+    # ── Rule 9: Suppress note on idiomatic phrases ──
+    # "note to self: be better" → figure of speech, not a note intent.
+    if 'note' in fired_set:
+        if re.search(r'\bnote\s+to\s+self\b', text, re.IGNORECASE):
+            suppress.add('note')
+
+    # ── Rule 10: Suppress alarm on "contact me" / "reach me" ──
+    # "contact me later" → NOT an alarm/reminder.
+    if 'alarm' in fired_set:
+        if _CONTACT_ME_PATTERN.search(text) and not _ALARM_KEYWORDS.search(text):
+            suppress.add('alarm')
+
+    # ── Rule 11: Suppress alarm on rhetorical "remind me" ──
+    # "remind me why i do this" → rhetorical, not an actual reminder request.
+    if 'alarm' in fired_set:
+        if re.search(r'\bremind\s+me\s+(why|when|how|where|what|who)\b', text, re.IGNORECASE):
+            suppress.add('alarm')
+
+    # ── Rule 12: Suppress calendar on "book club" / non-booking "book" ──
+    # "we should book club this" → "book club" is a noun, not booking.
+    if 'calendar' in fired_set:
+        if re.search(r'\bbook\s*club\b', text, re.IGNORECASE):
+            suppress.add('calendar')
 
     return [i for i in fired if i not in suppress]
 
