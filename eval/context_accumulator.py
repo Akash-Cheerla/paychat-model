@@ -210,6 +210,8 @@ _FILLER_EXACT = {
 _REJECTION_EXACT = {
     "nah", "nope", "no", "not now", "not yet",
     "maybe later", "later", "pass", "im good", "i'm good",
+    "nah im good", "nah i'm good", "no im good", "no i'm good",
+    "nah its fine", "nah it's fine", "no its fine", "no it's fine",
     "never mind", "nevermind", "nvm", "forget it",
     "cancel", "cancel that", "scratch that", "nah forget it",
     "changed my mind", "not anymore", "dont worry about it",
@@ -222,6 +224,7 @@ _CANCEL_PATTERNS = re.compile(
     r"(?:wait\s+)?n(?:ah|vm|evermind)\b"
     r"|(?:actually\s+)?(?:forget|cancel|scratch|skip)\s+(?:it|that)\b"
     r"|(?:nah|no)\s+(?:let'?s\s+)?(?:not|just|stay|skip)\b"
+    r"|(?:nah|no)\s+(?:i'?m\s+)?(?:good|fine|ok|okay|all\s*good)\b"
     r"|(?:wait\s+)?(?:let'?s\s+)?(?:just\s+)?stay\s+home\b"
     r"|changed?\s+(?:my\s+)?mind"
     r"|not\s+(?:anymore|any\s*more|now|yet|today|tonight)\b"

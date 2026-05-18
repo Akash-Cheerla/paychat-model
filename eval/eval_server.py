@@ -41,7 +41,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slot_filler import extract_slots, needs_clarification, SLOT_SCHEMA  # noqa: E402
 from trigger_filter import should_process, matched_intents  # noqa: E402
-from context_accumulator import ConversationContext  # noqa: E402
+from context_accumulator import ConversationContext, _REJECTION_EXACT, _CANCEL_PATTERNS, _PURE_FILLER  # noqa: E402
 from smart_postprocess import smart_suppress  # noqa: E402
 
 # v5 conversation context — tracks multi-turn history per chat room
@@ -54,7 +54,7 @@ COOLDOWN_SECS = 30
 
 # --- paths -----------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_DIR = ROOT / "saved_model"
+MODEL_DIR = Path(os.environ.get("MODEL_DIR", str(ROOT / "saved_model")))
 EVAL_DIR = ROOT / "eval"
 JUDGMENTS_FILE = EVAL_DIR / "judgments.jsonl"
 SEED_FILE = EVAL_DIR / "seed_tests.jsonl"
@@ -272,7 +272,13 @@ def classify(req: ClassifyReq):
       ui_active    — keep the action button visible (state, always true when fired)
     """
     room_id = req.room_id or "api"
-    ctx_str = " | ".join(req.context) if req.context else None
+    # Server-side safety net: drop context for rejections/filler even if client sends it.
+    # The client SHOULD follow the context rules in INTEGRATION.md, but we double-check.
+    ctx_str = None
+    if req.context:
+        ct = req.text.strip().lower().rstrip("!.?")
+        if ct not in _REJECTION_EXACT and not _CANCEL_PATTERNS.match(ct) and ct not in _PURE_FILLER:
+            ctx_str = " | ".join(req.context)
     r = run_model_with_context(req.text, ctx_str)
 
     # Popup cooldown logic
