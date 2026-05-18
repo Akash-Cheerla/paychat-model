@@ -155,15 +155,17 @@ If sending raw context array, the server joins them: `" | ".join(context)`
 ```dockerfile
 FROM python:3.11-slim
 WORKDIR /app
-COPY saved_model/ saved_model/
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 COPY eval/ eval/
-RUN pip install torch transformers fastapi uvicorn python-dateutil
+COPY saved_model/ saved_model/
+ENV MODEL_DIR=/app/saved_model
 EXPOSE 8001
 CMD ["python", "eval/eval_server.py"]
 ```
 
 ### Environment:
-- `MODEL_DIR`: path to saved_model/ (default: `../saved_model`)
+- `MODEL_DIR`: path to saved_model/ (default: `/app/saved_model` in Docker, `../saved_model` locally)
 - `PORT`: server port (default: 8001)
 - No persistent storage needed
 - No logging of message content
