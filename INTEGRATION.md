@@ -45,7 +45,9 @@ Classify a single message with optional conversation context.
   "scores": [
     {"intent": "food_order", "prob": 0.92, "fired": true},
     {"intent": "ride", "prob": 0.03, "fired": false}
-  ]
+  ],
+  "should_popup": ["food_order"],
+  "ui_active": ["food_order"]
 }
 ```
 
@@ -55,6 +57,10 @@ Classify a single message with optional conversation context.
 | `slots` | object | Extracted slot values per intent |
 | `needs_clarification` | object[] | Missing required slots (app should ask user) |
 | `scores` | object[] | All 18 intent probabilities (for debugging) |
+| `should_popup` | string[] | **Event** — fire a new popup animation. Respects 30s cooldown so the same intent doesn't re-animate on every message in a conversation. |
+| `ui_active` | string[] | **State** — keep the action button visible. Always matches `fired`. Client owns dismissal (user completes action, taps away, or times out). |
+
+> **UI pattern**: on each message, use `should_popup` to trigger the animation and `ui_active` to decide if the button stays rendered. They diverge when the same intent re-fires within 30s — you skip the animation but keep the button up.
 
 ### `POST /batch`
 

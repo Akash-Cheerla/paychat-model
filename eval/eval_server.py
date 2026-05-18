@@ -24,6 +24,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,11 @@ from smart_postprocess import smart_suppress  # noqa: E402
 
 # v5 conversation context — tracks multi-turn history per chat room
 CONV_CTX = ConversationContext(window_size=5, stale_seconds=1800)
+
+# Popup cooldown — prevents the same intent re-animating every message in a convo.
+# should_popup=False during cooldown (don't re-animate), ui_active=True (keep button visible).
+POPUP_COOLDOWN: dict[str, dict[str, float]] = {}  # room_id -> {intent: last_popup_ts}
+COOLDOWN_SECS = 30
 
 # --- paths -----------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
@@ -228,6 +234,11 @@ class DetectReq(BaseModel):
 class BatchReq(BaseModel):
     texts: list[str]
 
+class ClassifyReq(BaseModel):
+    text: str
+    context: list[str] = []
+    room_id: str = ""
+
 class JudgeReq(BaseModel):
     text: str
     predicted: list[str]
@@ -250,6 +261,42 @@ def chat_page():
     if not CHAT_HTML_FILE.exists():
         return HTMLResponse("<h1>chat.html missing</h1>", status_code=500)
     return HTMLResponse(CHAT_HTML_FILE.read_text(encoding="utf-8"))
+
+
+@app.post("/classify")
+def classify(req: ClassifyReq):
+    """
+    Main integration endpoint (see INTEGRATION.md).
+    Returns fired intents, slots, and two UI control fields:
+      should_popup — fire a new popup animation (event, respects 30s cooldown)
+      ui_active    — keep the action button visible (state, always true when fired)
+    """
+    room_id = req.room_id or "api"
+    ctx_str = " | ".join(req.context) if req.context else None
+    r = run_model_with_context(req.text, ctx_str)
+
+    # Popup cooldown logic
+    now = time.time()
+    room_cooldowns = POPUP_COOLDOWN.setdefault(room_id, {})
+    should_popup: list[str] = []
+    ui_active: list[str] = list(r["fired"])
+    for intent in r["fired"]:
+        if now - room_cooldowns.get(intent, 0) > COOLDOWN_SECS:
+            should_popup.append(intent)
+            room_cooldowns[intent] = now
+
+    scores_list = [
+        {"intent": s["intent"], "prob": s["prob"], "fired": s["intent"] in r["fired"]}
+        for s in r["all_scores"]
+    ]
+    return {
+        "fired": r["fired"],
+        "slots": r["slots"],
+        "needs_clarification": r["needs_clarification"],
+        "scores": scores_list,
+        "should_popup": should_popup,   # trigger new popup animation
+        "ui_active": ui_active,         # keep action button visible
+    }
 
 
 # ───────────────────────────────────────────────────────────────────────
@@ -334,6 +381,15 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                 # Record the turn so future messages have context
                 CONV_CTX.record(room_id, text, sender=user_name,
                                 fired=r["fired"], slots=r.get("slots", {}))
+                # Popup cooldown — should_popup=event, ui_active=state
+                now = time.time()
+                room_cooldowns = POPUP_COOLDOWN.setdefault(room_id, {})
+                should_popup: list[str] = []
+                ui_active: list[str] = list(r["fired"])
+                for intent in r["fired"]:
+                    if now - room_cooldowns.get(intent, 0) > COOLDOWN_SECS:
+                        should_popup.append(intent)
+                        room_cooldowns[intent] = now
                 msg = {
                     "type": "msg",
                     "sender": user_name,
@@ -341,6 +397,8 @@ async def ws_chat(websocket: WebSocket, room_id: str, user_name: str) -> None:
                     "fired": r["fired"],
                     "slots": r["slots"],
                     "needs_clarification": r["needs_clarification"],
+                    "should_popup": should_popup,   # fire new popup animation (event)
+                    "ui_active": ui_active,          # keep action button visible (state)
                     "triggered": r.get("triggered", True),
                     "context_used": ctx_str is not None,
                     # only the top-5 scores so the payload stays small
