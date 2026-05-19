@@ -103,41 +103,30 @@ Classify multiple messages at once (for catch-up / summary flows).
 
 ---
 
-## Context Rules (Client-Side)
+## Context (Multi-Turn)
 
-The client app handles context before sending to the model server. This keeps the server stateless and E2EE intact.
+The model understands conversation context — "yeah" after "order sushi?" correctly fires `food_order`, and "nah im good" after the same message fires nothing.
 
-### How it works:
-1. Client decrypts messages locally (it already does this to display them)
-2. When a new message arrives, client decides what context to send
-3. Client sends `{text, context[]}` to model server
-4. Server classifies and returns result — stores nothing
+### How to send context:
+Just pass the last 1-2 messages from the chat room as the `context` array. The server handles all the smart filtering internally:
+- Rejections ("nah", "nvm", "im good") → server drops context automatically
+- Filler ("lol", "nice", "haha") → server drops context automatically
+- Confirmations ("yeah", "bet", "sure") → server uses context to resolve intent
 
-### Context filtering logic (implement in client):
-
-**Send NO context when current message is:**
-- A rejection: "nah", "nope", "maybe later", "nvm", "forget it", "cancel that"
-- Pure filler: "nice", "lol", "thanks", "got it", "haha", "bruh", "great"
-- These should NOT inherit prior intents
-
-**Send context (last 1-2 messages) when current message is:**
-- A confirmation: "yeah", "ok", "sure", "bet", "do it", "send it"
-- A follow-up: "how much", "where", "what time"
-- A new actionable message that benefits from context
-
-**Skip these messages when building context:**
-- Filler/acknowledgments ("ok", "nice", "lol")
-- Messages whose intents were already acted on
-- Messages older than 5 minutes
-
-### Context format:
-Context messages are joined with ` | ` and passed as the first segment of a text pair to the tokenizer:
-```
-tokenizer(context_string, current_text)
-→ <s> prior msg 1 | prior msg 2 </s></s> current message </s>
+```json
+{
+  "text": "yeah lets do it",
+  "context": ["wanna order sushi?"],
+  "room_id": "room_abc123"
+}
 ```
 
-If sending raw context array, the server joins them: `" | ".join(context)`
+**Client just needs to:**
+1. Decrypt messages locally (already doing this for display)
+2. Send last 1-2 messages as `context` — no filtering needed on your end
+3. Pass a consistent `room_id` so the server can track popup cooldowns
+
+The server is stateless — nothing is stored or logged.
 
 ---
 
