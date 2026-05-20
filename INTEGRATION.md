@@ -107,6 +107,38 @@ Classify multiple messages at once (for catch-up / summary flows).
 
 The model understands conversation context — "yeah" after "order sushi?" correctly fires `food_order`, and "nah im good" after the same message fires nothing.
 
+### E2EE Data Flow
+
+**The backend/database never touches plaintext.** Context comes from the client, which already decrypts messages for display.
+
+```
+┌──────────┐       POST /classify        ┌─────────────────────┐
+│  Client   │ ──────────────────────────► │  Model Server       │
+│           │   {text, context, room_id}  │  (Nitro Enclave)    │
+│ • decrypts│                             │                     │
+│   messages│ ◄────────────────────────── │ • processes in RAM  │
+│   for     │   {fired, slots,           │ • nothing stored    │
+│   display │    should_popup, ui_active} │ • garbage collected │
+└──────────┘                              └─────────────────────┘
+     │                                           ▲
+     │  encrypted messages                       │
+     ▼                                           │
+┌──────────┐                                     │
+│ Backend  │  ← never sees plaintext             │
+│ (E2EE)   │  ← no decryption keys              │
+│          │  ← just stores/relays ciphertext    │
+└──────────┘                                     │
+                    vsock (enclave) ──────────────┘
+```
+
+**Step by step:**
+1. User sends encrypted message → backend relays to recipient
+2. Client decrypts message locally (already doing this for display)
+3. Client calls `POST /classify` with decrypted text + last 1-2 messages it already has in memory
+4. Model server processes in RAM inside the enclave → returns intent + slots
+5. Response goes back to client → client shows popup/action button
+6. Nothing is stored, nothing is logged — RAM only, garbage collected after response
+
 ### How to send context:
 Just pass the last 1-2 messages from the chat room as the `context` array. The server handles all the smart filtering internally:
 - Rejections ("nah", "nvm", "im good") → server drops context automatically
