@@ -29,13 +29,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import torch
+import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoTokenizer
+
+# ONNX or PyTorch — set USE_ONNX=1 env var to use ONNX Runtime
+USE_ONNX = os.environ.get("USE_ONNX", "0") == "1"
+
+if USE_ONNX:
+    import onnxruntime as ort
+else:
+    import torch
+    from transformers import AutoModelForSequenceClassification
 
 # v4 Layer A slot extractor (deterministic regex + dateparser, ~5ms / message)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -66,20 +75,39 @@ EVAL_DIR.mkdir(exist_ok=True)
 
 # --- load model once -------------------------------------------------------
 print(f"[eval] loading model from {MODEL_DIR} ...", flush=True)
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"[eval] device: {DEVICE}", flush=True)
+print(f"[eval] backend: {'ONNX Runtime' if USE_ONNX else 'PyTorch'}", flush=True)
 
 tok = AutoTokenizer.from_pretrained(str(MODEL_DIR), use_fast=True)
-mdl = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR)).to(DEVICE).eval()
 
 with open(MODEL_DIR / "thresholds.json") as f:
     THRESHOLDS: dict[str, float] = json.load(f)
 
-LABELS: list[str] = (
-    list(mdl.config.id2label.values())
-    if mdl.config.id2label
-    else list(THRESHOLDS.keys())
-)
+if USE_ONNX:
+    # ONNX Runtime inference
+    onnx_model_path = MODEL_DIR / "model_quantized.onnx"
+    if not onnx_model_path.exists():
+        onnx_model_path = MODEL_DIR / "model.onnx"
+    print(f"[eval] loading ONNX model: {onnx_model_path.name}", flush=True)
+    ort_session = ort.InferenceSession(str(onnx_model_path), providers=["CPUExecutionProvider"])
+    mdl = None
+    DEVICE = "cpu"
+    # Load labels from config.json
+    with open(MODEL_DIR / "config.json") as f:
+        config = json.load(f)
+    LABELS: list[str] = [config["id2label"][str(i)] for i in range(len(config["id2label"]))]
+    print(f"[eval] ONNX session ready ({onnx_model_path.stat().st_size / 1e6:.0f}MB)", flush=True)
+else:
+    # PyTorch inference
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[eval] device: {DEVICE}", flush=True)
+    mdl = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR)).to(DEVICE).eval()
+    ort_session = None
+    LABELS: list[str] = (
+        list(mdl.config.id2label.values())
+        if mdl.config.id2label
+        else list(THRESHOLDS.keys())
+    )
+    print(f"[eval] loaded {type(mdl).__name__} ({sum(p.numel() for p in mdl.parameters())/1e6:.0f}M params)", flush=True)
 
 try:
     with open(MODEL_DIR / "training_report.json") as f:
@@ -90,7 +118,6 @@ except Exception:
     MODEL_VERSION = "unknown"
     TEST_EXACT = 0
 
-print(f"[eval] loaded {type(mdl).__name__} ({sum(p.numel() for p in mdl.parameters())/1e6:.0f}M params)", flush=True)
 print(f"[eval] labels: {LABELS}", flush=True)
 
 # --- inference -------------------------------------------------------------
@@ -108,7 +135,30 @@ def _empty_result(text: str) -> dict[str, Any]:
     }
 
 
-@torch.no_grad()
+def _run_inference(input_ids, attention_mask) -> list[list[float]]:
+    """Run inference through ONNX or PyTorch and return probabilities."""
+    if USE_ONNX:
+        if hasattr(input_ids, 'numpy'):
+            input_ids_np = input_ids.numpy()
+            attention_mask_np = attention_mask.numpy()
+        else:
+            input_ids_np = input_ids
+            attention_mask_np = attention_mask
+        logits = ort_session.run(None, {
+            "input_ids": input_ids_np,
+            "attention_mask": attention_mask_np,
+        })[0]
+        # sigmoid
+        probs = (1 / (1 + np.exp(-logits))).tolist()
+        return probs
+    else:
+        import torch as _torch
+        with _torch.no_grad():
+            logits = mdl(input_ids=input_ids, attention_mask=attention_mask).logits
+            probs = _torch.sigmoid(logits).cpu().tolist()
+        return probs
+
+
 def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]]:
     """Batched inference. Returns list of
     {text, all_scores, fired, slots, needs_clarification, triggered, trigger_hints}.
@@ -134,9 +184,13 @@ def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]
         indices = list(range(len(texts)))
         results = [None] * len(texts)
 
-    enc = tok(to_run, return_tensors="pt", truncation=True, max_length=128, padding=True).to(DEVICE)
-    logits = mdl(**enc).logits
-    probs = torch.sigmoid(logits).cpu().tolist()
+    if USE_ONNX:
+        enc = tok(to_run, return_tensors="np", truncation=True, max_length=128, padding=True)
+        probs = _run_inference(enc["input_ids"], enc["attention_mask"])
+    else:
+        enc = tok(to_run, return_tensors="pt", truncation=True, max_length=128, padding=True)
+        enc = {k: v.to(DEVICE) for k, v in enc.items()}
+        probs = _run_inference(enc["input_ids"], enc["attention_mask"])
 
     for idx, text, ps in zip(indices, to_run, probs):
         scores = []
@@ -167,7 +221,6 @@ def run_model(texts: list[str], use_trigger: bool = True) -> list[dict[str, Any]
     return results  # type: ignore
 
 
-@torch.no_grad()
 def run_model_with_context(text: str, context: str | None = None, use_trigger: bool = True) -> dict[str, Any]:
     """Single-message inference with optional conversation context.
 
@@ -184,13 +237,17 @@ def run_model_with_context(text: str, context: str | None = None, use_trigger: b
         if not should_process(text):
             return _empty_result(text)
 
+    ret_tensors = "np" if USE_ONNX else "pt"
     if context:
-        enc = tok(context, text, return_tensors="pt", truncation=True, max_length=128).to(DEVICE)
+        enc = tok(context, text, return_tensors=ret_tensors, truncation=True, max_length=128)
     else:
-        enc = tok(text, return_tensors="pt", truncation=True, max_length=128).to(DEVICE)
+        enc = tok(text, return_tensors=ret_tensors, truncation=True, max_length=128)
 
-    logits = mdl(**enc).logits[0]
-    probs = torch.sigmoid(logits).cpu().tolist()
+    if not USE_ONNX:
+        enc = {k: v.to(DEVICE) for k, v in enc.items()}
+
+    probs_batch = _run_inference(enc["input_ids"], enc["attention_mask"])
+    probs = probs_batch[0]
 
     scores = []
     for i, label in enumerate(LABELS):
