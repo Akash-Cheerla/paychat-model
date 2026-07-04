@@ -1,242 +1,76 @@
 {
-  "trained_at": "2026-05-12T07:16:31.134557",
-  "model": "roberta-base",
-  "epochs": 8,
-  "lr": 2e-05,
-  "batch_size": 32,
+  "model": "v21",
+  "trained_at": "2026-07-03T09:04:32.118303",
+  "architecture": "DualHeadRoberta",
+  "dataset": "merged_v12",
+  "train_size": 387586,
+  "val_size": 48448,
+  "test_size": 48449,
+  "epochs": 5,
+  "best_epoch": 5,
+  "best_val_f1": 0.9524,
+  "test_exact_match": 0.9686,
+  "test_hamming": 0.99612,
+  "thresholds": {
+    "money": 0.6206,
+    "ride": 0.6792,
+    "food_order": 0.6899,
+    "contact": 0.7754,
+    "alarm": 0.6479,
+    "reminder": 0.5972,
+    "calendar": 0.6831,
+    "bills": 0.7368,
+    "travel": 0.6074,
+    "_action": 0.51
+  },
   "intents": [
     "money",
-    "alarm",
-    "contact",
-    "calendar",
-    "maps",
-    "food_order",
     "ride",
-    "travel",
-    "shopping",
-    "music",
-    "video",
-    "tickets",
-    "reservation",
-    "task",
-    "note",
+    "food_order",
+    "contact",
+    "alarm",
+    "reminder",
+    "calendar",
     "bills",
-    "health",
-    "weather"
+    "travel"
   ],
-  "threshold": 0.5,
-  "optimal_thresholds": {
-    "money": 0.57,
-    "alarm": 0.47,
-    "contact": 0.84,
-    "calendar": 0.27,
-    "maps": 0.47,
-    "food_order": 0.58,
-    "ride": 0.61,
-    "travel": 0.15,
-    "shopping": 0.19,
-    "music": 0.79,
-    "video": 0.31,
-    "tickets": 0.3,
-    "reservation": 0.63,
-    "task": 0.75,
-    "note": 0.15,
-    "bills": 0.18,
-    "health": 0.88,
-    "weather": 0.15
-  },
-  "pos_weight_used": true,
-  "focal_loss": true,
-  "focal_gamma": 2.0,
-  "label_smoothing": 0.03,
-  "cosine_schedule": false,
-  "fp16": true,
-  "test_exact_match": 0.9857328145265889,
-  "test_hamming": 0.9990992938463755,
-  "per_intent": {
-    "money": {
-      "precision": 0.98989898989899,
-      "recall": 0.9849246231155779,
-      "f1": 0.9874055415617129,
-      "auc": 0.9976973254487341,
-      "support": 199
-    },
-    "alarm": {
-      "precision": 0.9789473684210527,
-      "recall": 0.9946524064171123,
-      "f1": 0.986737400530504,
-      "auc": 0.9976852321874556,
-      "support": 187
-    },
-    "contact": {
-      "precision": 0.9798657718120806,
-      "recall": 0.9931972789115646,
-      "f1": 0.9864864864864865,
-      "auc": 0.9999930513574172,
-      "support": 147
-    },
-    "calendar": {
-      "precision": 1.0,
-      "recall": 0.9861111111111112,
-      "f1": 0.993006993006993,
-      "auc": 0.999917328042328,
-      "support": 144
-    },
-    "maps": {
-      "precision": 0.9392265193370166,
-      "recall": 0.9826589595375722,
-      "f1": 0.96045197740113,
-      "auc": 0.999739874464608,
-      "support": 173
-    },
-    "food_order": {
-      "precision": 0.9645390070921985,
-      "recall": 1.0,
-      "f1": 0.9819494584837545,
-      "auc": 0.999640833266821,
-      "support": 136
-    },
-    "ride": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 149
-    },
-    "travel": {
-      "precision": 0.9759036144578314,
-      "recall": 0.9878048780487805,
-      "f1": 0.9818181818181818,
-      "auc": 0.9998740676947075,
-      "support": 82
-    },
-    "shopping": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 78
-    },
-    "music": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 82
-    },
-    "video": {
-      "precision": 0.9716981132075472,
-      "recall": 0.9809523809523809,
-      "f1": 0.976303317535545,
-      "auc": 0.9996707108489585,
-      "support": 105
-    },
-    "tickets": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 101
-    },
-    "reservation": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 85
-    },
-    "task": {
-      "precision": 0.958904109589041,
-      "recall": 0.9722222222222222,
-      "f1": 0.9655172413793104,
-      "auc": 0.9999262210417589,
-      "support": 72
-    },
-    "note": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 56
-    },
-    "bills": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "auc": 1.0,
-      "support": 117
-    },
-    "health": {
-      "precision": 1.0,
-      "recall": 0.9852941176470589,
-      "f1": 0.9925925925925926,
-      "auc": 0.9961918786082072,
-      "support": 68
-    },
-    "weather": {
-      "precision": 1.0,
-      "recall": 0.9882352941176471,
-      "f1": 0.9940828402366864,
-      "auc": 0.9999960771237472,
-      "support": 85
-    }
-  },
   "training_history": [
     {
       "epoch": 1,
-      "train_loss": 0.05928954484977611,
-      "val_loss": 0.12752666301334026,
-      "val_exact_match": 0.9046692607003891,
-      "val_hamming": 0.9939292405245712
+      "loss": 1.653135521417032,
+      "val_f1": 0.9014238795625773,
+      "em": 0.9364473249669749
     },
     {
       "epoch": 2,
-      "train_loss": 0.008277630720326215,
-      "val_loss": 0.07513131512348185,
-      "val_exact_match": 0.9594682230869002,
-      "val_hamming": 0.9975140510159966
+      "loss": 0.943890262331328,
+      "val_f1": 0.93115681279158,
+      "em": 0.9540744715984147
     },
     {
       "epoch": 3,
-      "train_loss": 0.0038295484840418135,
-      "val_loss": 0.0558237058216149,
-      "val_exact_match": 0.9743839169909209,
-      "val_hamming": 0.998378728923476
+      "loss": 0.7617275536808128,
+      "val_f1": 0.9414781110026296,
+      "em": 0.9610923051519155
     },
     {
       "epoch": 4,
-      "train_loss": 0.0023632861877521004,
-      "val_loss": 0.046900753354288865,
-      "val_exact_match": 0.9766536964980544,
-      "val_hamming": 0.9984327712926935
+      "loss": 0.6477623568199298,
+      "val_f1": 0.9492399173336863,
+      "em": 0.9666859313077939
     },
     {
       "epoch": 5,
-      "train_loss": 0.0017074430031471205,
-      "val_loss": 0.03784357547068719,
-      "val_exact_match": 0.9818417639429312,
-      "val_hamming": 0.9988651102464332
-    },
-    {
-      "epoch": 6,
-      "train_loss": 0.0012617594052568783,
-      "val_loss": 0.03435891352056228,
-      "val_exact_match": 0.9854085603112841,
-      "val_hamming": 0.9990632656002306
-    },
-    {
-      "epoch": 7,
-      "train_loss": 0.000980476921521811,
-      "val_loss": 0.031349038397989325,
-      "val_exact_match": 0.9867055771725033,
-      "val_hamming": 0.9991353220925205
-    },
-    {
-      "epoch": 8,
-      "train_loss": 0.0007523237940859552,
-      "val_loss": 0.029523189995706696,
-      "val_exact_match": 0.9876783398184177,
-      "val_hamming": 0.9991713503386656
+      "loss": 0.5737256092018593,
+      "val_f1": 0.9524231262280263,
+      "em": 0.9689357661822986
     }
+  ],
+  "changes_from_v20": [
+    "30K context-prefixed examples added",
+    "17K context bleed TNs 3x upsampled",
+    "9K continuation TPs",
+    "Single-phase training",
+    "Dataset: merged_v12 (484K)"
   ]
 }

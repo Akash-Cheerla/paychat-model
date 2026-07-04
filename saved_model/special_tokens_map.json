@@ -1,7 +1,25 @@
 {
-  "bos_token": "<s>",
-  "cls_token": "<s>",
-  "eos_token": "</s>",
+  "bos_token": {
+    "content": "<s>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  },
+  "cls_token": {
+    "content": "<s>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  },
+  "eos_token": {
+    "content": "</s>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  },
   "mask_token": {
     "content": "<mask>",
     "lstrip": true,
@@ -9,7 +27,25 @@
     "rstrip": false,
     "single_word": false
   },
-  "pad_token": "<pad>",
-  "sep_token": "</s>",
-  "unk_token": "<unk>"
+  "pad_token": {
+    "content": "<pad>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  },
+  "sep_token": {
+    "content": "</s>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  },
+  "unk_token": {
+    "content": "<unk>",
+    "lstrip": false,
+    "normalized": true,
+    "rstrip": false,
+    "single_word": false
+  }
 }
