@@ -50,7 +50,7 @@ This is the only endpoint you need. Call it for every DM message.
 | `context` | string[] | No | Previous messages in the conversation (max 3 used). If omitted, server uses its own internal tracking per room_id |
 | `message_id` | string | No | Message ID (echoed back) |
 
-**About `context`:** Pass the last few messages from the conversation as a string array. The server uses up to 3 most recent ones to understand conversation flow. If you don't pass `context`, the server tracks messages internally per `room_id` — but passing it explicitly is recommended since Phoenix already has the messages.
+**About `context`:** Pass the last few messages from the conversation as a plain string array — each element is just the message text, not a message object (e.g. `["hey are you free?", "yeah lets grab food"]`). The server uses up to 3 most recent ones to understand conversation flow. If you don't pass `context`, the server tracks messages internally per `room_id` — but passing it explicitly is recommended since Phoenix already has the messages.
 
 ### Response
 
