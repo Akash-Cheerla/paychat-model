@@ -649,7 +649,7 @@ _FOOD_PATTERNS = [
 ]
 
 
-def extract_slots(text: str, intents: list, room_id: str = None) -> dict:
+def extract_slots(text: str, intents: list, room_id: str = None, prev_messages: list = None) -> dict:
     """Extract structured slots based on detected intents."""
     slots = {}
     t = text.strip()
@@ -677,7 +677,7 @@ def extract_slots(text: str, intents: list, room_id: str = None) -> dict:
 
     # ── Pickup & Destination (for ride, travel) ──
     if any(i in intents for i in ["ride", "travel"]):
-        ride_slots = _extract_ride_slots(t)
+        ride_slots = _extract_ride_slots(t, prev_messages=prev_messages)
         if ride_slots.get("destination"):
             slots["destination"] = ride_slots["destination"]
         if ride_slots.get("pickup"):
@@ -828,13 +828,17 @@ def _extract_time(text_lower: str, intents: list = None) -> Optional[dict]:
     return components[0]
 
 
-def _extract_ride_slots(text: str) -> dict:
+def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
     """Extract pickup and destination from ride/travel messages using dependency parsing."""
     doc = _nlp(text)
     result = {}
     _NOISE = {"me", "us", "it", "that", "this", "one", "uber", "lyft", "cab", "ride",
               "taxi", "car", "a ride", "a cab", "a taxi", "an uber", "a lyft"}
     _TIME_PREPS = {"by", "before", "after", "around", "at"}
+    _VAGUE_PLACES = {"your place", "my place", "his place", "her place", "their place",
+                     "your house", "my house", "his house", "her house", "their house",
+                     "your apartment", "my apartment", "there", "here", "that place",
+                     "your spot", "the spot", "the place"}
 
     from_phrases = []
     to_phrases = []
@@ -902,7 +906,56 @@ def _extract_ride_slots(text: str) -> dict:
         if re.search(r'\bhome\b', text.lower()) and re.search(r'\b(?:get|go|take|drop|ride|back|head)\b', text.lower()):
             result["destination"] = "home"
 
+    # If destination is a vague reference, try to resolve from context
+    dest = result.get("destination", "").lower().strip()
+    if dest in _VAGUE_PLACES and prev_messages:
+        resolved = _resolve_place_from_context(prev_messages)
+        if resolved:
+            result["destination"] = resolved
+        else:
+            del result["destination"]
+
+    pickup = result.get("pickup", "").lower().strip()
+    if pickup in _VAGUE_PLACES and prev_messages:
+        resolved = _resolve_place_from_context(prev_messages)
+        if resolved:
+            result["pickup"] = resolved
+        else:
+            del result["pickup"]
+
     return result
+
+
+def _resolve_place_from_context(prev_messages: list) -> str | None:
+    """Scan recent context messages for a real address or place name."""
+    # Look in reverse order (most recent first)
+    for msg in reversed(prev_messages):
+        # Street address pattern: number + street name
+        addr = re.search(
+            r'\b(\d{1,5}\s+[\w\s]+?(?:street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|way|place|pl|court|ct|circle|cir|parkway|pkwy)(?:\s+\w+)?)\b',
+            msg, re.IGNORECASE
+        )
+        if addr:
+            return addr.group(1).strip().title()
+
+        # Named places: "the airport", "downtown", "mall", specific names with caps
+        place = re.search(
+            r'\b(?:the\s+)?(airport|station|mall|hospital|university|campus|office|gym|library|hotel|restaurant|club|bar|park|beach|terminal)\b',
+            msg, re.IGNORECASE
+        )
+        if place:
+            return place.group(0).strip().title()
+
+        # Capitalized multi-word proper nouns (likely place names)
+        proper = re.findall(r'(?<!\.\s)(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', msg)
+        if proper:
+            candidate = proper[-1].strip()
+            skip = {"Let Me", "I Am", "I Was", "Do You", "Can You", "What Is",
+                    "How Are", "Oh My", "Thank You", "No Way"}
+            if candidate not in skip and len(candidate) > 4:
+                return candidate
+
+    return None
 
 
 def _extract_food(text_lower: str) -> Optional[dict]:
@@ -1464,7 +1517,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
         result["target"] = detect_target(text, result["intents"], result.get("money"))
 
     # Phase 3: Slot extraction
-    slots = extract_slots(text, result["intents"], room_id=room_id)
+    slots = extract_slots(text, result["intents"], room_id=room_id, prev_messages=prev_messages)
     if slots:
         result["slots"] = slots
 
@@ -2066,7 +2119,7 @@ async def user_summary(room_id: str, user_name: str):
 
 
 # ── Demo UI ──
-DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent.parent / "demo")))
+DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent / "demo")))
 DEMO_HTML = DEMO_DIR / "paychat_demo.html"
 
 
