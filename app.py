@@ -264,7 +264,7 @@ def fast_keyword_detect(text: str) -> dict:
         'i got you', "i'll get this", 'need my money',
     ]
     has_money_kw = any(w in t for w in money_words)
-    has_amount = bool(re.search(r'\$[\d,.]+|\d+\s*\$|\d+\s*(dollars?|bucks?|rupees?)', t))
+    has_amount = bool(re.search(r'[\$₹][\d,.]+|\d+\s*[\$₹]|\d+\s*(?:dollars?|bucks?|rupees?|rs\.?|inr|ringgit|rm|myr)\b', t))
     # Suppress false positives
     money_suppress = ['pay attention', 'pay respect', 'pay the price', 'i owe my success',
                       'owe it to', "don't owe", 'doesnt owe', "doesn't owe"]
@@ -414,8 +414,8 @@ def _enrich_money(text: str) -> dict:
 
     # Amount
     amount_match = re.search(
-        r'\$[\d,]+(?:\.\d{1,2})?|\b\d+\s*\$|\b\d+\s*(?:dollars?|bucks?|rupees?)\b'
-        r'|₹[\d,]+|\b\d+\s*₹',
+        r'[\$₹][\d,]+(?:\.\d{1,2})?|\b\d+\s*[\$₹]'
+        r'|\b\d+\s*(?:dollars?|bucks?|rupees?|rs\.?|inr|ringgit|rm|myr)\b',
         text, re.IGNORECASE)
     amount = amount_match.group(0) if amount_match else None
     if amount and re.match(r'^\d+\s*\$', amount):
@@ -428,7 +428,7 @@ def _enrich_money(text: str) -> dict:
         trigger = "bill_splitting"
     elif any(w in t for w in ["owe", "owed", "pay me back", "pay back"]):
         trigger = "owing_debt"
-    elif "$" in t or any(w in t for w in ["dollars", "bucks", "rupees"]):
+    elif "$" in t or "₹" in t or any(w in t for w in ["dollars", "bucks", "rupees", "ringgit", " rm ", " myr"]):
         trigger = "direct_amount"
     else:
         trigger = "general_money"
@@ -767,16 +767,18 @@ def _resolve_pronoun_recipient(text_lower: str, room_id: str) -> Optional[str]:
 def _extract_amount(text: str) -> Optional[str]:
     patterns = [
         r'(\$[\d,]+(?:\.\d{1,2})?)',
-        r'(₹[\d,]+)',
+        r'(₹[\d,]+(?:\.\d{1,2})?)',
         r'(\d+(?:\.\d{1,2})?)\s*(?:dollars?|bucks?)',
-        r'(\d+(?:\.\d{1,2})?)\s*(?:rupees?)',
+        r'(\d+(?:\.\d{1,2})?)\s*(?:rupees?|rs\.?|inr)',
+        r'(\d+(?:\.\d{1,2})?)\s*(?:ringgit|rm|myr)',
         r'(\d+(?:\.\d{1,2})?)\s*\$',
+        r'(\d+(?:\.\d{1,2})?)\s*₹',
     ]
     for p in patterns:
         m = re.search(p, text, re.IGNORECASE)
         if m:
             val = m.group(0).strip()
-            if re.match(r'^\d', val) and 'dollar' not in val.lower() and 'buck' not in val.lower() and 'rupee' not in val.lower():
+            if re.match(r'^\d', val) and not re.search(r'(?:dollar|buck|rupee|rs\.?|inr|ringgit|rm|myr)', val, re.IGNORECASE):
                 val = '$' + val
             return val
     number_words = {
@@ -784,7 +786,7 @@ def _extract_amount(text: str) -> Optional[str]:
         "hundred": "100", "thousand": "1000", "five": "5", "fifteen": "15",
     }
     for word, num in number_words.items():
-        if re.search(r'\b' + word + r'\s*(dollars?|bucks?)\b', text.lower()):
+        if re.search(r'\b' + word + r'\s*(?:dollars?|bucks?|rupees?|rs\.?|ringgit|rm)\b', text.lower()):
             return f"${num}"
     # Bare number in money context — "front me 50", "sent me the 30"
     m = re.search(
@@ -1411,8 +1413,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
     # Phase 1c4b: Amount cap — amounts above $5000 in casual chat aren't real payment requests
     _MONEY_CAP = 5000
     if "money" in result["intents"]:
-        amounts = re.findall(r'\$\s*([\d,]+(?:\.\d+)?)', tl)
-        amounts += re.findall(r'([\d,]+(?:\.\d+)?)\s*(?:dollars?|bucks?|rupees?|rs\.?|inr)\b', tl)
+        amounts = re.findall(r'[\$₹]\s*([\d,]+(?:\.\d+)?)', tl)
+        amounts += re.findall(r'([\d,]+(?:\.\d+)?)\s*(?:dollars?|bucks?|rupees?|rs\.?|inr|ringgit|rm|myr)\b', tl)
         amounts += re.findall(r'\b(?:send|pay|transfer|venmo|cashapp|zelle)\s+(?:me\s+)?(?:\w+\s+)?([\d,]+)\b', tl)
         parsed = []
         for a in amounts:
@@ -1520,6 +1522,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
     slots = extract_slots(text, result["intents"], room_id=room_id, prev_messages=prev_messages)
     if slots:
         result["slots"] = slots
+        if result.get("money") and not result["money"].get("detected_amount") and slots.get("amount"):
+            result["money"]["detected_amount"] = slots["amount"]
 
     # Phase 4: Lifecycle (cancel/defer/confirm)
     if room_id:
@@ -1534,6 +1538,9 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
         if guardrails.get("blocked"):
             result["intents"] = []
             result["money"] = None
+            result["slots"] = None
+            result["target"] = None
+            result["context_boosted"] = None
 
     # Clean internal fields
     result.pop("_text", None)
