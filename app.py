@@ -649,9 +649,26 @@ _FOOD_PATTERNS = [
 ]
 
 
+_INTENT_SLOT_KEYS = {
+    "money":      ["recipient", "amount", "note"],
+    "ride":       ["destination", "pickup", "time"],
+    "travel":     ["destination", "pickup", "time"],
+    "food_order": ["food"],
+    "contact":    ["recipient", "phone"],
+    "alarm":      ["time"],
+    "reminder":   ["task", "time"],
+    "calendar":   ["event", "time"],
+    "bills":      ["bill_name", "amount"],
+}
+
+
 def extract_slots(text: str, intents: list, room_id: str = None, prev_messages: list = None) -> dict:
     """Extract structured slots based on detected intents."""
     slots = {}
+    for intent in intents:
+        for key in _INTENT_SLOT_KEYS.get(intent, []):
+            if key not in slots:
+                slots[key] = None
     t = text.strip()
     tl = t.lower()
 
