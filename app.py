@@ -835,7 +835,9 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
     doc = _nlp(text)
     result = {}
     _NOISE = {"me", "us", "it", "that", "this", "one", "uber", "lyft", "cab", "ride",
-              "taxi", "car", "a ride", "a cab", "a taxi", "an uber", "a lyft"}
+              "taxi", "car", "a ride", "a cab", "a taxi", "an uber", "a lyft",
+              "book", "get", "grab", "take", "need", "want", "bro", "yo", "hey",
+              "ola", "grab", "gojek", "auto"}
     _TIME_PREPS = {"by", "before", "after", "around", "at"}
     _VAGUE_PLACES = {"your place", "my place", "his place", "her place", "their place",
                      "your house", "my house", "his house", "her house", "their house",
@@ -902,6 +904,23 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
         result["destination"] = clean_phrase(to_phrases[0])
     if from_phrases:
         result["pickup"] = clean_phrase(from_phrases[0])
+
+    # Fallback: "X to Y" pattern without "from" — proper noun before "to" is pickup
+    if "pickup" not in result and to_phrases:
+        to_token = next((t for t in doc if t.text.lower() == "to" and t.dep_ == "prep"), None)
+        if to_token:
+            before_to = [t for t in doc if t.i < to_token.i and t.pos_ == "PROPN"
+                         and t.text.lower() not in _NOISE and len(t.text) > 2]
+            if before_to:
+                propns = []
+                for t in before_to:
+                    if propns and t.i == propns[-1].i + 1:
+                        propns.append(t)
+                    else:
+                        propns = [t]
+                pickup_phrase = " ".join(t.text for t in propns).strip()
+                if pickup_phrase.lower() not in _NOISE:
+                    result["pickup"] = clean_phrase(pickup_phrase)
 
     # Fallback: if no destination found but "home" is mentioned with movement verb
     if "destination" not in result:
