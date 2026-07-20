@@ -14,6 +14,7 @@ RUN python -m spacy download en_core_web_sm
 
 # Server code
 COPY app.py .
+COPY conversation.py .
 COPY guardrails.py .
 
 # Trained model

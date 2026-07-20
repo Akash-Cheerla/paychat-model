@@ -1,27 +1,33 @@
 {
-  "model": "v21",
-  "trained_at": "2026-07-03T09:04:32.118303",
+  "model": "v25",
+  "trained_at": "2026-07-18T01:02:28.686013",
   "architecture": "DualHeadRoberta",
-  "dataset": "merged_v12",
-  "train_size": 387586,
-  "val_size": 48448,
-  "test_size": 48449,
+  "method": "full retrain from scratch on merged_v17",
+  "base_model": "roberta-base",
+  "dataset": "merged_v17 (label-fixed v16 373K + round21 20K + round22 12K, no upsampling)",
+  "dataset_size": 404547,
+  "training_lr": 2e-05,
+  "training_epochs": 5,
+  "frozen_layers": "none (full retrain)",
+  "train_size": 323637,
+  "val_size": 40455,
+  "test_size": 40455,
   "epochs": 5,
   "best_epoch": 5,
-  "best_val_f1": 0.9524,
-  "test_exact_match": 0.9686,
-  "test_hamming": 0.99612,
+  "best_val_f1": 0.9586,
+  "test_exact_match": 0.968,
+  "test_hamming": 0.996171,
   "thresholds": {
-    "money": 0.6206,
-    "ride": 0.6792,
-    "food_order": 0.6899,
-    "contact": 0.7754,
-    "alarm": 0.6479,
-    "reminder": 0.5972,
-    "calendar": 0.6831,
-    "bills": 0.7368,
-    "travel": 0.6074,
-    "_action": 0.51
+    "money": 0.6064,
+    "ride": 0.6938,
+    "food_order": 0.5122,
+    "contact": 0.6348,
+    "alarm": 0.5234,
+    "reminder": 0.5044,
+    "calendar": 0.583,
+    "bills": 0.7144,
+    "travel": 0.5601,
+    "_action": 0.57
   },
   "intents": [
     "money",
@@ -37,40 +43,62 @@
   "training_history": [
     {
       "epoch": 1,
-      "loss": 1.653135521417032,
-      "val_f1": 0.9014238795625773,
-      "em": 0.9364473249669749
+      "loss": 1.7106,
+      "val_f1": 0.8997,
+      "em": 0.9279
     },
     {
       "epoch": 2,
-      "loss": 0.943890262331328,
-      "val_f1": 0.93115681279158,
-      "em": 0.9540744715984147
+      "loss": 1.1181,
+      "val_f1": 0.9382,
+      "em": 0.9522
     },
     {
       "epoch": 3,
-      "loss": 0.7617275536808128,
-      "val_f1": 0.9414781110026296,
-      "em": 0.9610923051519155
+      "loss": 0.9885,
+      "val_f1": 0.9481,
+      "em": 0.9614
     },
     {
       "epoch": 4,
-      "loss": 0.6477623568199298,
-      "val_f1": 0.9492399173336863,
-      "em": 0.9666859313077939
+      "loss": 0.9083,
+      "val_f1": 0.9568,
+      "em": 0.9667
     },
     {
       "epoch": 5,
-      "loss": 0.5737256092018593,
-      "val_f1": 0.9524231262280263,
-      "em": 0.9689357661822986
+      "loss": 0.85,
+      "val_f1": 0.9586,
+      "em": 0.9686
     }
   ],
-  "changes_from_v20": [
-    "30K context-prefixed examples added",
-    "17K context bleed TNs 3x upsampled",
-    "9K continuation TPs",
-    "Single-phase training",
-    "Dataset: merged_v12 (484K)"
-  ]
+  "changes_from_v24": [
+    "Fixed 5,451 mislabeled training examples in base data",
+    "Venue offers (my treat, i got this) now correctly money=0",
+    "Friend car requests (drive me, pick me up) now correctly ride=0",
+    "Vague transport (need a ride, gotta find a way) now correctly ride=0",
+    "Money venting (broke, bank account dead) now correctly money=0",
+    "Notifications (transfer completed) now correctly money=0",
+    "Future promises (pay tomorrow, send tonight) now correctly money=0",
+    "Round21: 20K targeted money+ride examples (46 batches)",
+    "Round22: 12K diversity examples (32 batches, different prompts)",
+    "NO upsampling \u2014 all real diverse data",
+    "Debt statements (you owe me 30) remain money=1 (immediate P2P)",
+    "Self-initiated ride-hailing (ill uber there) remain ride=1",
+    "Bare acks after money/ride request still fire intent (TP)",
+    "Added response_head MLP for ML-based response classification"
+  ],
+  "has_response_head": true,
+  "response_classes": [
+    "ack",
+    "reject",
+    "future_promise",
+    "question",
+    "already_done",
+    "neutral"
+  ],
+  "response_head_val_accuracy": 0.9303,
+  "response_head_training_pairs": 15200,
+  "response_head_test_accuracy": 0.927,
+  "response_head_trained_at": "2026-07-20T00:45:06.448642"
 }

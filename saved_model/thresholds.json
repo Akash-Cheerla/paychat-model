@@ -1,12 +1,12 @@
 {
-  "money": 0.6206,
-  "ride": 0.6792,
-  "food_order": 0.6899,
-  "contact": 0.7754,
-  "alarm": 0.6479,
-  "reminder": 0.5972,
-  "calendar": 0.6831,
-  "bills": 0.7368,
-  "travel": 0.6074,
-  "_action": 0.51
+  "money": 0.6064,
+  "ride": 0.6938,
+  "food_order": 0.5122,
+  "contact": 0.6348,
+  "alarm": 0.5234,
+  "reminder": 0.5044,
+  "calendar": 0.583,
+  "bills": 0.7144,
+  "travel": 0.5601,
+  "_action": 0.57
 }

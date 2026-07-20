@@ -29,6 +29,10 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+try:
+    from api.conversation import conversation_sm, Action, MANAGED_INTENTS
+except ModuleNotFoundError:
+    from conversation import conversation_sm, Action, MANAGED_INTENTS
 import numpy as np
 import spacy
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -49,7 +53,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ── Config ──
-MODEL_DIR      = Path(os.getenv("MODEL_DIR", str(Path(__file__).resolve().parent / "saved_model")))
+MODEL_DIR      = Path(os.getenv("MODEL_DIR", str(Path(__file__).resolve().parent.parent / "model" / "saved_model")))
 MAX_LEN        = 256
 DEVICE         = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CONTEXT_TIME_CAP = 300  # 5 minutes — ignore context messages older than this
@@ -58,6 +62,8 @@ INTENTS = ["money", "ride", "food_order", "contact", "alarm", "reminder", "calen
 
 
 # ── DualHeadRoberta (v20 architecture) ──
+RESPONSE_CLASSES = ['ack', 'reject', 'future_promise', 'question', 'already_done', 'neutral']
+
 class DualHeadRoberta(nn.Module):
     def __init__(self, model_name_or_config, num_intents=9, proj_dim=128, dropout=0.1):
         super().__init__()
@@ -74,6 +80,12 @@ class DualHeadRoberta(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden, proj_dim),
         )
+        self.response_head = nn.Sequential(
+            nn.Linear(hidden * 2, 256),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(256, len(RESPONSE_CLASSES)),
+        )
 
     def forward(self, input_ids, attention_mask=None):
         outputs = self.roberta(input_ids=input_ids, attention_mask=attention_mask)
@@ -81,7 +93,11 @@ class DualHeadRoberta(nn.Module):
         topic_logits = self.topic_head(cls)
         action_logits = self.action_head(cls).squeeze(-1)
         projections = self.projection(cls)
-        return topic_logits, action_logits, projections
+        return topic_logits, action_logits, projections, cls
+
+    def classify_response(self, pending_cls: torch.Tensor, current_cls: torch.Tensor) -> torch.Tensor:
+        combined = torch.cat([pending_cls, current_cls], dim=-1)
+        return self.response_head(combined)
 
 
 # ── Global state ──
@@ -125,7 +141,8 @@ def load_model(model_dir: Path = MODEL_DIR):
     model = DualHeadRoberta(config, num_intents=num_intents, proj_dim=proj_dim, dropout=dropout)
     weights = load_file(str(model_dir / "model.safetensors"))
     weights = {k.replace("LayerNorm.gamma", "LayerNorm.weight").replace("LayerNorm.beta", "LayerNorm.bias"): v for k, v in weights.items()}
-    model.load_state_dict(weights)
+    missing, unexpected = model.load_state_dict(weights, strict=False)
+    has_response_head = any(k.startswith("response_head") for k in weights)
     model = model.to(DEVICE)
     model.eval()
 
@@ -151,6 +168,7 @@ def load_model(model_dir: Path = MODEL_DIR):
 
     model_state["model"]      = model
     model_state["tokenizer"]  = tokenizer
+    model_state["has_response_head"] = has_response_head
     model_state["thresholds"] = thresholds
     model_state["version"]    = version
     model_state["loaded_at"]  = datetime.utcnow().isoformat()
@@ -186,7 +204,8 @@ app.add_middleware(
 # ── Inference ──
 
 def run_inference(text: str, prev_messages: list = None) -> dict:
-    """Run dual-head model. Concatenates up to 3 previous messages with </s> separator.
+    """Run dual-head model on current message ONLY (no context prefix).
+    Context is handled by the conversation state machine, not the model.
     Intent fires only when BOTH topic head and action head agree."""
     t0 = time.time()
 
@@ -194,14 +213,11 @@ def run_inference(text: str, prev_messages: list = None) -> dict:
     model = model_state["model"]
     thresholds = model_state["thresholds"]
     action_thresh = thresholds.get("_action", 0.5)
-    sep_token = tokenizer.sep_token or "</s>"
 
-    # Build input: prev1 </s> prev2 </s> prev3 </s> current_text
-    if prev_messages:
-        parts = [str(m).strip() for m in prev_messages[-3:]] + [text]
-        model_input = f" {sep_token} ".join(parts)
-    else:
-        model_input = text
+    # Model runs on current message standalone — context contamination fix.
+    # Previous: prepended prev1 </s> prev2 </s> current, which dropped scores from 0.94 to 0.03.
+    # Context-aware decisions are now handled by ConversationStateMachine in api/conversation.py.
+    model_input = text
 
     enc = tokenizer(model_input, max_length=MAX_LEN, padding="max_length",
                     truncation=True, return_tensors="pt")
@@ -209,8 +225,9 @@ def run_inference(text: str, prev_messages: list = None) -> dict:
     attention_mask = enc["attention_mask"].to(DEVICE)
 
     with torch.no_grad():
-        topic_logits, action_logits, _ = model(input_ids=input_ids, attention_mask=attention_mask)
+        topic_logits, action_logits, _, cls_emb = model(input_ids=input_ids, attention_mask=attention_mask)
     topic_probs = torch.sigmoid(topic_logits[0]).cpu().tolist()
+    cls_embedding = cls_emb[0].detach().cpu()
     action_prob = torch.sigmoid(action_logits).cpu().item()
 
     scores = {INTENTS[j]: round(topic_probs[j], 4) for j in range(len(INTENTS))}
@@ -238,6 +255,7 @@ def run_inference(text: str, prev_messages: list = None) -> dict:
         "action_score": round(action_prob, 4),
         "money":        money_info,
         "latency_ms":   round(latency_ms, 2),
+        "_cls_embedding": cls_embedding,
     }
 
 
@@ -282,10 +300,10 @@ def fast_keyword_detect(text: str) -> dict:
         'arrange transport', 'arrange pickup', 'call a cab',
         "i'm stranded", 'im stranded', 'need a way home',
         'need a way to get', 'get me moving', 'figure out transport',
-        'get me there', 'get me home',
     ]
     ride_suppress = ['wild ride', 'what a ride', 'roller coaster ride',
-                     'pick me up off', 'uber eats', 'uber surge', 'uber pricing',
+                     'pick me up off', 'pick me up some', 'pick me up a ',
+                     'uber eats', 'uber surge', 'uber pricing',
                      'live in an uber', 'uber everywhere']
     has_ride = any(w in t for w in ride_words)
     ride_suppressed = any(s in t for s in ride_suppress)
@@ -446,6 +464,11 @@ def _enrich_money(text: str) -> dict:
         "sending you", "lemme pay", "ima send", "ima pay",
         "i already paid", "i already sent", "i already venmo",
         "i paid", "i sent", "i covered", "i transferred",
+        "will send", "sending now", "will pay", "will venmo",
+        "will cashapp", "will zelle", "will transfer",
+        "paying now", "paying you", "transferring now",
+        "just sent", "just paid", "just venmo", "just zelle",
+        "ok sending", "okay sending", "ok paying", "okay paying",
     ]
     request_patterns = [
         "you owe", "owe me", "pay me", "send me", "pay up",
@@ -1312,9 +1335,12 @@ class IntentLifecycle:
         if tl.endswith("?") and fired:
             question_suppress = [
                 r"\b(?:hasn'?t|haven'?t|didn'?t|doesn'?t|won'?t|isn'?t)\b",
-                r"\b(?:still|already|ever|yet)\b.*\?$",
             ]
-            if any(re.search(p, tl) for p in question_suppress):
+            has_action_verb = re.search(
+                r'\b(?:send|pay|venmo|cashapp|zelle|transfer|split|book|order|call|get\s+me)\b',
+                tl, re.IGNORECASE
+            )
+            if not has_action_verb and any(re.search(p, tl) for p in question_suppress):
                 detection = dict(detection)
                 detection["intents"] = []
                 return detection
@@ -1354,7 +1380,7 @@ _MONEY_MEME_PHRASES = [
 ]
 
 _SARCASM_MARKERS = re.compile(
-    r'\b(?:lol|lmao|rofl|haha|hehe|jk|just\s+kidding|dying|dead|bruh)\b', re.IGNORECASE
+    r'\b(?:lol|lmao|rofl|haha|hehe|jk|just\s+kidding)\b', re.IGNORECASE
 )
 
 _SARCASM_ABSURD_PATTERNS = [
@@ -1386,11 +1412,10 @@ _META_STATEMENT_PATTERNS = [
 ]
 
 
-def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
-    """Run the complete detection pipeline: model (with context) → keywords → suppression → slots → lifecycle."""
-    # Phase 1a: Model inference with conversation context (up to 3 previous messages)
-    # If caller passes context (string array from Phoenix), use it directly;
-    # otherwise fall back to internal conversation tracking.
+def full_pipeline(text: str, room_id: str = None, context: list = None,
+                   sender: str = None, message_id: str = None) -> dict:
+    """Run the complete detection pipeline: model → keywords → suppression → slots → state machine → lifecycle."""
+    # Phase 1a: Model inference (standalone, no context prefix — context is for state machine)
     if context is not None:
         prev_messages = context[-3:] if context else []
     else:
@@ -1441,6 +1466,29 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
         result["intents"] = [i for i in result["intents"] if i != "money"]
         result["money"] = None
 
+    # Phase 1c3b: Venue offer suppression — offering to pay at a venue, not P2P transfer
+    _VENUE_OFFER_PATTERNS = [
+        re.compile(r'\blet\s+me\s+(?:pay|get|cover|handle)\s+(?:for\s+)?(?:dinner|lunch|food|drinks?|the\s+bill|the\s+tab|the\s+check|this|that|it)\b', re.IGNORECASE),
+        re.compile(r'\bi(?:m|\'m)\s+(?:paying|covering|getting)\s+(?:for\s+)?(?:dinner|lunch|food|drinks?|the\s+bill|the\s+tab|the\s+check|this|that|it)\b', re.IGNORECASE),
+        re.compile(r'\bi(?:ll|\'ll|will)\s+(?:pay|get|cover|handle)\s+(?:for\s+)?(?:dinner|lunch|food|drinks?|the\s+bill|the\s+tab|the\s+check|this|that|it)\b', re.IGNORECASE),
+        re.compile(r'\bi\s+got\s+(?:this|it|the\s+bill|the\s+tab|the\s+check)\b', re.IGNORECASE),
+        re.compile(r'\b(?:this\s+one(?:\'?s)?\s+on\s+me|on\s+me\s+(?:tonight|today|this\s+time))\b', re.IGNORECASE),
+        re.compile(r'\bi(?:m|\'m)\s+paying\s+for\s+(?:this|that)\s+one\b', re.IGNORECASE),
+    ]
+    if "money" in result["intents"] and any(p.search(tl) for p in _VENUE_OFFER_PATTERNS):
+        result["intents"] = [i for i in result["intents"] if i != "money"]
+        result["money"] = None
+
+    # Phase 1c3c: Future promise suppression — "ill pay you back tomorrow" = not immediate P2P
+    _FUTURE_PROMISE_PATTERNS = [
+        re.compile(r'\b(?:i(?:ll|\'ll|will)|gonna|going\s+to)\s+(?:pay|send|venmo|cashapp|zelle|transfer)\b.*\b(?:tomorrow|tmrw|tmr|next\s+week|next\s+month|later|soon|tonight|this\s+(?:week|weekend|friday))\b', re.IGNORECASE),
+        re.compile(r'\b(?:tomorrow|tmrw|tmr|next\s+week|next\s+month|later|tonight)\b.*\b(?:i(?:ll|\'ll|will)|gonna)\s+(?:pay|send|venmo|cashapp|zelle|transfer)\b', re.IGNORECASE),
+        re.compile(r'\b(?:i(?:ll|\'ll|will)|gonna)\s+(?:pay|send)\s+(?:you|u|it|that)\s+back\s+(?:tomorrow|tmrw|later|next\s+week|soon|tonight)\b', re.IGNORECASE),
+    ]
+    if "money" in result["intents"] and any(p.search(tl) for p in _FUTURE_PROMISE_PATTERNS):
+        result["intents"] = [i for i in result["intents"] if i != "money"]
+        result["money"] = None
+
     # Phase 1c4: Exaggerated amount sarcasm (no marker needed) — "pay me a million/billion"
     if "money" in result["intents"] and _SARCASM_EXAGGERATED_AMOUNTS.search(tl):
         result["intents"] = [i for i in result["intents"] if i != "money"]
@@ -1482,11 +1530,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
         if not re.search(r'\bremind\s+me\b', tl, re.IGNORECASE):
             result["intents"] = [i for i in result["intents"] if i != "reminder"]
 
-    # Phase 1c7: Self-directed ride suppression — "let me get to it" / "I'll get there myself"
+    # Phase 1c7: Self-directed ride suppression — only suppress truly non-actionable self-talk
     _SELF_RIDE_PATTERNS = [
         re.compile(r'\blet\s+me\s+get\s+to\s+it\b', re.IGNORECASE),
-        re.compile(r'\bi\'?ll\s+(?:get|figure|sort)\s+(?:there|it\s+out|myself)\b', re.IGNORECASE),
-        re.compile(r'\bi\'?ll\s+(?:take|grab|catch)\s+(?:a\s+)?(?:cab|uber|lyft|taxi|auto|bus|metro|train)\b', re.IGNORECASE),
+        re.compile(r'\bi\'?ll\s+(?:figure|sort)\s+(?:it\s+out|myself)\b', re.IGNORECASE),
     ]
     if "ride" in result["intents"] and any(p.search(tl) for p in _SELF_RIDE_PATTERNS):
         result["intents"] = [i for i in result["intents"] if i != "ride"]
@@ -1561,13 +1608,44 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
         if result.get("money") and not result["money"].get("detected_amount") and slots.get("amount"):
             result["money"]["detected_amount"] = slots["amount"]
 
-    # Phase 4: Lifecycle (cancel/defer/confirm)
+    # Phase 4: Conversation state machine (fire on response, not request)
+    # For money+ride: requests stored as pending, intents fire when responder confirms.
+    # Other intents pass through unchanged. Falls back to immediate mode when no sender.
+    sm_result = conversation_sm.process(
+        room_id=room_id,
+        text=text,
+        sender=sender,
+        model_result=result,
+        slots=result.get("slots"),
+        message_id=message_id,
+        model=model_state["model"] if model_state.get("has_response_head") else None,
+        current_cls=result.get("_cls_embedding"),
+    )
+    result["intents"] = sm_result["intents"]
+    result["conversation_state"] = sm_result.get("conversation_state")
+
+    # If state machine changed intents, update dependent fields
+    if sm_result["action"] == Action.STORE_PENDING:
+        # Request stored — suppress money info and target since intent isn't firing yet
+        if "money" not in result["intents"]:
+            result["money"] = None
+        if "ride" not in result["intents"]:
+            if result.get("target", {}).get("intent") == "ride":
+                result["target"] = None
+    elif sm_result["action"] == Action.FIRE and sm_result.get("pending_intent"):
+        # Firing a pending intent from a previous message — re-enrich if needed
+        fired_intent = sm_result["pending_intent"]
+        if fired_intent == "money" and not result.get("money"):
+            result["money"] = _enrich_money(text)
+        if result["intents"] and not result.get("target"):
+            result["target"] = detect_target(text, result["intents"], result.get("money"))
+
+    # Phase 5: Lifecycle (cancel/defer/confirm)
     if room_id:
         result = intent_lifecycle.process(room_id, text, result)
-        # Update context AFTER lifecycle processing
         conversation_ctx.add(room_id, text, result["intents"], result["scores"])
 
-    # Phase 5: Guardrails — US compliance (PCI, FTC, BSA/AML)
+    # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])
     if guardrails:
         result["guardrails"] = guardrails
@@ -1580,6 +1658,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None) -> dict:
 
     # Clean internal fields
     result.pop("_text", None)
+    result.pop("_cls_embedding", None)
     return result
 
 
@@ -1602,6 +1681,7 @@ class DetectResponse(BaseModel):
     context_boosted: Optional[list] = None
     lifecycle: Optional[dict] = None
     guardrails: Optional[dict] = None
+    conversation_state: Optional[dict] = None
     latency_ms: float
     chat_id: Optional[str] = None
     message_id: Optional[str] = None
@@ -1632,7 +1712,8 @@ async def detect(req: DetectRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     rid = req.room_id or req.chat_id
-    result = full_pipeline(req.text, room_id=rid, context=req.context)
+    result = full_pipeline(req.text, room_id=rid, context=req.context,
+                           sender=req.sender, message_id=req.message_id)
     return DetectResponse(
         **{k: v for k, v in result.items() if k in DetectResponse.model_fields},
         chat_id=req.chat_id,
@@ -1671,20 +1752,24 @@ async def ws_detect(websocket: WebSocket):
 
             rid = msg.get("room_id") or msg.get("chat_id")
             ctx = msg.get("context")
-            result = full_pipeline(text, room_id=rid, context=ctx)
+            sndr = msg.get("sender")
+            mid = msg.get("message_id")
+            result = full_pipeline(text, room_id=rid, context=ctx,
+                                   sender=sndr, message_id=mid)
 
             response = {
                 **msg,
                 "detection": {
-                    "intents":         result["intents"],
-                    "scores":          result["scores"],
-                    "money":           result.get("money"),
-                    "slots":           result.get("slots"),
-                    "target":          result.get("target"),
-                    "context_boosted": result.get("context_boosted"),
-                    "lifecycle":       result.get("lifecycle"),
-                    "guardrails":      result.get("guardrails"),
-                    "latency_ms":      result["latency_ms"],
+                    "intents":            result["intents"],
+                    "scores":             result["scores"],
+                    "money":              result.get("money"),
+                    "slots":              result.get("slots"),
+                    "target":             result.get("target"),
+                    "context_boosted":    result.get("context_boosted"),
+                    "lifecycle":          result.get("lifecycle"),
+                    "guardrails":         result.get("guardrails"),
+                    "conversation_state": result.get("conversation_state"),
+                    "latency_ms":         result["latency_ms"],
                 }
             }
             await websocket.send_text(json.dumps(response))
@@ -2086,7 +2171,7 @@ async def ws_team_chat(websocket: WebSocket, room_id: str, user_name: str):
                 if not text:
                     continue
 
-                result = full_pipeline(text, room_id=room_id)
+                result = full_pipeline(text, room_id=room_id, sender=user_name)
                 frame = _pipeline_to_msg(text, user_name, result, room_id=room_id)
 
                 room["history"].append(frame)
@@ -2162,7 +2247,7 @@ async def user_summary(room_id: str, user_name: str):
 
 
 # ── Demo UI ──
-DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent / "demo")))
+DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent.parent / "demo")))
 DEMO_HTML = DEMO_DIR / "paychat_demo.html"
 
 
