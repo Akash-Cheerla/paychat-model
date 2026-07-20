@@ -45,6 +45,7 @@ User message
 
 ### State Machine Flow (money + ride only)
 
+**DMs** — ambient matching, no `reply_to` needed:
 ```
 Alice: "venmo me $20"
   → Model detects money intent
@@ -57,6 +58,21 @@ Bob: "sure sending now"
   → intents: ["money"], triggered_by: {sender: "Alice", ...}
   → Show Venmo popup to Bob
 ```
+
+**Groups** — requires `reply_to` (the original message ID) to match:
+```
+Priya: "liam venmo me 15"  (message_id: "msg_1")
+  → Stored as PENDING
+
+Jake: "bet"  (no reply_to)
+  → No match — can't know which request this is for
+
+Liam: "bet sending now"  (reply_to: "msg_1")
+  → Matches Priya's request → FIRES
+  → triggered_by: {sender: "Priya", ...}
+```
+
+Expired requests are archived for 48 hours — `reply_to` works even on next-day responses.
 
 Other intents (food, alarm, calendar, etc.) fire immediately — no state machine.
 

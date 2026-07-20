@@ -1413,7 +1413,8 @@ _META_STATEMENT_PATTERNS = [
 
 
 def full_pipeline(text: str, room_id: str = None, context: list = None,
-                   sender: str = None, message_id: str = None) -> dict:
+                   sender: str = None, message_id: str = None,
+                   reply_to: str = None) -> dict:
     """Run the complete detection pipeline: model → keywords → suppression → slots → state machine → lifecycle."""
     # Phase 1a: Model inference (standalone, no context prefix — context is for state machine)
     if context is not None:
@@ -1618,6 +1619,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         model_result=result,
         slots=result.get("slots"),
         message_id=message_id,
+        reply_to=reply_to,
         model=model_state["model"] if model_state.get("has_response_head") else None,
         current_cls=result.get("_cls_embedding"),
     )
@@ -1670,6 +1672,7 @@ class DetectRequest(BaseModel):
     message_id: Optional[str] = None
     sender: Optional[str] = None
     context: Optional[list] = None
+    reply_to: Optional[str] = None
 
 
 class DetectResponse(BaseModel):
@@ -1713,7 +1716,8 @@ async def detect(req: DetectRequest):
 
     rid = req.room_id or req.chat_id
     result = full_pipeline(req.text, room_id=rid, context=req.context,
-                           sender=req.sender, message_id=req.message_id)
+                           sender=req.sender, message_id=req.message_id,
+                           reply_to=req.reply_to)
     return DetectResponse(
         **{k: v for k, v in result.items() if k in DetectResponse.model_fields},
         chat_id=req.chat_id,
@@ -1754,8 +1758,10 @@ async def ws_detect(websocket: WebSocket):
             ctx = msg.get("context")
             sndr = msg.get("sender")
             mid = msg.get("message_id")
+            rto = msg.get("reply_to")
             result = full_pipeline(text, room_id=rid, context=ctx,
-                                   sender=sndr, message_id=mid)
+                                   sender=sndr, message_id=mid,
+                                   reply_to=rto)
 
             response = {
                 **msg,

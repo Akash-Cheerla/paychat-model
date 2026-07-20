@@ -225,6 +225,20 @@ let note = convState.triggeredBy?.slots?["note"]
 
 ---
 
+## Group Chat vs DM
+
+The state machine works differently in groups vs DMs. You don't need to handle this — the backend does. But know the behavior:
+
+**DMs:** Response matching is automatic. Bob says "sure" after Alice requests → popup fires on Bob's screen. No special handling needed.
+
+**Group chats:** Responses only match when the user swipe-replies to the original request message. If Jake just types "bet" into a group with multiple pending requests, nothing fires — the system can't know which request he's responding to. When Jake swipe-replies to Maya's "venmo me 45" and says "bet", it fires correctly.
+
+The backend passes `reply_to` (the replied-to message ID) to the model server. If your app already sends `reply_to_message_id` or similar in the message payload, make sure the backend is forwarding it. Otherwise money/ride in group chats won't fire.
+
+**Next-day replies work too.** If someone replies to a money request the next day via swipe-reply, the server matches it from a 48-hour archive of expired requests.
+
+---
+
 ## Edge Cases
 
 - **Greeting after money request:** "Hi", "Hey", "Yo" etc. after a pending money request will NOT fire. The greeting guard catches these.
@@ -232,6 +246,7 @@ let note = convState.triggeredBy?.slots?["note"]
 - **No slots:** Sometimes intent fires but slots are null. Show a generic popup.
 - **Guardrails:** If `detection.guardrails` is not null, a compliance issue was detected. You may want to show a warning.
 - **`triggered_by` is null:** For self-initiated messages ("I'll venmo you") that fire without a prior pending request, `triggered_by` won't be present. Handle same as before.
+- **Group chat with no `reply_to`:** Money/ride responses are silently ignored. No false fires — by design.
 
 ---
 

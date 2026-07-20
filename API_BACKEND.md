@@ -37,7 +37,7 @@ Health check: `GET /health` returns `{"status": "ok", ...}` once model is loaded
 
 ## Endpoint: `POST /classify`
 
-This is the only endpoint you need. Call it for every DM message.
+This is the only endpoint you need. Call it for every message (DMs and group chats).
 
 ### Request
 
@@ -57,14 +57,41 @@ This is the only endpoint you need. Call it for every DM message.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `text` | string | **Yes** | The message to classify |
-| `room_id` | string | **Yes** | DM room ID — `dm_<lo>_<hi>` format. Needed for conversation state tracking. |
+| `room_id` | string | **Yes** | Room ID. DMs: `dm_<lo>_<hi>` format. Groups: any other format (e.g. `group_abc`). The prefix determines matching behavior — see DM vs Group below. |
 | `sender` | string | **Yes** | User ID of whoever sent this message. The state machine uses this to know who's responding to whose request. |
 | `context` | object[] | No | Previous messages. Each object: `{"text": "...", "sender": "..."}`. Pass last 2-3 messages. If omitted, server tracks internally per room_id. |
 | `message_id` | string | No | Message ID (echoed back, also stored with pending requests for `triggered_by`) |
+| `reply_to` | string | No | Message ID of the message being replied to (from the chat app's reply-to-message feature). **Required for group chats** — see below. |
 
 **`sender` is required now.** Without it the server falls back to immediate-fire mode (no request→response tracking), which defeats the whole point of the state machine.
 
 **`context` format changed.** Old format was a plain string array — that still works for backward compat but you lose sender info on context messages. New format is an array of `{"text": "...", "sender": "..."}` objects. Sender on context messages matters because the state machine needs to know who said what.
+
+### DM vs Group Chat Matching
+
+This is important. The state machine matches responses to pending requests differently depending on room type:
+
+**DMs (`dm_*` rooms):** Ambient matching — no `reply_to` needed. Only two people in the room, so when one person requests and the other responds, it's always unambiguous. This is the behavior described in all the examples above.
+
+**Groups (any room not starting with `dm_`):** `reply_to` is **required** to match a response. Without it, responses are ignored for money/ride. This prevents a problem: if Priya asks Liam for $15 and Maya asks Jake for $45 in the same group, Jake's "bet" shouldn't accidentally match Priya's request.
+
+```json
+// Group chat — Priya requests
+{"text": "liam venmo me 15", "room_id": "group_squad", "sender": "priya", "message_id": "msg_1"}
+// → status: "pending"
+
+// Liam swipe-replies to Priya's message
+{"text": "bet sending now", "room_id": "group_squad", "sender": "liam", "reply_to": "msg_1"}
+// → status: "fired", triggered_by.sender: "priya"
+
+// Jake says "bet" without replying to anyone (no reply_to)
+{"text": "bet", "room_id": "group_squad", "sender": "jake"}
+// → no match, no fire — safe
+```
+
+**Expired requests:** Pending requests expire after 5 minutes or 10 messages from others. But expired requests are **archived for 48 hours**. If someone replies to a money request the next day using the chat app's reply feature, `reply_to` matches against the archive and still fires.
+
+**How to pass `reply_to`:** When a user swipe-replies (or long-press replies) to a message, pass that original message's ID as `reply_to`. Most chat frameworks already expose this — WhatsApp, Telegram, iMessage all have it. Just pass it through.
 
 ### Response
 

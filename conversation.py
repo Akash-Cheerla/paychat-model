@@ -31,7 +31,9 @@ logger = logging.getLogger("paychat.conversation")
 
 # ── Constants ──
 
-PENDING_TTL = 600          # 10 minutes — pending requests expire after this
+PENDING_TTL = 300          # 5 minutes — pending requests expire after this
+PENDING_MSG_LIMIT = 10     # expire pending after this many intervening messages in the room
+ARCHIVE_TTL = 172800       # 48 hours — archived (expired) requests kept for reply_to matching
 MANAGED_INTENTS = {"money", "ride"}  # intents governed by state machine
 
 
@@ -74,8 +76,10 @@ class PendingRequest:
     responded_by: set = field(default_factory=set)  # senders who already responded
     cls_embedding: object = None  # cached CLS tensor for ML response classification
 
+    messages_since: int = 0
+
     def is_expired(self) -> bool:
-        return (time.time() - self.timestamp) > PENDING_TTL
+        return (time.time() - self.timestamp) > PENDING_TTL or self.messages_since >= PENDING_MSG_LIMIT
 
     def has_responded(self, sender: str) -> bool:
         return sender in self.responded_by
@@ -86,11 +90,17 @@ class PendingRequest:
 
 # ── Room State Store ──
 
+def _is_dm(room_id: str) -> bool:
+    """DM rooms use ambient matching; group rooms require reply_to."""
+    return room_id.startswith("dm_") if room_id else False
+
+
 class RoomStateStore:
     """Tracks pending requests per room. Thread-safe for single-process async."""
 
     def __init__(self):
         self.rooms: dict[str, list[PendingRequest]] = defaultdict(list)
+        self.archived: dict[str, list[PendingRequest]] = defaultdict(list)
 
     def add_pending(self, room_id: str, req: PendingRequest):
         self._clean_expired(room_id)
@@ -130,16 +140,37 @@ class RoomStateStore:
                     r for r in self.rooms[room_id] if r.intent != intent
                 ]
 
+    def find_by_message_id(self, room_id: str, message_id: str) -> Optional[PendingRequest]:
+        """Find a pending or archived request by its original message_id."""
+        for r in self.rooms.get(room_id, []):
+            if r.message_id == message_id:
+                return r
+        for r in self.archived.get(room_id, []):
+            if r.message_id == message_id:
+                return r
+        return None
+
     def clear_room(self, room_id: str):
         self.rooms.pop(room_id, None)
+        self.archived.pop(room_id, None)
 
     def _clean_expired(self, room_id: str):
         if room_id in self.rooms:
-            before = len(self.rooms[room_id])
-            self.rooms[room_id] = [r for r in self.rooms[room_id] if not r.is_expired()]
-            after = len(self.rooms[room_id])
-            if before != after:
-                logger.info(f"[{room_id}] Cleaned {before - after} expired pending requests")
+            alive, expired = [], []
+            for r in self.rooms[room_id]:
+                (expired if r.is_expired() else alive).append(r)
+            if expired:
+                self.rooms[room_id] = alive
+                self.archived[room_id].extend(expired)
+                logger.info(f"[{room_id}] Archived {len(expired)} expired pending requests")
+        if room_id in self.archived:
+            now = time.time()
+            before = len(self.archived[room_id])
+            self.archived[room_id] = [r for r in self.archived[room_id]
+                                       if (now - r.timestamp) <= ARCHIVE_TTL]
+            pruned = before - len(self.archived[room_id])
+            if pruned:
+                logger.info(f"[{room_id}] Pruned {pruned} old archived requests")
 
 
 # ── Response Classifier ──
@@ -395,7 +426,7 @@ class ConversationStateMachine:
 
     def process(self, room_id: str, text: str, sender: str,
                 model_result: dict, slots: dict = None,
-                message_id: str = None,
+                message_id: str = None, reply_to: str = None,
                 model=None, current_cls=None) -> dict:
         """
         Process a message through the state machine.
@@ -443,14 +474,41 @@ class ConversationStateMachine:
                 "conversation_state": None,
             }
 
+        # Increment message counter on all pending requests in this room
+        for p in self.store.get_pending(room_id):
+            if p.sender != sender:
+                p.messages_since += 1
+
         # Get pending requests from OTHER senders in this room
         pending_from_others = self.store.get_pending_from_others(room_id, sender)
-        has_pending = len(pending_from_others) > 0
+
+        # ── DM vs Group matching strategy ──
+        # DMs: ambient matching (only 2 people, unambiguous)
+        # Groups: require reply_to to match a specific pending request
+        is_dm = _is_dm(room_id)
+        reply_target = None
+
+        if reply_to:
+            reply_target = self.store.find_by_message_id(room_id, reply_to)
+            if reply_target and reply_target.sender == sender:
+                reply_target = None  # can't respond to your own request
+
+        if is_dm:
+            # DMs: use all pending from the other person (ambient matching)
+            effective_pending = pending_from_others
+        else:
+            # Groups: only match if reply_to points to a pending/archived request
+            if reply_target:
+                effective_pending = [reply_target]
+            else:
+                effective_pending = []
+
+        has_pending = len(effective_pending) > 0
 
         # Get CLS embedding from the most relevant pending request for ML classification
         pending_cls = None
         if has_pending:
-            for p in reversed(pending_from_others):
+            for p in reversed(effective_pending):
                 if p.cls_embedding is not None:
                     pending_cls = p.cls_embedding
                     break
@@ -464,14 +522,17 @@ class ConversationStateMachine:
         # Find the most relevant pending request (newest matching intent, or newest overall)
         relevant_pending = None
         if has_pending:
-            # Prefer pending that matches the topic the model detected
-            for p in reversed(pending_from_others):
-                if p.intent in managed_fired:
-                    relevant_pending = p
-                    break
-            # Otherwise use the most recent pending
-            if not relevant_pending:
-                relevant_pending = pending_from_others[-1]
+            if reply_target:
+                relevant_pending = reply_target
+            else:
+                # Prefer pending that matches the topic the model detected
+                for p in reversed(effective_pending):
+                    if p.intent in managed_fired:
+                        relevant_pending = p
+                        break
+                # Otherwise use the most recent pending
+                if not relevant_pending:
+                    relevant_pending = effective_pending[-1]
 
         # Get decision
         action, reason = self.engine.decide(response_type, relevant_pending)
