@@ -35,6 +35,10 @@ except ModuleNotFoundError:
     from conversation import conversation_sm, Action, MANAGED_INTENTS
 import numpy as np
 import spacy
+try:
+    import onnxruntime as ort
+except ImportError:
+    ort = None
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -173,10 +177,25 @@ def load_model(model_dir: Path = MODEL_DIR):
     model_state["version"]    = version
     model_state["loaded_at"]  = datetime.utcnow().isoformat()
 
+    # Load ONNX session if available (faster CPU inference)
+    onnx_path = model_dir / "model.onnx"
+    if ort and onnx_path.exists():
+        so = ort.SessionOptions()
+        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        so.intra_op_num_threads = 4
+        model_state["onnx_session"] = ort.InferenceSession(
+            str(onnx_path), so, providers=["CPUExecutionProvider"]
+        )
+        logger.info(f"ONNX session loaded ({onnx_path.stat().st_size / 1024 / 1024:.0f} MB)")
+    else:
+        model_state["onnx_session"] = None
+
     acc = version.get("test_exact_match") if version else None
     logger.info(f"Model loaded (DualHeadRoberta). {len(INTENTS)} intents. Exact-match: {acc:.2%}" if acc else "Model loaded.")
     logger.info(f"Thresholds: {thresholds}")
     logger.info(f"Action threshold: {thresholds.get('_action', 0.5)}")
+    logger.info(f"Inference backend: {'ONNX' if model_state.get('onnx_session') else 'PyTorch'}")
+
 
 
 @asynccontextmanager
@@ -219,16 +238,29 @@ def run_inference(text: str, prev_messages: list = None) -> dict:
     # Context-aware decisions are now handled by ConversationStateMachine in api/conversation.py.
     model_input = text
 
-    enc = tokenizer(model_input, max_length=MAX_LEN, padding="max_length",
-                    truncation=True, return_tensors="pt")
-    input_ids = enc["input_ids"].to(DEVICE)
-    attention_mask = enc["attention_mask"].to(DEVICE)
+    onnx_session = model_state.get("onnx_session")
 
-    with torch.no_grad():
-        topic_logits, action_logits, _, cls_emb = model(input_ids=input_ids, attention_mask=attention_mask)
-    topic_probs = torch.sigmoid(topic_logits[0]).cpu().tolist()
-    cls_embedding = cls_emb[0].detach().cpu()
-    action_prob = torch.sigmoid(action_logits).cpu().item()
+    if onnx_session:
+        enc = tokenizer(model_input, max_length=MAX_LEN, truncation=True,
+                        padding=True, return_tensors="np")
+        onnx_out = onnx_session.run(None, {
+            "input_ids": enc["input_ids"].astype(np.int64),
+            "attention_mask": enc["attention_mask"].astype(np.int64),
+        })
+        topic_probs = (1 / (1 + np.exp(-onnx_out[0][0]))).tolist()  # sigmoid
+        action_prob = float(1 / (1 + np.exp(-onnx_out[1][0])))
+        cls_embedding = torch.from_numpy(onnx_out[3][0])
+    else:
+        enc = tokenizer(model_input, max_length=MAX_LEN, padding="max_length",
+                        truncation=True, return_tensors="pt")
+        input_ids = enc["input_ids"].to(DEVICE)
+        attention_mask = enc["attention_mask"].to(DEVICE)
+
+        with torch.no_grad():
+            topic_logits, action_logits, _, cls_emb = model(input_ids=input_ids, attention_mask=attention_mask)
+        topic_probs = torch.sigmoid(topic_logits[0]).cpu().tolist()
+        cls_embedding = cls_emb[0].detach().cpu()
+        action_prob = torch.sigmoid(action_logits).cpu().item()
 
     scores = {INTENTS[j]: round(topic_probs[j], 4) for j in range(len(INTENTS))}
 
@@ -287,9 +319,11 @@ def fast_keyword_detect(text: str) -> dict:
     money_suppress = ['pay attention', 'pay respect', 'pay the price', 'i owe my success',
                       'owe it to', "don't owe", 'doesnt owe', "doesn't owe"]
     is_suppressed = any(s in t for s in money_suppress)
-    if (has_money_kw or has_amount) and not is_suppressed:
+    # Bare amounts ($85, 200 bucks) without a money keyword are just price mentions — not requests.
+    # Require a money keyword for the guardrail to fire; amounts alone only boost model scores.
+    if has_money_kw and not is_suppressed:
         fired.append("money")
-        scores["money"] = 0.90 if (has_money_kw and has_amount) else 0.80
+        scores["money"] = 0.90 if has_amount else 0.80
 
     # ── Ride ──
     ride_words = [
@@ -1463,9 +1497,11 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         re.compile(r'\bgot\s+you\s+covered\b', re.IGNORECASE),
         re.compile(r'\bthanks?\s+for\b.*\b(?:dinner|lunch|food|drinks?|bill|tab|ride|uber|cab)\b', re.IGNORECASE),
     ]
+    _SELF_INIT_KW = re.compile(r"\bi(?:'?ll|will|'?m)\s+(?:venmo|send|pay|cashapp|zelle|transfer)", re.IGNORECASE)
     if "money" in result["intents"] and any(p.search(tl) for p in _GRATITUDE_PATTERNS):
-        result["intents"] = [i for i in result["intents"] if i != "money"]
-        result["money"] = None
+        if not _SELF_INIT_KW.search(tl):
+            result["intents"] = [i for i in result["intents"] if i != "money"]
+            result["money"] = None
 
     # Phase 1c3b: Venue offer suppression — offering to pay at a venue, not P2P transfer
     _VENUE_OFFER_PATTERNS = [
@@ -1508,6 +1544,17 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             except:
                 pass
         if parsed and min(parsed) > _MONEY_CAP:
+            result["intents"] = [i for i in result["intents"] if i != "money"]
+            result["money"] = None
+
+    # Phase 1c4c: Price complaint suppression — reacting to a price is not a payment request
+    _PRICE_COMPLAINT = re.compile(
+        r'(?:damn|dude|bro|wow|yikes|oof|sheesh)?\s*\$?\d+.*(?:steep|expensive|a\s+lot|too\s+much|pricey|insane|crazy|wild|ridiculous)'
+        r'|(?:steep|expensive|a\s+lot|too\s+much|pricey|insane|crazy|wild|ridiculous).*\$?\d+',
+        re.IGNORECASE,
+    )
+    if "money" in result["intents"] and _PRICE_COMPLAINT.search(tl):
+        if not any(w in tl for w in ['send', 'pay', 'venmo', 'cashapp', 'zelle', 'owe']):
             result["intents"] = [i for i in result["intents"] if i != "money"]
             result["money"] = None
 
@@ -1694,7 +1741,7 @@ class DetectResponse(BaseModel):
 # ── Routes ──
 @app.post("/detect", response_model=DetectResponse)
 @app.post("/classify", response_model=DetectResponse)
-async def detect(req: DetectRequest):
+def detect(req: DetectRequest):
     """
     Detect intents in a chat message (full pipeline).
     Available at both /detect and /classify.

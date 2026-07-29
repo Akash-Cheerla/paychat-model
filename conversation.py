@@ -34,6 +34,7 @@ logger = logging.getLogger("paychat.conversation")
 PENDING_TTL = 300          # 5 minutes — pending requests expire after this
 PENDING_MSG_LIMIT = 10     # expire pending after this many intervening messages in the room
 ARCHIVE_TTL = 172800       # 48 hours — archived (expired) requests kept for reply_to matching
+BARE_ACK_MSG_LIMIT = 3     # bare acks ("bet", "ok") only fire within this many msgs of the request
 MANAGED_INTENTS = {"money", "ride"}  # intents governed by state machine
 
 
@@ -95,15 +96,40 @@ def _is_dm(room_id: str) -> bool:
     return room_id.startswith("dm_") if room_id else False
 
 
+INTENT_COOLDOWN_MSGS = 3
+
+_EXPLICIT_MONEY_REQUEST = re.compile(
+    r"\b(?:send|venmo|cashapp|zelle|pay|transfer)\s+(?:me|him|her|them|us)\b"
+    r"|\b(?:you|u)\s+(?:owe|still owe)\s+(?:me|us)\b"
+    r"|\b(?:pay\s+(?:me\s+)?back|send\s+(?:me\s+)?\d)"
+    , re.IGNORECASE
+)
+_EXPLICIT_RIDE_REQUEST = re.compile(
+    r"\b(?:book|get|call|order|grab)\s+(?:me\s+)?(?:a\s+)?(?:uber|lyft|cab|taxi|ride)\b"
+    , re.IGNORECASE
+)
+
+def _has_explicit_request(text: str, intent: str) -> bool:
+    if intent == "money":
+        return bool(_EXPLICIT_MONEY_REQUEST.search(text))
+    if intent == "ride":
+        return bool(_EXPLICIT_RIDE_REQUEST.search(text))
+    return False
+
+
 class RoomStateStore:
     """Tracks pending requests per room. Thread-safe for single-process async."""
 
     def __init__(self):
         self.rooms: dict[str, list[PendingRequest]] = defaultdict(list)
         self.archived: dict[str, list[PendingRequest]] = defaultdict(list)
+        self._cooldowns: dict[str, dict[str, int]] = defaultdict(dict)
 
     def add_pending(self, room_id: str, req: PendingRequest):
         self._clean_expired(room_id)
+        if self.is_on_cooldown(room_id, req.intent) and not _has_explicit_request(req.text, req.intent):
+            logger.info(f"[{room_id}] Suppressed {req.intent} from {req.sender} — cooldown active, no explicit request language")
+            return False
         # Replace existing pending of same intent from same sender
         self.rooms[room_id] = [
             r for r in self.rooms[room_id]
@@ -111,6 +137,7 @@ class RoomStateStore:
         ]
         self.rooms[room_id].append(req)
         logger.info(f"[{room_id}] Stored pending {req.intent} from {req.sender}: {req.text!r}")
+        return True
 
     def get_pending(self, room_id: str, intent: str = None) -> list[PendingRequest]:
         self._clean_expired(room_id)
@@ -139,6 +166,19 @@ class RoomStateStore:
                 self.rooms[room_id] = [
                     r for r in self.rooms[room_id] if r.intent != intent
                 ]
+
+    def set_cooldown(self, room_id: str, intent: str):
+        self._cooldowns[room_id][intent] = INTENT_COOLDOWN_MSGS
+
+    def is_on_cooldown(self, room_id: str, intent: str) -> bool:
+        return self._cooldowns.get(room_id, {}).get(intent, 0) > 0
+
+    def tick_cooldowns(self, room_id: str):
+        if room_id in self._cooldowns:
+            for intent in list(self._cooldowns[room_id]):
+                self._cooldowns[room_id][intent] -= 1
+                if self._cooldowns[room_id][intent] <= 0:
+                    del self._cooldowns[room_id][intent]
 
     def find_by_message_id(self, room_id: str, message_id: str) -> Optional[PendingRequest]:
         """Find a pending or archived request by its original message_id."""
@@ -264,6 +304,12 @@ _GREETING_ONLY = re.compile(
     re.IGNORECASE,
 )
 
+# Acks that contain money/ride-specific language — safe to fire even after topic drift
+_SPECIFIC_ACK = re.compile(
+    r"\b(?:send(?:ing|t)|paid|pay(?:ing)?|venmo|cashapp|zelle|transfer|book(?:ed|ing)?|uber|lyft|cab|ride|eta|driver|already|done|sent)\b",
+    re.IGNORECASE,
+)
+
 _ML_RESPONSE_CLASSES = ['ack', 'reject', 'future_promise', 'question', 'already_done', 'neutral']
 _ML_TO_RESPONSE_TYPE = {
     'ack': ResponseType.POSITIVE_ACK,
@@ -273,7 +319,6 @@ _ML_TO_RESPONSE_TYPE = {
     'already_done': ResponseType.ALREADY_DONE,
     'neutral': ResponseType.NEUTRAL,
 }
-
 
 def _ml_classify_response(model, pending_cls, current_cls) -> str:
     """Classify response using the ML response_head."""
@@ -323,7 +368,7 @@ class ResponseClassifier:
                  pending_cls=None, current_cls=None, model=None) -> str:
         """
         Classify what kind of response this message is.
-        Uses ML response_head when available, regex fallback otherwise.
+        Uses ML response_head when available, regex as fallback.
         """
         t = text.strip()
 
@@ -345,7 +390,7 @@ class ResponseClassifier:
             logger.info(f"Greeting guard: '{t}' forced neutral")
             return ResponseType.NEUTRAL
 
-        # ML classification when both embeddings are available
+        # ML response_head
         if pending_cls is not None and current_cls is not None and model is not None and torch is not None:
             ml_result = _ml_classify_response(model, pending_cls, current_cls)
             if ml_result == ResponseType.NEUTRAL and any(i in MANAGED_INTENTS for i in model_intents):
@@ -474,7 +519,8 @@ class ConversationStateMachine:
                 "conversation_state": None,
             }
 
-        # Increment message counter on all pending requests in this room
+        # Tick cooldowns and increment message counter on all pending requests
+        self.store.tick_cooldowns(room_id)
         for p in self.store.get_pending(room_id):
             if p.sender != sender:
                 p.messages_since += 1
@@ -493,18 +539,17 @@ class ConversationStateMachine:
             if reply_target and reply_target.sender == sender:
                 reply_target = None  # can't respond to your own request
 
-        if is_dm:
-            # DMs: use all pending from the other person (ambient matching)
+        if reply_target:
+            # reply_to always wins — DMs and groups both honor it
+            effective_pending = [reply_target]
+        elif is_dm:
+            # DMs: ambient matching (only 2 people, unambiguous)
             effective_pending = pending_from_others
         else:
-            # Groups: only match if reply_to points to a pending/archived request
-            if reply_target:
-                effective_pending = [reply_target]
-            else:
-                effective_pending = []
+            # Groups without reply_to: no match possible
+            effective_pending = []
 
         has_pending = len(effective_pending) > 0
-
         # Get CLS embedding from the most relevant pending request for ML classification
         pending_cls = None
         if has_pending:
@@ -518,6 +563,15 @@ class ConversationStateMachine:
             text, has_pending, managed_fired,
             pending_cls=pending_cls, current_cls=current_cls, model=model,
         )
+
+        # Proximity guard: bare generic acks ("bet", "ok", "sure") only fire close to the request.
+        # After topic drift, require specific language ("sending now", "booked it") or reply_to.
+        if (response_type in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE)
+                and not reply_target and has_pending):
+            nearest = min(p.messages_since for p in effective_pending)
+            if nearest >= BARE_ACK_MSG_LIMIT and not _SPECIFIC_ACK.search(text):
+                logger.info(f"Proximity guard: '{text}' is a bare ack {nearest} msgs after request — suppressed")
+                response_type = ResponseType.NEUTRAL
 
         # Find the most relevant pending request (newest matching intent, or newest overall)
         relevant_pending = None
@@ -543,15 +597,27 @@ class ConversationStateMachine:
         if action == Action.FIRE:
             if response_type == ResponseType.SELF_INITIATED:
                 final_intents.extend(managed_fired)
-            elif response_type == ResponseType.POSITIVE_ACK and len(pending_from_others) > 1:
+            elif (response_type in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE)
+                  and len(pending_from_others) > 1):
+                # Multiple pendings: classify response against each one independently
                 for p in pending_from_others:
-                    if not p.has_responded(sender):
+                    if p.has_responded(sender):
+                        continue
+                    if p.cls_embedding is not None and current_cls is not None and model is not None and torch is not None:
+                        per_result = _ml_classify_response(model, p.cls_embedding, current_cls)
+                        if per_result in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE):
+                            final_intents.append(p.intent)
+                            p.mark_responded(sender)
+                    else:
                         final_intents.append(p.intent)
                         p.mark_responded(sender)
             elif relevant_pending:
                 final_intents.append(relevant_pending.intent)
-                # Mark this sender as responded (don't remove — others may still respond in group)
                 relevant_pending.mark_responded(sender)
+
+            # Remove resolved pendings from store
+            if relevant_pending:
+                self.store.remove_pending(room_id, relevant_pending.intent, relevant_pending.sender)
 
             conv_state = {
                 "status": "fired",
@@ -569,7 +635,8 @@ class ConversationStateMachine:
         elif action == Action.REMINDER:
             if relevant_pending:
                 final_intents.append("reminder")
-                relevant_pending.mark_responded(sender)
+                self.store.remove_pending(room_id, relevant_pending.intent, relevant_pending.sender)
+                self.store.set_cooldown(room_id, relevant_pending.intent)
 
             conv_state = {
                 "status": "reminder",
@@ -587,7 +654,8 @@ class ConversationStateMachine:
 
         elif action == Action.CANCEL:
             if relevant_pending:
-                relevant_pending.mark_responded(sender)
+                self.store.remove_pending(room_id, relevant_pending.intent, relevant_pending.sender)
+                self.store.set_cooldown(room_id, relevant_pending.intent)
 
             conv_state = {
                 "status": "cancelled",
@@ -603,9 +671,10 @@ class ConversationStateMachine:
 
         elif action == Action.STORE_PENDING:
             # New request — store as pending, suppress managed intents from response
+            stored_intents = []
             for intent in managed_fired:
                 money_info = model_result.get("money") if intent == "money" else {}
-                self.store.add_pending(room_id, PendingRequest(
+                added = self.store.add_pending(room_id, PendingRequest(
                     intent=intent,
                     sender=sender,
                     text=text,
@@ -614,13 +683,23 @@ class ConversationStateMachine:
                     message_id=message_id,
                     cls_embedding=current_cls,
                 ))
+                if added:
+                    stored_intents.append(intent)
 
-            conv_state = {
-                "status": "pending",
-                "pending_intents": managed_fired,
-                "response_type": response_type,
-                "reason": reason,
-            }
+            if stored_intents:
+                conv_state = {
+                    "status": "pending",
+                    "pending_intents": stored_intents,
+                    "response_type": response_type,
+                    "reason": reason,
+                }
+            else:
+                action = Action.NO_FIRE
+                conv_state = {
+                    "status": "no_fire",
+                    "response_type": ResponseType.NEUTRAL,
+                    "reason": "suppressed by cooldown",
+                }
 
         elif action == Action.KEEP_PENDING:
             conv_state = {
