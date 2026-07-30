@@ -177,8 +177,10 @@ def load_model(model_dir: Path = MODEL_DIR):
     model_state["version"]    = version
     model_state["loaded_at"]  = datetime.utcnow().isoformat()
 
-    # Load ONNX session if available (faster CPU inference)
-    onnx_path = model_dir / "model.onnx"
+    # Load ONNX session if available (faster CPU inference) — prefer INT8 quantized
+    onnx_int8 = model_dir / "model_int8.onnx"
+    onnx_fp32 = model_dir / "model.onnx"
+    onnx_path = onnx_int8 if onnx_int8.exists() else onnx_fp32
     if ort and onnx_path.exists():
         so = ort.SessionOptions()
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -186,7 +188,8 @@ def load_model(model_dir: Path = MODEL_DIR):
         model_state["onnx_session"] = ort.InferenceSession(
             str(onnx_path), so, providers=["CPUExecutionProvider"]
         )
-        logger.info(f"ONNX session loaded ({onnx_path.stat().st_size / 1024 / 1024:.0f} MB)")
+        variant = "INT8" if onnx_path == onnx_int8 else "FP32"
+        logger.info(f"ONNX {variant} session loaded ({onnx_path.stat().st_size / 1024 / 1024:.0f} MB)")
     else:
         model_state["onnx_session"] = None
 
