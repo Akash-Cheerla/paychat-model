@@ -1,0 +1,18 @@
+{
+  "architecture": "ConvFireModel",
+  "base": "v30",
+  "labels": [
+    "money",
+    "ride"
+  ],
+  "max_length": 256,
+  "window": 10,
+  "thresholds": {
+    "money": 0.9799999999999995,
+    "ride": 0.9849999999999995
+  },
+  "render": "speakers normalised so the final message's sender is A; spliced pending requests marked [earlier]; messages joined by ' | '",
+  "loss": "AsymmetricLoss(gamma_neg=2.5, gamma_pos=1.0, clip=0.05)",
+  "trained_on": "conv_windows_v2 \u2014 130452 windows",
+  "rule": "FIRING_RULE.md"
+}
