@@ -16,13 +16,18 @@ RUN python -m spacy download en_core_web_sm
 COPY app.py .
 COPY conversation.py .
 COPY guardrails.py .
+COPY conv_classifier.py .
 
-# Trained model
+# Trained models
 COPY saved_model/ ./saved_model/
+COPY conv_model/ ./conv_model/
 
 # Environment
 ENV MODEL_DIR=/app/saved_model
 ENV PORT=8000
+# Conversation classifier: decides money/ride from the last 10 messages instead of the
+# rule layer. OFF by default — set to 1 to enable. See CONV_CLASSIFIER_DEPLOY.md.
+ENV PAYCHAT_CONV_CLASSIFIER=0
 
 # Non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app

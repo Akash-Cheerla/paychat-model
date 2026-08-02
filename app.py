@@ -629,19 +629,43 @@ class ConversationContext:
     """Track recent messages per room. Provides last 3 messages (within 5 min)
     for model-level context concatenation via </s> separator."""
 
-    CONTEXT_WINDOW = 8
+    # Must be at least (conversation model window - 1), since the model needs that many
+    # history messages plus the current one. v2 trains at window 10, so 8 would have
+    # silently starved it of context with no error anywhere. 16 leaves headroom.
+    CONTEXT_WINDOW = 16
     DECAY_SECONDS = 120
 
     def __init__(self):
         self.rooms: dict[str, deque] = defaultdict(lambda: deque(maxlen=self.CONTEXT_WINDOW))
 
-    def add(self, room_id: str, text: str, intents: list, scores: dict):
+    def add(self, room_id: str, text: str, intents: list, scores: dict,
+            sender: str = None):
         self.rooms[room_id].append({
             "text": text,
             "intents": intents,
             "scores": scores,
+            "sender": sender,
             "ts": time.time(),
         })
+
+    def get_window(self, room_id: str, size: int = 5) -> list:
+        """Recent (sender, text) pairs for the conversation classifier.
+
+        Unlike get_prev_messages this keeps the sender, which the classifier needs to
+        work out who is answering whom. Entries older than CONTEXT_TIME_CAP are dropped
+        for the same reason they are dropped there — a reply an hour later is not a
+        reply. Entries recorded before senders were tracked have sender None and are
+        skipped, since an unattributable message would corrupt the speaker mapping.
+        """
+        now = time.time()
+        out = []
+        for entry in self.rooms.get(room_id, []):
+            if now - entry["ts"] > CONTEXT_TIME_CAP:
+                continue
+            if entry.get("sender") is None:
+                continue
+            out.append({"sender": entry["sender"], "text": entry["text"]})
+        return out[-size:] if out else []
 
     def get_prev_messages(self, room_id: str, max_msgs: int = 3) -> list:
         """Return up to 3 recent message texts within the time cap for model context."""
@@ -669,6 +693,33 @@ class ConversationContext:
 
 
 conversation_ctx = ConversationContext()
+
+# ── Conversation classifier (experimental, off by default) ──
+# Set PAYCHAT_CONV_CLASSIFIER=1 to let the conversation-level model decide money/ride
+# instead of the rule-based state machine. Off by default so the shipped path is
+# untouched; the flag exists so both can be measured through the same server on the
+# same eval, which is the only way to answer "do the rules still earn their place".
+#
+# NOTE: the pending-request splice (build_window's pending_texts) is deliberately NOT
+# used here. Zero training windows contain the "[earlier]" marker it renders, so
+# feeding it would be out-of-distribution. See task #40.
+CONV_CLASSIFIER_ON = os.environ.get("PAYCHAT_CONV_CLASSIFIER", "").strip() in ("1", "true", "yes")
+conv_classifier = None
+if CONV_CLASSIFIER_ON:
+    try:
+        from conv_classifier import ConversationClassifier, build_window
+        # Resolved against this file, not the working directory, so the server does not
+        # silently disable itself depending on where it was started from.
+        conv_classifier = ConversationClassifier(
+            os.environ.get("PAYCHAT_CONV_MODEL",
+                           str(Path(__file__).resolve().parent / "conv_model")))
+        if not conv_classifier.ok:
+            logger.error("PAYCHAT_CONV_CLASSIFIER=1 but the model failed to load — "
+                         "refusing to fall back silently")
+            raise SystemExit("conversation classifier requested but unavailable")
+        logger.info("conversation classifier ENABLED — money/ride decided by the model")
+    except ImportError as e:
+        raise SystemExit(f"conversation classifier requested but import failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1232,6 +1283,12 @@ def _extract_contact_name(text: str, text_lower: str) -> Optional[str]:
 # PHASE 4 — Cancel / Defer / Re-trigger
 # ═══════════════════════════════════════════════════════════════════════
 
+# Intents governed by ConversationStateMachine (api/conversation.py). IntentLifecycle
+# must not track or re-trigger these — two registries for the same intent get out of
+# sync and re-add stale intents to turns the state machine already resolved.
+_SM_MANAGED_INTENTS = {"money", "ride"}
+
+
 class IntentLifecycle:
     """
     Track active intents per room and detect cancel/defer/re-trigger.
@@ -1256,7 +1313,13 @@ class IntentLifecycle:
 
     DEFER_PATTERNS = [re.compile(p) for p in [
         r"\b(?:not\s+(?:now|yet)|maybe\s+later)\b",
-        r"\b(?:hold\s+(?:on|off)|in\s+a\s+bit)\b",
+        # "hold off" postpones. "hold on" does not — in chat it means "wait a second
+        # while I do this", and it attaches to the exact messages we most want to fire
+        # on: "sending it now hold on", "booking an ola rn hold on", "okk transferring
+        # it now hold on". Treating the two as synonyms deferred 10 of the 30 missed
+        # acceptances on the Claude eval — a third of all misses — on messages the
+        # model had already scored at 0.995+.
+        r"\b(?:hold\s+off|in\s+a\s+bit)\b",
         r"\b(?:after|once)\s+(?:I|we|i)\s+\w+",
         r"\b(?:next\s+time|some\s+other\s+time)\b",
         r"\blet\s+me\s+think\b",
@@ -1383,7 +1446,15 @@ class IntentLifecycle:
                 return detection
 
         # 6. Register new active intents
+        # money and ride are owned by ConversationStateMachine, which already tracks
+        # their pending/fired state. Registering them here too created a second,
+        # disagreeing registry: after the state machine fired and consumed a ride
+        # pending, this one still held ride as "active", so the next bare "Sure"
+        # matched CONFIRM_PATTERNS and re-added ride to a turn the state machine had
+        # already decided was no_fire. That is the duplicated-icon bug seen in the app.
         for intent in fired:
+            if intent in _SM_MANAGED_INTENTS:
+                continue
             self.active[room_id][intent] = {
                 "status": "active",
                 "ts": time.time(),
@@ -1448,6 +1519,31 @@ _META_STATEMENT_PATTERNS = [
     re.compile(r"\bgoing\s+to\s+(?:text|tell|message|call)\s+\w+\s+(?:that|to)\b", re.IGNORECASE),
 ]
 
+# Payment verb inventory. MUST stay in sync with conversation.py's _PAY_VERB family —
+# this gate runs first, so any app missing here is stripped before the state machine
+# ever sees it (that is how "paypal me 20" silently produced nothing).
+_PV      = (r"(?:send|pay|transfer|venmo|cashapp|cash\s?app|zelle|paypal|gpay|google\s?pay|"
+            r"paytm|phonepe|upi|grabpay|duitnow|give)")
+_PV_ING  = (r"(?:sending|paying|transferring|venmo-?ing|cashapp-?ing|cash\s?app-?ing|"
+            r"zell(?:e)?ing|paypal(?:l)?-?ing|gpay-?ing|google\s?pay-?ing|paytm-?ing|"
+            r"phonepe-?ing|upi-?ing|grabpay-?ing)")
+_PV_PAST = (r"(?:sent|paid|transferred|venmo(?:ed|'d|d)?|cashapp(?:ed)?|zell(?:ed|d)?|"
+            r"paypal(?:ed|led)?|gpay(?:ed)?|paytm(?:ed)?|phonepe(?:d)?)")
+
+_MONEY_HAS_DIRECTIVE = re.compile(
+    rf'\b{_PV}\s+(?:me|us|him|her|them)\b'            # "venmo me", "paypal me"
+    rf'|\bpay\s+(?:back|up|for)\b'                     # "pay me back", "pay up"
+    rf'|\bsend\s+(?:it|that|the\s+money)\b'
+    rf'|\bsend\s+\$?\d'
+    rf"|\bi(?:'?ll|ll|will|'?m|m)\s+(?:gonna\s+|going\s+to\s+)?{_PV}\b"
+    rf"|\b(?:let\s+me|lemme)\s+{_PV}\b"
+    rf"|\bi(?:'?m|m)\s+{_PV_ING}\b"                    # "im zelling you"
+    rf"|\b{_PV_ING}\s+(?:you|u|him|her|them|it|that)\b" # "sending you", "cashapping you"
+    rf"|\b{_PV_PAST}\s+(?:you|u|him|her|them)\b"        # "just venmoed you"
+    rf"|\bgonna\s+{_PV}\b"
+    , re.IGNORECASE
+)
+
 
 def full_pipeline(text: str, room_id: str = None, context: list = None,
                    sender: str = None, message_id: str = None,
@@ -1489,6 +1585,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         'uber schedule', 'can uber', 'does uber', 'does lyft']
     if "ride" in result["intents"] and any(p in tl for p in _RIDE_DISCUSSION):
         result["intents"] = [i for i in result["intents"] if i != "ride"]
+
 
     # Phase 1c3: Gratitude suppression — "thanks for covering/paying" = not a money request
     _GRATITUDE_PATTERNS = [
@@ -1648,6 +1745,12 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         result["intents"] = [i for i in result["intents"] if i != "money"]
         result["money"] = None
 
+    # NOTE: a "directive verb gate" was trialled here (suppress money unless an action verb
+    # was found). It fixed 5 false positives but blocked 43/44 genuine requests — phrasings
+    # like "spot me the 15", "wire me the 200", "yo shoot me the 20" all scored >0.75 and
+    # were overruled by the regex. Removed. Chat phrasing is unbounded; the separation has
+    # to come from training data, not a verb list.
+
     # Phase 2: Intent targeting — who should see the popup
     if result["intents"]:
         result["target"] = detect_target(text, result["intents"], result.get("money"))
@@ -1662,19 +1765,45 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     # Phase 4: Conversation state machine (fire on response, not request)
     # For money+ride: requests stored as pending, intents fire when responder confirms.
     # Other intents pass through unchanged. Falls back to immediate mode when no sender.
-    sm_result = conversation_sm.process(
-        room_id=room_id,
-        text=text,
-        sender=sender,
-        model_result=result,
-        slots=result.get("slots"),
-        message_id=message_id,
-        reply_to=reply_to,
-        model=model_state["model"] if model_state.get("has_response_head") else None,
-        current_cls=result.get("_cls_embedding"),
-    )
-    result["intents"] = sm_result["intents"]
-    result["conversation_state"] = sm_result.get("conversation_state")
+    if conv_classifier is not None and sender and room_id:
+        # Experimental path: the conversation model decides money/ride outright. No
+        # pending store, no cooldowns, no response classification — the window is the
+        # state. Every other intent passes through exactly as the model produced it,
+        # so this branch changes nothing outside MANAGED_INTENTS.
+        # Window size comes from the loaded model, not a constant — v1 trained at 6,
+        # v2 at 10, and serving with the wrong one is a silent train/serve mismatch.
+        w = conv_classifier.window
+        hist = conversation_ctx.get_window(room_id, size=w)
+        fired, conv_scores = conv_classifier.predict(
+            build_window(hist, {"sender": sender, "text": text}, size=w))
+        result["intents"] = [i for i in result["intents"]
+                             if i not in MANAGED_INTENTS] + list(fired)
+        result["conversation_state"] = {"status": "conv_classifier",
+                                        "scores": conv_scores,
+                                        "history": len(hist)}
+        sm_result = {"action": None, "pending_intent": None}
+        if "money" not in result["intents"]:
+            result["money"] = None
+        elif not result.get("money"):
+            result["money"] = _enrich_money(text)
+        if result["intents"] and not result.get("target"):
+            result["target"] = detect_target(text, result["intents"], result.get("money"))
+        elif not result["intents"]:
+            result["target"] = None
+    else:
+        sm_result = conversation_sm.process(
+            room_id=room_id,
+            text=text,
+            sender=sender,
+            model_result=result,
+            slots=result.get("slots"),
+            message_id=message_id,
+            reply_to=reply_to,
+            model=model_state["model"] if model_state.get("has_response_head") else None,
+            current_cls=result.get("_cls_embedding"),
+        )
+        result["intents"] = sm_result["intents"]
+        result["conversation_state"] = sm_result.get("conversation_state")
 
     # If state machine changed intents, update dependent fields
     if sm_result["action"] == Action.STORE_PENDING:
@@ -1695,7 +1824,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     # Phase 5: Lifecycle (cancel/defer/confirm)
     if room_id:
         result = intent_lifecycle.process(room_id, text, result)
-        conversation_ctx.add(room_id, text, result["intents"], result["scores"])
+        conversation_ctx.add(room_id, text, result["intents"], result["scores"],
+                             sender=sender)
 
     # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])

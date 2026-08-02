@@ -8,3 +8,7 @@ websockets>=12.0
 dateparser>=1.2.0
 numpy>=1.24.0
 spacy>=3.7.0
+# Required for the INT8 ONNX path. Both app.py and conv_classifier.py import it inside
+# a try/except and fall back to PyTorch when it is missing — so without this line the
+# container silently runs fp32 torch and the quantised models ship but never execute.
+onnxruntime>=1.17.0
