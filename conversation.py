@@ -31,8 +31,11 @@ logger = logging.getLogger("paychat.conversation")
 
 # ── Constants ──
 
-PENDING_TTL = 300          # 5 minutes — pending requests expire after this
-PENDING_MSG_LIMIT = 10     # expire pending after this many intervening messages in the room
+# Ambient matching window: how long a bare "sure" (no reply_to) can still confirm a request.
+# Kept bounded because an unrelated ack hours later must not fire a payment.
+# Explicit reply_to reaches back ARCHIVE_TTL (48h) regardless of this value.
+PENDING_TTL = 14400        # 4 hours
+PENDING_MSG_LIMIT = 20     # expire pending after this many intervening messages in the room
 ARCHIVE_TTL = 172800       # 48 hours — archived (expired) requests kept for reply_to matching
 BARE_ACK_MSG_LIMIT = 3     # bare acks ("bet", "ok") only fire within this many msgs of the request
 MANAGED_INTENTS = {"money", "ride"}  # intents governed by state machine
@@ -278,23 +281,54 @@ _DEFERRAL_PATTERNS = [
     re.compile(r"\b(?:hold\s+(?:on|up)|wait|not\s+(?:yet|now|rn))\b", re.IGNORECASE),
 ]
 
+# Payment verbs, kept in one place so every self-initiated pattern covers the same set.
+# Must include every app the product supports — a missing app means "ill <app> you 20"
+# is misread as a request to the other person and silently waits for a confirmation
+# that will never come.
+_PAY_VERB = r"(?:send|pay|transfer|venmo|cashapp|cash\s?app|zelle|paypal|gpay|google\s?pay|paytm|phonepe|upi|grabpay|duitnow)"
+# Present participle: venmoing, cashapping, zelling/zelleing, paypaling, gpaying...
+_PAY_VERB_ING = (r"(?:sending|paying|transferring|venmo-?ing|cashapp-?ing|cash\s?app-?ing|"
+                 r"zell(?:e)?ing|paypal-?ing|gpay-?ing|google\s?pay-?ing|paytm-?ing|"
+                 r"phonepe-?ing|upi-?ing|grabpay-?ing)")
+# Past tense: sent, venmoed, cashapped, zelled, paypaled, gpayed...
+_PAY_VERB_PAST = (r"(?:sent|paid|transferred|venmo(?:ed|'d|d)?|cashapp(?:ed)?|zell(?:ed|d)?|"
+                  r"paypal(?:ed|led)?|gpay(?:ed)?|paytm(?:ed)?|phonepe(?:d)?)")
+
 _SELF_INITIATED_MONEY_PATTERNS = [
-    re.compile(r"\bi(?:'?m|m)\s+(?:sending|paying|transferring|venmo-?ing)\b", re.IGNORECASE),
-    re.compile(r"\b(?:just\s+)?(?:sent|paid|transferred|venmo(?:ed|'d|d)?)\s+(?:you|u|him|her|them)\b", re.IGNORECASE),
-    re.compile(r"\blet\s+me\s+(?:send|pay|venmo|transfer)\b", re.IGNORECASE),
-    re.compile(r"\bi(?:'?m|m)\s+(?:gonna|going\s+to)\s+(?:send|pay|venmo|transfer)\b", re.IGNORECASE),
-    re.compile(r"\bi(?:'?ll|will)\s+(?:send|pay|venmo|transfer)\b", re.IGNORECASE),
-    re.compile(r"^\s*(?:just\s+)?(?:sending|paying)\s+(?:it|that|the)\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?m|m)\s+{_PAY_VERB_ING}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:just\s+)?{_PAY_VERB_PAST}\s+(?:you|u|him|her|them)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_PAY_VERB}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?m|m)\s+(?:gonna|going\s+to)\s+{_PAY_VERB}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?ll|ll|will)\s+{_PAY_VERB}\b", re.IGNORECASE),
+    re.compile(rf"^\s*(?:just\s+)?{_PAY_VERB_ING}\s+(?:it|that|the|you|u)\b", re.IGNORECASE),
+    # NOTE: a subject-less participle pattern ("sending now", "sent via gpay") was
+    # trialled here. It misclassified "sure, sending now" — the single most common
+    # acknowledgement — as SELF_INITIATED rather than POSITIVE_ACK. Those take
+    # different fire paths: SELF_INITIATED fires `managed_fired` (what the model scored
+    # on THIS message, empty for a bare ack), while POSITIVE_ACK fires the PENDING
+    # intent. Result was status="fired" with no intent. Removed.
+    # A first-person subject is required: "im sending now" is covered above.
 ]
 
+# Ride-hailing vocabulary, factored out so every pattern stays consistent.
+# NOTE the article group: the previous version used (?:a\s+)? which matched "a uber"
+# but NOT "an uber" — so the most common phrasing in the product never fired.
+_R_ART  = r"(?:an?\s+|the\s+)?"
+_R_SVC  = r"(?:one|cab|taxi|uber|lyft|ride|ola|rapido|auto)"
+_R_VERB = r"(?:grab|get|take|book|call|order|request|hail)"
+_R_ING  = r"(?:grabbing|getting|taking|booking|calling|ordering|requesting|hailing)"
+# Services usable as bare verbs ("i'll uber there"). "auto"/"ride" excluded — too ambiguous.
+_R_BARE = r"(?:uber|lyft|cab|ola|rapido)"
+
 _SELF_INITIATED_RIDE_PATTERNS = [
-    re.compile(r"\bi(?:'?ll|will|m\s+(?:gonna|going\s+to))\s+(?:grab|get|take|book|call|order)\s+(?:a\s+)?(?:one|cab|taxi|uber|lyft|ride)\b", re.IGNORECASE),
-    re.compile(r"\b(?:grabbing|getting|taking|booking|calling)\s+(?:a\s+)?(?:cab|taxi|uber|lyft|ride)\b", re.IGNORECASE),
-    re.compile(r"\b(?:let\s+me|lemme)\s+(?:grab|get|book|call)\s+(?:a\s+)?(?:one|cab|taxi|uber|lyft|ride)\b", re.IGNORECASE),
-    re.compile(r"\bi(?:'?ll|will|m\s+(?:gonna|going\s+to))\s+(?:just\s+)?(?:uber|lyft|cab)\b", re.IGNORECASE),
-    re.compile(r"\b(?:lets?|lemme)\s+(?:just\s+)?(?:uber|lyft|cab)\b", re.IGNORECASE),
-    re.compile(r"\bi(?:'?m|m)\s+(?:gonna|going\s+to)\s+(?:uber|lyft|cab)\b", re.IGNORECASE),
-    re.compile(r"\bi(?:'?m|m)\s+(?:just\s+)?(?:gonna|going\s+to)\s+(?:uber|lyft|cab)\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?ll|ll|will|m\s+(?:gonna|going\s+to))\s+{_R_VERB}\s+{_R_ART}{_R_SVC}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?m|m)\s+{_R_ING}\s+{_R_ART}{_R_SVC}\b", re.IGNORECASE),
+    re.compile(rf"^\s*(?:just\s+)?{_R_ING}\s+{_R_ART}{_R_SVC}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_R_VERB}\s+{_R_ART}{_R_SVC}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:just\s+)?(?:booked|ordered|called|grabbed|got)\s+{_R_ART}{_R_SVC}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?ll|ll|will|m\s+(?:gonna|going\s+to))\s+(?:just\s+)?{_R_BARE}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:lets?|lemme)\s+(?:just\s+)?{_R_BARE}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?m|m)\s+(?:just\s+)?(?:gonna|going\s+to)\s+{_R_BARE}\b", re.IGNORECASE),
 ]
 
 
@@ -320,8 +354,28 @@ _ML_TO_RESPONSE_TYPE = {
     'neutral': ResponseType.NEUTRAL,
 }
 
-def _ml_classify_response(model, pending_cls, current_cls) -> str:
-    """Classify response using the ML response_head."""
+# Confidence gating is applied ONLY to the destructive outcome, because the costs are
+# asymmetric — not because 0.80 is a special number:
+#
+#   a wrong REJECTION  cancels a real pending request; the user never sees a prompt and
+#                      there is no way to recover it. Unrecoverable.
+#   a wrong ACK        shows a prompt the user dismisses. Recoverable.
+#
+# A general bar was trialled at 0.55 and measurably hurt: it blocked genuine acks
+# ("yep" 0.479, "word" 0.506, "ok venmoing in 5" 0.461), each of which lost a real fire.
+# So non-destructive predictions are taken at argmax regardless of confidence.
+# Measured: 0.55 -> 66.5% conversation accuracy, 0.0 -> 65.4% (false fires 576 -> 642).
+# Kept at the measured optimum rather than an argued one.
+_ML_MIN_CONFIDENCE = 0.55
+_ML_MIN_CONFIDENCE_REJECT = 0.80
+
+
+def _ml_classify_response(model, pending_cls, current_cls):
+    """Classify a response with the ML response_head.
+
+    Returns (response_type, confidence, accepted) where `accepted` is False when the
+    prediction did not clear the confidence bar and the caller should fall back.
+    """
     with torch.no_grad():
         logits = model.classify_response(
             pending_cls.unsqueeze(0),
@@ -331,8 +385,13 @@ def _ml_classify_response(model, pending_cls, current_cls) -> str:
     pred_idx = probs.argmax().item()
     pred_class = _ML_RESPONSE_CLASSES[pred_idx]
     confidence = probs[pred_idx].item()
-    logger.info(f"ML response classifier: {pred_class} (conf={confidence:.3f})")
-    return _ML_TO_RESPONSE_TYPE[pred_class]
+    rtype = _ML_TO_RESPONSE_TYPE[pred_class]
+
+    bar = _ML_MIN_CONFIDENCE_REJECT if rtype == ResponseType.REJECTION else _ML_MIN_CONFIDENCE
+    accepted = confidence >= bar
+    logger.info(f"ML response classifier: {pred_class} (conf={confidence:.3f}, "
+                f"bar={bar:.2f}, {'accepted' if accepted else 'below bar -> regex'})")
+    return rtype, confidence, accepted
 
 
 def _regex_classify_response(text: str) -> str:
@@ -372,6 +431,14 @@ class ResponseClassifier:
         """
         t = text.strip()
 
+        # NOTE: reordering the future-promise check ahead of this was trialled and
+        # reverted. It fixed "ill pay you friday" (was firing a payment immediately)
+        # but broke "ill pay you back rn" / "right now" / "asap" — the word "back"
+        # appears in the future-promise patterns, so immediate payments containing it
+        # were suppressed. 4/6 wrong before, 4/10 wrong after: the failure moved, it
+        # did not shrink. Distinguishing "rn" from "friday" needs the model, not
+        # regex precedence.
+
         # Self-initiated actions — fire immediately regardless of pending (regex stays)
         if any(p.search(t) for p in _SELF_INITIATED_MONEY_PATTERNS):
             return ResponseType.SELF_INITIATED
@@ -390,12 +457,14 @@ class ResponseClassifier:
             logger.info(f"Greeting guard: '{t}' forced neutral")
             return ResponseType.NEUTRAL
 
-        # ML response_head
+        # ML response_head — used only when it clears its confidence bar
         if pending_cls is not None and current_cls is not None and model is not None and torch is not None:
-            ml_result = _ml_classify_response(model, pending_cls, current_cls)
-            if ml_result == ResponseType.NEUTRAL and any(i in MANAGED_INTENTS for i in model_intents):
-                return ResponseType.NEW_REQUEST
-            return ml_result
+            ml_result, _conf, accepted = _ml_classify_response(model, pending_cls, current_cls)
+            if accepted:
+                if ml_result == ResponseType.NEUTRAL and any(i in MANAGED_INTENTS for i in model_intents):
+                    return ResponseType.NEW_REQUEST
+                return ml_result
+            # Not confident enough — fall through to regex below.
 
         # Regex fallback
         regex_result = _regex_classify_response(text)
@@ -547,6 +616,12 @@ class ConversationStateMachine:
             effective_pending = pending_from_others
         else:
             # Groups without reply_to: no match possible
+            if pending_from_others:
+                logger.warning(
+                    f"[{room_id}] {len(pending_from_others)} pending request(s) unmatchable — "
+                    f"room_id lacks 'dm_' prefix so ambient matching is off, and no reply_to was sent. "
+                    f"If this is a 1:1 chat, the backend must send room_id as 'dm_<lo>_<hi>'."
+                )
             effective_pending = []
 
         has_pending = len(effective_pending) > 0
@@ -596,7 +671,15 @@ class ConversationStateMachine:
 
         if action == Action.FIRE:
             if response_type == ResponseType.SELF_INITIATED:
-                final_intents.extend(managed_fired)
+                # A self-initiated action fires what the model detected on THIS message.
+                # If the model detected nothing but a pending request exists, this was
+                # really an acknowledgement of that request — fall back to its intent
+                # rather than firing nothing while reporting status="fired".
+                if managed_fired:
+                    final_intents.extend(managed_fired)
+                elif relevant_pending:
+                    final_intents.append(relevant_pending.intent)
+                    relevant_pending.mark_responded(sender)
             elif (response_type in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE)
                   and len(pending_from_others) > 1):
                 # Multiple pendings: classify response against each one independently
@@ -604,8 +687,8 @@ class ConversationStateMachine:
                     if p.has_responded(sender):
                         continue
                     if p.cls_embedding is not None and current_cls is not None and model is not None and torch is not None:
-                        per_result = _ml_classify_response(model, p.cls_embedding, current_cls)
-                        if per_result in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE):
+                        per_result, _c, _ok = _ml_classify_response(model, p.cls_embedding, current_cls)
+                        if _ok and per_result in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE):
                             final_intents.append(p.intent)
                             p.mark_responded(sender)
                     else:
