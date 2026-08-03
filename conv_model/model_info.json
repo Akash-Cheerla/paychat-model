@@ -8,11 +8,11 @@
   "max_length": 256,
   "window": 10,
   "thresholds": {
-    "money": 0.9799999999999995,
-    "ride": 0.9849999999999995
+    "money": 0.9449999999999996,
+    "ride": 0.8099999999999996
   },
   "render": "speakers normalised so the final message's sender is A; spliced pending requests marked [earlier]; messages joined by ' | '",
   "loss": "AsymmetricLoss(gamma_neg=2.5, gamma_pos=1.0, clip=0.05)",
-  "trained_on": "conv_windows_v2 \u2014 130452 windows",
+  "trained_on": "conv_windows_v4 \u2014 143205 windows",
   "rule": "FIRING_RULE.md"
 }
