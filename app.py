@@ -61,6 +61,18 @@ MODEL_DIR      = Path(os.getenv("MODEL_DIR", str(Path(__file__).resolve().parent
 MAX_LEN        = 256
 DEVICE         = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CONTEXT_TIME_CAP = 300  # 5 minutes — ignore context messages older than this
+# The conversation classifier needs its own, much longer cap. CONTEXT_TIME_CAP exists
+# for the intent model's context prefix, where five minutes is right. For the classifier
+# the window IS the memory: if the request has aged out, the model judges "yeah one sec"
+# with nothing in front of it and scores 0.03 instead of 0.997.
+#
+# Real conversations do not run at test speed. A reply seven minutes after the request
+# is ordinary, and at 300s it silently produced no window at all — every eval measured
+# messages replayed milliseconds apart and so never saw this.
+#
+# Matches PENDING_TTL in conversation.py (4h), which was raised from 5 minutes for the
+# same reason on the rules path.
+CONV_CONTEXT_TIME_CAP = int(os.environ.get("PAYCHAT_CONV_CONTEXT_TTL", 4 * 3600))
 
 INTENTS = ["money", "ride", "food_order", "contact", "alarm", "reminder", "calendar", "bills", "travel"]
 
@@ -652,15 +664,19 @@ class ConversationContext:
         """Recent (sender, text) pairs for the conversation classifier.
 
         Unlike get_prev_messages this keeps the sender, which the classifier needs to
-        work out who is answering whom. Entries older than CONTEXT_TIME_CAP are dropped
-        for the same reason they are dropped there — a reply an hour later is not a
-        reply. Entries recorded before senders were tracked have sender None and are
-        skipped, since an unattributable message would corrupt the speaker mapping.
+        work out who is answering whom. Entries recorded before senders were tracked
+        have sender None and are skipped, since an unattributable message would corrupt
+        the speaker mapping.
+
+        Uses CONV_CONTEXT_TIME_CAP (4h), NOT the 5-minute CONTEXT_TIME_CAP used for the
+        intent model's prefix. For this model the window is the entire memory — at 5
+        minutes a request made seven minutes ago disappears and the reply is judged with
+        no context, scoring 0.03 where it should score 0.997.
         """
         now = time.time()
         out = []
         for entry in self.rooms.get(room_id, []):
-            if now - entry["ts"] > CONTEXT_TIME_CAP:
+            if now - entry["ts"] > CONV_CONTEXT_TIME_CAP:
                 continue
             if entry.get("sender") is None:
                 continue
@@ -693,6 +709,56 @@ class ConversationContext:
 
 
 conversation_ctx = ConversationContext()
+
+
+class RequestMeta:
+    """Carries `triggered_by` for the classifier path. Decides nothing.
+
+    The classifier reads a window and answers "should this fire" — it has no notion of
+    which earlier message the fire relates to. But the mobile apps need exactly that:
+    API_MOBILE.md tells iOS and Android to read the amount from
+    `conversation_state.triggered_by.slots`, because the acceptance ("ok sending")
+    never contains the amount — the request does. Without it the payment prompt appears
+    with no amount and no recipient.
+
+    So this records requests as they go past and hands the most recent one back when a
+    fire happens. It is deliberately NOT a decision-making pending store: nothing here
+    can cause or suppress a fire, so it cannot reintroduce the failure modes the rule
+    layer had. If it is wrong, the prompt is missing metadata; the detection is
+    unaffected.
+    """
+
+    MAX_PER_ROOM = 8
+
+    def __init__(self):
+        self.rooms: dict[str, list] = defaultdict(list)
+
+    def record(self, room_id, intent, sender, text, message_id, slots):
+        if not room_id or not sender:
+            return
+        q = self.rooms[room_id]
+        q.append({"intent": intent, "sender": sender, "text": text,
+                  "message_id": message_id, "slots": slots or None,
+                  "ts": time.time()})
+        del q[:-self.MAX_PER_ROOM]
+
+    def take(self, room_id, intent, sender):
+        """Most recent matching request from someone else, consumed. None if absent."""
+        q = self.rooms.get(room_id)
+        if not q:
+            return None
+        now = time.time()
+        for i in range(len(q) - 1, -1, -1):
+            e = q[i]
+            if e["intent"] != intent or e["sender"] == sender:
+                continue
+            if now - e["ts"] > CONV_CONTEXT_TIME_CAP:
+                continue
+            return q.pop(i)
+        return None
+
+
+request_meta = RequestMeta()
 
 # ── Conversation classifier (experimental, off by default) ──
 # Set PAYCHAT_CONV_CLASSIFIER=1 to let the conversation-level model decide money/ride
@@ -890,6 +956,31 @@ def _resolve_pronoun_recipient(text_lower: str, room_id: str) -> Optional[str]:
                                      "how", "can", "get", "set", "don", "send", "pay", "book"}:
                 return name
     return None
+
+
+# Amounts that appear while NEGOTIATING, which _extract_amount does not catch — it only
+# recognises request phrasings ("lend me 2000", "send me 200"). A counter-offer says
+# "i can only do 1000" or "1000 works", and without these the prompt keeps showing the
+# figure originally asked for.
+#
+# Deliberately narrow: it must match haggling, not any number in the conversation.
+# "dinner was 900 btw" after a request for 200 must NOT override the 200 — that is a
+# fact being reported, not a new offer.
+_COUNTER_AMOUNT = re.compile(
+    r"\b(?:can\s+(?:only\s+)?do|i(?:'?ll| will)\s+do|make\s+it|how\s+about|"
+    r"lets\s+say|say)\s+(?:\$|₹|rs\.?\s*)?(\d[\d,]*)"
+    r"|(?:\$|₹|rs\.?\s*)?(\d[\d,]*)\s+(?:works|is\s+fine|sounds\s+(?:good|fine)|"
+    r"then|it\s+is)\b",
+    re.IGNORECASE)
+
+
+def _negotiated_amount(text: str) -> Optional[str]:
+    """An amount offered or accepted mid-negotiation, or None."""
+    m = _COUNTER_AMOUNT.search(text)
+    if not m:
+        return None
+    val = m.group(1) or m.group(2)
+    return f"${val}" if val else None
 
 
 def _extract_amount(text: str) -> Optional[str]:
@@ -1778,9 +1869,86 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             build_window(hist, {"sender": sender, "text": text}, size=w))
         result["intents"] = [i for i in result["intents"]
                              if i not in MANAGED_INTENTS] + list(fired)
-        result["conversation_state"] = {"status": "conv_classifier",
-                                        "scores": conv_scores,
-                                        "history": len(hist)}
+        # Status MUST use the same vocabulary as the rule path. The backend gates the
+        # payment prompt on status == "fired" (see the integration note sent to the
+        # team), so emitting anything else here means the prompt never appears no
+        # matter how well the model scores — it would look like the model detecting
+        # nothing.
+        #
+        # "pending" has no equivalent here: the classifier keeps no pending store, it
+        # re-reads the window each message. A request simply produces no_fire until
+        # someone commits, which is what the backend already does nothing about. The
+        # states the rule layer owns — cancelled, reminder — are likewise not emitted,
+        # because this path does not model them.
+        result["conversation_state"] = {
+            "status": "fired" if fired else "no_fire",
+            "fired_intents": list(fired),
+            "decided_by": "conv_classifier",
+            "scores": conv_scores,
+            "history": len(hist),
+        }
+
+        # Attach triggered_by so the mobile apps can read the amount off the original
+        # request. On a fire, consume the matching recorded request; otherwise, if this
+        # message itself looks like a request, record it for a later fire.
+        if fired:
+            for intent in fired:
+                src = request_meta.take(room_id, intent, sender)
+                if src:
+                    result["conversation_state"]["triggered_by"] = {
+                        "sender": src["sender"],
+                        "text": src["text"],
+                        "message_id": src["message_id"],
+                        "slots": src["slots"],
+                    }
+                    # The acceptance rarely carries the amount or destination; the
+                    # request does. Merge per KEY, not per dict — extract_slots returns
+                    # a dict with null values rather than omitting them, so a truthiness
+                    # check on the whole dict keeps an all-null one and silently drops
+                    # the real values. That is why ride came back with destination null
+                    # at the top level while triggered_by had "Airport".
+                    if src["slots"]:
+                        merged = dict(result.get("slots") or {})
+                        for k, v in src["slots"].items():
+                            if merged.get(k) in (None, "", []):
+                                merged[k] = v
+
+                        # A counter-offer changes the amount. "can u lend me 2000" ->
+                        # "i can only do 1000" -> "cool sending now" must prompt for
+                        # 1000, not the 2000 originally asked for. The request record
+                        # only knows the first figure, so prefer the most recent amount
+                        # anyone actually said. Pre-filling the wrong number is worse
+                        # than pre-filling none — on a payment screen it invites
+                        # sending double.
+                        if intent == "money":
+                            latest = None
+                            for m in reversed(hist):
+                                a = _negotiated_amount(m["text"])
+                                if a:
+                                    latest = a
+                                    break
+                            if latest:
+                                merged["amount"] = latest
+                        result["slots"] = merged
+
+                        if intent == "money":
+                            amt = merged.get("amount") or src["slots"].get("amount")
+                            # result["money"] can exist as an explicit None, so
+                            # setdefault is not enough.
+                            money = result.get("money") or {}
+                            if amt and not money.get("detected_amount"):
+                                money["detected_amount"] = amt
+                                result["money"] = money
+                    break
+        else:
+            # A request is a message the intent model scores as money/ride but that the
+            # classifier did not fire on — i.e. someone asking rather than committing.
+            for intent in MANAGED_INTENTS:
+                thr = model_state["thresholds"].get(intent, 0.5)
+                if result["scores"].get(intent, 0) >= thr:
+                    request_meta.record(room_id, intent, sender, text, message_id,
+                                        result.get("slots"))
+                    break
         sm_result = {"action": None, "pending_intent": None}
         if "money" not in result["intents"]:
             result["money"] = None
@@ -1841,7 +2009,69 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     # Clean internal fields
     result.pop("_text", None)
     result.pop("_cls_embedding", None)
+
+    _log_message(room_id, sender, text, result)
     return result
+
+
+# ── Dogfood logging ─────────────────────────────────────────────────────────────
+# Every number the model has been tuned against came from generated conversations.
+# This captures REAL ones — but only from consented testers, and only while the app
+# is not end-to-end encrypted. Once E2EE ships this stops being possible at all.
+#
+# Two ways to switch it on, both requiring an explicit expiry:
+#   PAYCHAT_LOG_ROOMS=dm_1_2,dm_3_4   log only these rooms
+#   PAYCHAT_LOG_ALL=1                 log every room
+#
+# PAYCHAT_LOG_ALL is fine while the only people using the product are the team who
+# agreed to it. It stops being fine the moment anyone outside that group has an
+# account — at which point switch to the room list. That is a judgement about who is
+# using the app, not about the code, so it has to be made deliberately each time.
+#
+# The expiry is required either way and is the safeguard that actually matters:
+# "we'll turn it off later" is not a safeguard, a date the code enforces is.
+_LOG_ROOMS = {r.strip() for r in os.environ.get("PAYCHAT_LOG_ROOMS", "").split(",")
+              if r.strip()}
+_LOG_ALL = os.environ.get("PAYCHAT_LOG_ALL", "").strip() in ("1", "true", "yes")
+_LOG_UNTIL = os.environ.get("PAYCHAT_LOG_UNTIL", "")      # YYYY-MM-DD, required
+_LOG_PATH = Path(os.environ.get("PAYCHAT_LOG_PATH",
+                                str(Path(__file__).resolve().parent / "dogfood.jsonl")))
+
+if (_LOG_ROOMS or _LOG_ALL) and not _LOG_UNTIL:
+    raise SystemExit("message logging is enabled but PAYCHAT_LOG_UNTIL is not set — "
+                     "refusing to log without an expiry date")
+if _LOG_ALL:
+    logger.warning(f"DOGFOOD LOGGING ON for ALL ROOMS until {_LOG_UNTIL} -> {_LOG_PATH}"
+                   f"  (every message is stored — only appropriate while the product "
+                   f"is used solely by people who agreed to it)")
+elif _LOG_ROOMS:
+    logger.warning(f"DOGFOOD LOGGING ON for {len(_LOG_ROOMS)} room(s) until "
+                   f"{_LOG_UNTIL} -> {_LOG_PATH}")
+
+
+def _log_message(room_id, sender, text, result):
+    """Append one line per message, until the expiry date."""
+    if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
+        return
+    if datetime.utcnow().strftime("%Y-%m-%d") > _LOG_UNTIL:
+        return
+    try:
+        row = {
+            "ts": datetime.utcnow().isoformat(timespec="seconds"),
+            "room": room_id,
+            "sender": sender,
+            "text": text,
+            "fired": [i for i in result.get("intents", []) if i in ("money", "ride")],
+            "all_intents": result.get("intents", []),
+            "scores": {k: v for k, v in (result.get("scores") or {}).items()
+                       if k in ("money", "ride")},
+            "conv": (result.get("conversation_state") or {}).get("scores"),
+        }
+        with open(_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception as e:
+        # Logging must never break detection.
+        logger.warning(f"dogfood log failed: {e}")
 
 
 # ── Request/Response schemas ──

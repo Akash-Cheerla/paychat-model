@@ -125,6 +125,22 @@ action stated as in progress, fires.
 | `one sec opening the app` | ❌ no agreement, no action yet |
 | `one sec pulling it up` | ❌ same |
 
+**Reviewed twice, kept.** On 2026-08-03 this was briefly reversed — shown the message in
+a real chat, "one sec opening the app" reads like someone who has clearly decided to pay,
+and firing there is arguably more useful. It was reverted the same day for a reason worth
+recording, so this is not re-litigated a third time:
+
+The model does not learn "opening the payment app fires". It learns a pattern, and the
+nearest neighbours come with it — `one sec`, `lemme check`, `gimme a sec`,
+`hold on lemme see`. That is precisely how v2 ended up firing on `hmm` at 0.996, which
+cost a full retrain to undo.
+
+The cost of the current rule is narrow: someone who opens the app without saying anything
+affirmative gets no prompt on that message, and gets one moments later when they say
+`sending`. The cost of the reversal is every `one sec` in every conversation becoming a
+payment prompt. Revisit only with real usage data showing bare preparation is common AND
+that the false-fire risk did not materialise.
+
 ## 4. Ride means ride-hailing ONLY
 
 | message | fires ride? |

@@ -60,6 +60,35 @@ Three checks now:
 2. **Check conversation_state** if present — it tells you the full story
 3. **Target matches current user**
 
+### ⚠️ What changes when the conversation classifier is enabled
+
+The server can run the money/ride decision two ways. Which one is live is visible in
+`conversation_state.decided_by`.
+
+| | rule layer (today) | conversation classifier (`PAYCHAT_CONV_CLASSIFIER=1`) |
+|---|---|---|
+| `decided_by` | absent | `"conv_classifier"` |
+| `status` values | `fired`, `pending`, `cancelled`, `reminder`, `no_fire` | **only `fired` and `no_fire`** |
+| `triggered_by` | present on fire | present on fire — unchanged |
+| group chats | need `reply_to`, else nothing fires | fire without `reply_to` |
+
+**Nothing you already do breaks.** `status == "fired"` is still the trigger and
+`triggered_by.slots` still carries the amount and destination. But three things go quiet:
+
+* **`"pending"` never appears.** The classifier keeps no pending store — it re-reads the
+  last 10 messages each time. A request simply produces `no_fire` until someone commits.
+  Any UI that showed a "waiting for reply" state will never be entered.
+* **`"cancelled"` never appears.** A rejection comes through as `no_fire`.
+* **`"reminder"` never appears.** A deferral ("ill pay you friday") comes through as
+  `no_fire`. If you show a reminder prompt today, it stops appearing.
+
+**Group chats start firing.** Today nothing fires in a group unless the responder
+swipe-replies to the request. The classifier does not need that. If prompts suddenly
+appear in groups after this is switched on, that is the fix landing, not a bug.
+
+Branch on `decided_by` if you need to support both, or gate the `pending`/`cancelled`/
+`reminder` branches on its absence.
+
 ### Handling `conversation_state`
 
 ```swift
@@ -231,7 +260,11 @@ The state machine works differently in groups vs DMs. You don't need to handle t
 
 **DMs:** Response matching is automatic. Bob says "sure" after Alice requests → popup fires on Bob's screen. No special handling needed.
 
-**Group chats:** Responses only match when the user swipe-replies to the original request message. If Jake just types "bet" into a group with multiple pending requests, nothing fires — the system can't know which request he's responding to. When Jake swipe-replies to Maya's "venmo me 45" and says "bet", it fires correctly.
+**Group chats — rule layer:** Responses only match when the user swipe-replies to the original request message. If Jake just types "bet" into a group with multiple pending requests, nothing fires — the system can't know which request he's responding to. When Jake swipe-replies to Maya's "venmo me 45" and says "bet", it fires correctly.
+
+**Group chats — conversation classifier:** No `reply_to` needed. Maya asks the group, Jake replies "i got u, booking it now", and it fires with `target.show_to: "sender"` — the prompt goes to Jake, who is the one acting. Verified on a room id with no `dm_` prefix.
+
+One case still does not fire in either mode: **two different requests open at once, answered with a bare "ok"** ("venmo me 20" from one person, "book me a cab" from another, then just "ok"). There is no signal for which request is being answered, so nothing fires rather than guessing wrong. Naming the action — "ok sending" or "ok booking" — resolves it and fires the right one.
 
 The backend passes `reply_to` (the replied-to message ID) to the model server. If your app already sends `reply_to_message_id` or similar in the message payload, make sure the backend is forwarding it. Otherwise money/ride in group chats won't fire.
 
