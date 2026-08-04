@@ -1424,6 +1424,19 @@ class IntentLifecycle:
         r"^\s*(?:actually\s+)?(?:yes|yeah|yep|yup|sure|ok(?:ay)?|go\s+ahead|do\s+it|let'?s\s+(?:go|do\s+it)|confirmed?|absolutely|send\s+it|book\s+it|just\s+do\s+it)(?:\s+(?:do\s+it|go\s+ahead|please))?\s*[.!]?\s*$",
     ]]
 
+    # Reviving something the user CANCELLED needs more than a bare agreement. A plain
+    # "sure" or "ok" later in the conversation is almost always about something else,
+    # and resurrecting a cancelled alarm on it is the same failure as re-firing an
+    # active one. Changing your mind is deliberate, so require language that says so:
+    # "actually yes", "do it anyway", "changed my mind".
+    REVIVE_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
+        r"\bactually\b",
+        r"\b(?:do|book|send|set)\s+it\s+anyway\b",
+        r"\bchanged\s+my\s+mind\b",
+        r"\bnvm\s+(?:that|it)?\s*,?\s*(?:do|go)\b",
+        r"^\s*(?:go\s+ahead|do\s+it|just\s+do\s+it)\s*[.!]?\s*$",
+    ]]
+
     def __init__(self):
         self.active: dict[str, dict] = defaultdict(dict)
         self.cancelled: dict[str, dict] = defaultdict(dict)
@@ -1483,14 +1496,29 @@ class IntentLifecycle:
                 detection["lifecycle"] = lifecycle
                 return detection
 
-        # 3. Confirm / re-trigger — works on deferred AND recently cancelled intents
+        # 3. Confirm / re-trigger — ONLY for intents that were deferred or cancelled.
+        #
+        # "active" used to be included here, which meant an intent that had ALREADY
+        # fired would fire again on any bare "sure"/"ok"/"yeah" later in the room, on a
+        # completely unrelated subject:
+        #
+        #   "Set alarm for tomorrow 10 am"  -> alarm fires   (correct)
+        #   "Sure"                          -> alarm fires AGAIN
+        #
+        # On that second message the model scores alarm at ~0.03; the intent came
+        # entirely from here. Reported from production with `reminder`, reproduced with
+        # `alarm`. Confirmation is meant to revive something that was PUT OFF —
+        # "remind me later" then "actually yeah do it" — not to repeat something already
+        # done. Applies to all nine intents and runs on both decision paths.
         if self._matches(self.CONFIRM_PATTERNS, tl):
             confirmed = []
             for intent, info in self.active.get(room_id, {}).items():
-                if info.get("status") in ("deferred", "active"):
+                if info.get("status") == "deferred":
                     confirmed.append(intent)
                     info["status"] = "confirmed"
-            if not confirmed and recently_cancelled:
+            # Cancelled intents need an explicit change of mind, not a bare "sure".
+            if not confirmed and recently_cancelled and self._matches(
+                    self.REVIVE_PATTERNS, tl):
                 for intent in recently_cancelled:
                     confirmed.append(intent)
                     self.active[room_id][intent] = {
@@ -1505,6 +1533,14 @@ class IntentLifecycle:
                 detection = dict(detection)
                 if not detection.get("intents"):
                     detection["intents"] = confirmed
+                # A revived intent still needs a target, or the client has no show_to
+                # and shows the prompt to everyone in the room — which is what was
+                # reported: both sender and receiver got the same popup. The confirming
+                # message ("sure") carries no direction of its own, so target it at the
+                # person who just confirmed, since they are the one acting.
+                if not detection.get("target"):
+                    detection["target"] = {"show_to": "sender",
+                                           "reason": "confirmed_deferred_intent"}
                 detection["lifecycle"] = lifecycle
                 return detection
 
