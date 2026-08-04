@@ -983,6 +983,71 @@ def _negotiated_amount(text: str) -> Optional[str]:
     return f"${val}" if val else None
 
 
+# A destination restated after the original request. The ride equivalent of a
+# counter-offer: "book me a cab to koramangala" -> "actually make it indiranagar".
+_COUNTER_DEST = re.compile(
+    r"\b(?:make\s+it|change\s+it\s+to|change\s+to|switch\s+to|"
+    r"actually\s+(?:make\s+it\s+|go\s+to\s+)?|lets\s+(?:do|say|make\s+it)|"
+    r"instead\s+(?:go\s+to\s+)?)\s*"
+    r"([A-Za-z][\w'&-]*(?:\s+[\w'&-]+){0,2})",
+    re.IGNORECASE)
+
+# "where to?" / "where do you want to go" — the reply is the destination.
+_WHERE_Q = re.compile(
+    r"\bwhere\s+(?:to|do\s+you|are\s+you\s+going|should\s+i)\b|"
+    r"\bwhat'?s?\s+the\s+(?:address|destination|location)\b", re.IGNORECASE)
+
+# Short replies that answer something other than "where to".
+_NOT_A_PLACE = {
+    "yes", "no", "yeah", "yep", "nah", "sure", "ok", "okay", "k", "bet", "fine",
+    "cool", "alright", "thanks", "thx", "ty", "please", "pls", "asap", "now",
+    "soon", "idk", "dunno", "maybe", "wait", "hold", "one", "sec", "lol", "lmao",
+}
+
+
+def _norm_place(p: Optional[str]) -> Optional[str]:
+    """Same casing rule clean_phrase() applies, so both paths agree."""
+    if not p:
+        return None
+    if p.lower() in ("home", "my place", "my house", "your place"):
+        return p.lower()
+    return p.title() if p.islower() and len(p) > 3 else p
+
+
+def _restated_destination(text: str) -> Optional[str]:
+    """A destination named after the original request, or None."""
+    m = _COUNTER_DEST.search(text)
+    if m:
+        cand = _tidy_place(m.group(1).strip())
+        if cand and cand.lower() not in _NOT_A_PLACE:
+            return _norm_place(cand)
+    return _norm_place(_destination_fallback(text))
+
+
+def _latest_destination(hist: list) -> Optional[str]:
+    """Most recently named destination in the window, newest first.
+
+    Two things break the naive "read it off the request" approach:
+      1. "book me a cab to koramangala" -> "actually make it indiranagar"
+      2. "can you get me a cab" -> "where to?" -> "whitefield"
+    In (1) the request holds a destination that is no longer wanted; in (2) it
+    holds none at all and the real one arrived in a later message.
+    """
+    texts = [msg.get("text", "") for msg in hist]
+    for i in range(len(texts) - 1, -1, -1):
+        found = _restated_destination(texts[i])
+        if found:
+            return found
+        # A short reply straight after "where to?" is the answer to it.
+        if i > 0 and _WHERE_Q.search(texts[i - 1]):
+            words = texts[i].strip().strip("?.!,").split()
+            if 1 <= len(words) <= 3 and all(w.replace("'", "").isalpha() for w in words):
+                cand = " ".join(words)
+                if cand.lower() not in _NOT_A_PLACE:
+                    return cand.title() if cand.islower() else cand
+    return None
+
+
 def _extract_amount(text: str) -> Optional[str]:
     patterns = [
         r'(\$[\d,]+(?:\.\d{1,2})?)',
@@ -1049,6 +1114,79 @@ def _extract_time(text_lower: str, intents: list = None) -> Optional[dict]:
     return components[0]
 
 
+# Destination fallback for when the dependency parse misses it.
+#
+# spaCy tags an unknown lowercase word as a VERB, which turns the preceding "to" into an
+# infinitive marker (PART/aux) instead of a preposition (ADP/prep). The prep loop below
+# only looks at ADP/prep, so the destination vanishes:
+#
+#   "order a Rapido to Koramangala"  -> to/ADP/prep   Koramangala/PROPN/pobj   -> found
+#   "order a rapido to koramangala"  -> to/PART/aux   koramangala/VERB/xcomp   -> lost
+#
+# Same sentence, and whether the destination reaches Uber depends on whether the user
+# hit shift. People type lowercase in chat constantly. A "from" phrase happens to rescue
+# it ("from marathahalli to tinfactory" parses fine) which is why this hid for so long.
+#
+# The verb list is the guard: "to" genuinely does introduce an infinitive a lot of the
+# time ("book a cab to go home"), and those must not become destinations.
+_INF_VERBS = {
+    "go", "get", "pick", "drop", "take", "meet", "see", "come", "head", "reach",
+    "catch", "grab", "leave", "visit", "collect", "bring", "carry", "send", "be",
+    "make", "do", "help", "check", "find", "call", "wait", "stay", "move", "walk",
+    "drive", "ride", "travel", "fly", "arrive", "return", "start", "book", "pay",
+}
+_TO_RE = re.compile(r"\bto\b", re.IGNORECASE)
+_DEST_TAIL_RE = re.compile(
+    r"\s+((?:the\s+)?[\w'&-]+(?:\s+[\w'&-]+){0,3}?)"
+    r"(?:\s+(?:to|at|by|before|after|around|for|please|pls|asap|now|today|tonight|"
+    r"tomorrow|thanks|thx|ok|okay)\b|[,.!?;]|$)",
+    re.IGNORECASE)
+
+# Filler that trails a place name in chat: "whitefield asap", "koramangala now".
+_PLACE_TRAILING = {
+    "asap", "now", "please", "pls", "today", "tonight", "tomorrow", "thanks",
+    "thx", "ok", "okay", "soon", "quickly", "immediately", "urgently", "fast",
+}
+
+
+def _tidy_place(phrase: str) -> Optional[str]:
+    """Trim a place phrase that ran past the actual place name.
+
+    The dependency parse pulls whole subtrees, so a conjunction or a following verb
+    ends up glued on — "talk to the driver and book a cab" yielded "Driver And Book".
+    Cut at the first conjunction or action verb, then drop trailing filler.
+    """
+    tokens = phrase.split()
+    cut = len(tokens)
+    for i, tok in enumerate(tokens):
+        low = tok.lower().strip(".,!?;")
+        if low in ("and", "or", "then") or (i > 0 and low in _INF_VERBS):
+            cut = i
+            break
+    tokens = tokens[:cut]
+    while tokens and tokens[-1].lower().strip(".,!?;") in _PLACE_TRAILING:
+        tokens.pop()
+    out = " ".join(tokens).strip()
+    return out or None
+
+
+def _destination_fallback(text: str) -> Optional[str]:
+    """Regex 'to X' destination, used only when the dependency parse found none."""
+    # Scan each "to" separately rather than finditer over the whole pattern: in
+    # "a ride to get to work" the rejected verb match would otherwise swallow the
+    # second "to" as well, and the real destination is never examined.
+    for to_match in _TO_RE.finditer(text):
+        tail = _DEST_TAIL_RE.match(text, to_match.end())
+        if not tail:
+            continue
+        phrase = re.sub(r"^(?:the|a|an)\s+", "", tail.group(1).strip(), flags=re.I).strip()
+        head = phrase.split()
+        if not head or head[0].lower() in _INF_VERBS:
+            continue
+        return phrase
+    return None
+
+
 def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
     """Extract pickup and destination from ride/travel messages using dependency parsing."""
     doc = _nlp(text)
@@ -1056,7 +1194,12 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
     _NOISE = {"me", "us", "it", "that", "this", "one", "uber", "lyft", "cab", "ride",
               "taxi", "car", "a ride", "a cab", "a taxi", "an uber", "a lyft",
               "book", "get", "grab", "take", "need", "want", "bro", "yo", "hey",
-              "ola", "grab", "gojek", "auto"}
+              "ola", "grab", "gojek", "auto",
+              # Apostrophe-less contractions. spaCy tags bare "ill" as a PROPN, so
+              # "ill book you an uber to your place" came back with pickup="ill".
+              # Nobody types the apostrophe in chat, so these are common.
+              "ill", "im", "ive", "id", "youre", "hes", "shes", "theyre", "were",
+              "lets", "cant", "dont", "wont", "u", "pls", "plz", "thx", "ok", "okay"}
     _TIME_PREPS = {"by", "before", "after", "around", "at"}
     _VAGUE_PLACES = {"your place", "my place", "his place", "her place", "their place",
                      "your house", "my house", "his house", "her house", "their house",
@@ -1117,12 +1260,19 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
         # Title case proper nouns, keep "home"/"my place" etc lowercase-friendly
         if p.lower() in ("home", "my place", "my house", "your place"):
             return p.lower()
+        p = _tidy_place(p) or ""
+        if not p:
+            return ""
         return p.title() if p.islower() and len(p) > 3 else p
 
     if to_phrases:
-        result["destination"] = clean_phrase(to_phrases[0])
+        _d = clean_phrase(to_phrases[0])
+        if _d:
+            result["destination"] = _d
     if from_phrases:
-        result["pickup"] = clean_phrase(from_phrases[0])
+        _p = clean_phrase(from_phrases[0])
+        if _p:
+            result["pickup"] = _p
 
     # Fallback: "X to Y" pattern without "from" — proper noun before "to" is pickup
     if "pickup" not in result and to_phrases:
@@ -1140,6 +1290,12 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
                 pickup_phrase = " ".join(t.text for t in propns).strip()
                 if pickup_phrase.lower() not in _NOISE:
                     result["pickup"] = clean_phrase(pickup_phrase)
+
+    # Fallback: lowercase place name the parser turned into a verb (see _INF_VERBS above)
+    if "destination" not in result:
+        fallback = _destination_fallback(text)
+        if fallback and fallback.lower() not in _NOISE:
+            result["destination"] = clean_phrase(fallback)
 
     # Fallback: if no destination found but "home" is mentioned with movement verb
     if "destination" not in result:
@@ -1318,25 +1474,48 @@ def _extract_calendar_event(text: str, text_lower: str) -> Optional[str]:
 
 
 # Phone number regex: +country code, optional spaces/dashes, 7-15 digits total
+#
+# The lookarounds are load-bearing. Without them search() happily pulls a 10-digit run
+# out of the MIDDLE of a payment-terminal reference — "1403F9202347206" yielded
+# phone=9202347206 and dragged the contact intent up to 0.93 with it. A digit run welded
+# to letters, or to yet more digits, is not a phone number. Requiring a non-alphanumeric
+# on both sides also kills the long-identifier case: in a 25-digit run every start
+# position either has a digit behind it or a digit ahead of it, so nothing matches.
 _PHONE_RE = re.compile(
-    r'(\+?\d[\d\s\-().]{6,18}\d)'
+    r'(?<![A-Za-z0-9])(\+?\d[\d\s\-().]{6,18}\d)(?![A-Za-z0-9])'
 )
 
 _PHONE_STOP = {"0", "100", "200", "300", "400", "500", "700", "1000"}
 
+# Order / invoice / transaction identifiers are long digit runs that nobody can dial.
+# Matched against the text immediately preceding the candidate.
+_PHONE_REF_CONTEXT = re.compile(
+    r'\b(?:order|invoice|inv|ref|reference|txn|transaction|receipt|ticket|tracking|'
+    r'confirmation|acct|account)\b\W{0,4}(?:no\.?|number|id|#)?\W{0,4}$',
+    re.IGNORECASE)
+
 
 def _extract_phone(text: str) -> Optional[str]:
     """Extract phone number from text."""
-    m = _PHONE_RE.search(text)
-    if not m:
-        return None
-    raw = m.group(1)
-    digits = re.sub(r'[^\d+]', '', raw)
-    if len(digits.lstrip('+')) < 7:
-        return None
-    if digits.lstrip('+') in _PHONE_STOP:
-        return None
-    return digits
+    # finditer, not search: a rejected candidate must not hide a real number later in
+    # the same message ("order 19101, call me on 9876543210").
+    for m in _PHONE_RE.finditer(text):
+        digits = re.sub(r'[^\d+]', '', m.group(1))
+        bare = digits.lstrip('+')
+        if len(bare) < 7 or bare in _PHONE_STOP:
+            continue
+        if _PHONE_REF_CONTEXT.search(text[:m.start()]):
+            continue
+        return digits
+    return None
+
+
+# Something in the message has to name a way of reaching a person. Used to decide
+# whether a contact fire has any basis at all — see Phase 1c2b.
+_CONTACT_SIGNAL = re.compile(
+    r'\b(?:call|calling|called|text|texting|message|messaging|msg|dial|ring|ping|'
+    r'phone|cell|mobile|contact|contacts|number|reach|touch|facetime|whatsapp|'
+    r'telegram|dm|email|voicemail|hit\s+(?:him|her|them|up))\b', re.IGNORECASE)
 
 
 def _extract_contact_name(text: str, text_lower: str) -> Optional[str]:
@@ -1713,6 +1892,16 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     if "ride" in result["intents"] and any(p in tl for p in _RIDE_DISCUSSION):
         result["intents"] = [i for i in result["intents"] if i != "ride"]
 
+    # Phase 1c2b: Contact needs an actual contact signal. A bare digit run is not one.
+    # "any chance we can see the status of 1403F9202347206 on ipos portal" scored
+    # contact at 0.93 — entirely because a transaction reference reads like a phone
+    # number. If nothing names a way of reaching someone AND no plausible number
+    # survives extraction, there is nobody to contact.
+    if ("contact" in result["intents"]
+            and not _CONTACT_SIGNAL.search(text)
+            and _extract_phone(text) is None):
+        result["intents"] = [i for i in result["intents"] if i != "contact"]
+
 
     # Phase 1c3: Gratitude suppression — "thanks for covering/paying" = not a money request
     _GRATITUDE_PATTERNS = [
@@ -1905,6 +2094,13 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             build_window(hist, {"sender": sender, "text": text}, size=w))
         result["intents"] = [i for i in result["intents"]
                              if i not in MANAGED_INTENTS] + list(fired)
+        # "ok booking to indiranagar" scores travel 0.83 on its own — the intent model
+        # reads a booking verb plus a destination as trip planning. In a ride
+        # conversation that is the same event, so firing both puts two prompts under
+        # one message. Ride wins: the classifier read the whole window to decide it,
+        # the travel score came from this message alone.
+        if "ride" in fired and "travel" in result["intents"]:
+            result["intents"] = [i for i in result["intents"] if i != "travel"]
         # Status MUST use the same vocabulary as the rule path. The backend gates the
         # payment prompt on status == "fired" (see the integration note sent to the
         # team), so emitting anything else here means the prompt never appears no
@@ -1965,7 +2161,28 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                                     break
                             if latest:
                                 merged["amount"] = latest
+
+                        # Same problem, ride side: the recorded request holds the
+                        # destination that was asked for, which may have been changed
+                        # since ("actually make it indiranagar") or may never have been
+                        # in the request at all ("where to?" -> "whitefield").
+                        if intent == "ride":
+                            latest_dest = _latest_destination(hist)
+                            if latest_dest:
+                                merged["destination"] = latest_dest
                         result["slots"] = merged
+
+                        # Keep triggered_by.slots in step with the effective values.
+                        # API_MOBILE tells both clients to read triggered_by.slots
+                        # FIRST and fall back to the top level, so leaving the original
+                        # figure here means the negotiated one never reaches the user:
+                        # $1000 agreed, $2000 pre-filled on the payment sheet. The
+                        # request's own wording stays in triggered_by.text.
+                        tb_slots = dict(src["slots"] or {})
+                        for k, v in merged.items():
+                            if v not in (None, "", []):
+                                tb_slots[k] = v
+                        result["conversation_state"]["triggered_by"]["slots"] = tb_slots
 
                         if intent == "money":
                             amt = merged.get("amount") or src["slots"].get("amount")

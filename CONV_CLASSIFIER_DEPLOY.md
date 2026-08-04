@@ -98,16 +98,37 @@ or rehydrating from the backend's message history.
 
 ## Known gaps
 
-* **Two requests open at once, answered with a bare "ok"** — nothing fires. There is no
-  signal for which request is meant, and guessing risks a wrong payment prompt. Naming the
-  action ("ok sending" / "ok booking") resolves it correctly. The rule layer scores 6%
-  here; the classifier 12%. Neither solves it.
+* **Two requests open at once, answered with a bare "ok"** — the classifier answers the
+  most recent request. Confirmed as the wanted behaviour: prompts render as persistent
+  chips under the message rather than modal sheets, so a wrong guess costs a tap, while
+  firing nothing leaves the most common reply in chat with no prompt at all. Naming the
+  action ("ok sending" / "ok booking") is unambiguous either way. The rule layer still
+  fires nothing here.
 * **Unusual acceptance phrasing is brittle.** `its on the way` fires at 0.97 after a money
   request; `on its way` scores 0.27. Same meaning, same context. Context disambiguation is
   solid — the same phrase scores 0.03 after a gift or parcel question — but surface form
   still swings the score more than it should.
+* **"your place" resolves against the wrong speaker.** "im stuck at office" ->
+  "ill book you an uber to your place" yields `destination: Office` — it resolves the
+  vague place from the window without tracking whose place it is. Needs speaker-aware
+  resolution.
 * **Every number above comes from generated conversations.** No real user data has been
   measured. That is what the dogfood logging is for.
+
+## Slot freshness
+
+`conversation_state.triggered_by.slots` carries the **effective** values, not a snapshot
+of the request. Three cases where those differ, all now handled:
+
+| conversation | triggered_by.slots |
+|---|---|
+| "lend me 2000" -> "i can only do 1000" -> "cool sending now" | `amount: $1000` |
+| "cab to koramangala" -> "actually make it indiranagar" -> "ok booking" | `destination: Indiranagar` |
+| "get me a cab" -> "where to?" -> "whitefield" -> "ok booking" | `destination: Whitefield` |
+
+`triggered_by.text` still holds the original wording. Clients must read the slots — the
+amount parsed out of the text is the superseded one, which on a payment sheet pre-fills
+double what was agreed.
 
 ## Dogfood logging
 

@@ -237,15 +237,32 @@ Use `detection.slots` for immediate intents. For money/ride fired from a respons
 When `money` intent fires on a response (status: "fired"), combine info from two places:
 
 - **`detection.money`** — may be null on the response since "sure" isn't a money message itself
-- **`conversation_state.triggered_by.slots`** — has the amount and note from the original request
+- **`conversation_state.triggered_by.slots`** — the values to actually use
 
 ```swift
-// Get amount — prefer triggered_by slots since the original request has the real amount
+// Prefer triggered_by slots — the acceptance ("sure") carries no amount of its own
 let amount = convState.triggeredBy?.slots?["amount"]
     ?? detection.money?.detectedAmount
 
 let note = convState.triggeredBy?.slots?["note"]
 ```
+
+⚠️ **`triggered_by.slots` holds the EFFECTIVE values, not a transcript of the request.**
+If the amount was negotiated after the request, this reflects what was agreed:
+
+```
+"can u lend me 2000"  ->  "i can only do 1000"  ->  "cool sending now"
+    triggered_by.slots.amount == "$1000"      (agreed)
+    triggered_by.text         == "can u lend me 2000"   (original wording)
+```
+
+The same applies to a ride destination that changed ("to koramangala" → "actually
+make it indiranagar" → `destination: "Indiranagar"`), and to one that was never in
+the request at all ("can you get me a cab" → "where to?" → "whitefield").
+
+Read the slots, not the text. Parsing an amount or a place out of `triggered_by.text`
+gives you the superseded value — on a payment sheet that means pre-filling double
+what was agreed.
 
 **Direction logic (for immediate money fires without state machine):**
 - `request` → sender is asking for money → recipient should pay
@@ -264,7 +281,9 @@ The state machine works differently in groups vs DMs. You don't need to handle t
 
 **Group chats — conversation classifier:** No `reply_to` needed. Maya asks the group, Jake replies "i got u, booking it now", and it fires with `target.show_to: "sender"` — the prompt goes to Jake, who is the one acting. Verified on a room id with no `dm_` prefix.
 
-One case still does not fire in either mode: **two different requests open at once, answered with a bare "ok"** ("venmo me 20" from one person, "book me a cab" from another, then just "ok"). There is no signal for which request is being answered, so nothing fires rather than guessing wrong. Naming the action — "ok sending" or "ok booking" — resolves it and fires the right one.
+**Two requests open at once, answered with a bare "ok"** ("venmo me 20", then "book me a cab to hsr", then just "ok"): the classifier answers the **most recent** request — the ride, in that example. There is no explicit signal for which one is meant, and in real chat the last thing asked is usually the thing being answered. Naming the action — "ok sending" or "ok booking" — is unambiguous and always resolves to the right one.
+
+The rule layer behaves differently here: it fires nothing. So this is one more case where `decided_by` changes what you see.
 
 The backend passes `reply_to` (the replied-to message ID) to the model server. If your app already sends `reply_to_message_id` or similar in the message payload, make sure the backend is forwarding it. Otherwise money/ride in group chats won't fire.
 
