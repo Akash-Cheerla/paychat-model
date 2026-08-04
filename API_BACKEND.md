@@ -161,7 +161,38 @@ This prevents false positives. Someone saying "venmo me $20" isn't an action yet
 
 ### `conversation_state` field
 
-Present on every response. Tells you what the state machine decided.
+Present on every response. Tells you what the decision layer decided.
+
+> #### ⚠️ Two decision layers — check `decided_by`
+>
+> The server can decide money/ride two ways, selected by `PAYCHAT_CONV_CLASSIFIER`.
+> Everything documented below describes the **rule layer**, which is what runs today.
+>
+> | | rule layer (default) | conversation classifier (`=1`) |
+> |---|---|---|
+> | `decided_by` | absent | `"conv_classifier"` |
+> | `status` values | `pending`, `fired`, `reminder`, `cancelled`, `no_fire` | **only `fired` and `no_fire`** |
+> | `triggered_by` | on fire | on fire — same shape, same slots |
+> | groups | need `reply_to`, else nothing fires | fire without `reply_to` |
+> | `room_id` must start `dm_` | yes, for ambient matching | no |
+>
+> **What still works unchanged:** gate the payment prompt on `status == "fired"` and read
+> the amount from `triggered_by.slots`. Both behave identically on either path.
+>
+> **What goes quiet:** `pending`, `reminder` and `cancelled` are rule-layer states the
+> classifier does not model. A request produces `no_fire` until someone commits; a
+> deferral or a rejection also produces `no_fire`. Any handler branching on those three
+> stops being reached — gate them on `decided_by` being absent if you need both paths.
+>
+> **What starts happening:** group chats fire. Today a group needs the responder to
+> swipe-reply; the classifier reads the last 10 messages and does not. If prompts appear
+> in groups after the flag is switched on, that is intended.
+>
+> One case fires nothing on either path: two different requests open at once answered
+> with a bare "ok". There is no signal for which one is meant. Naming the action
+> ("ok sending" / "ok booking") resolves it.
+>
+> Full deploy notes, measured numbers and known gaps: `CONV_CLASSIFIER_DEPLOY.md`.
 
 **When a request is stored as pending:**
 ```json
