@@ -1101,6 +1101,40 @@ def _latest_destination(hist: list) -> Optional[str]:
     return None
 
 
+# Only a message that is itself about a ride can donate a pickup time. Without this
+# guard "the match starts at 8" two messages earlier becomes the cab time.
+_RIDE_CONTEXT = re.compile(
+    r"\b(?:cab|uber|ola|lyft|rapido|taxi|ride|auto|book|booking|pick\s*up|drop)\b",
+    re.IGNORECASE)
+
+
+_WHEN_Q = re.compile(
+    r"\bwhat\s+time\b|\bwhen\s+(?:do|did|are|is|should|for|u\b|you\b)|"
+    r"\bfor\s+what\s+time\b|\bwhat\s+time\s*\?", re.IGNORECASE)
+
+
+def _latest_time(hist: list) -> Optional[dict]:
+    """Pickup time from the window, newest first, ride messages only.
+
+    Mirrors _latest_amount: the recorded request is often not the message carrying the
+    detail. "book a cab to hsr at 6pm" ... "actually make it koramangala" ... "ok
+    booking" hands back the second message, which has no time in it.
+
+    The ride-context guard stops "the match starts at 9" from becoming the cab time.
+    The one exception is a direct answer to "what time?" — "around 8" mentions no cab
+    but is unambiguously the pickup time, exactly like "whitefield" answering "where to?".
+    """
+    texts = [msg.get("text", "") for msg in hist]
+    for i in range(len(texts) - 1, -1, -1):
+        answers_when = i > 0 and _WHEN_Q.search(texts[i - 1])
+        if not answers_when and not _RIDE_CONTEXT.search(texts[i]):
+            continue
+        t = _extract_time(texts[i].lower(), ["ride"])
+        if t:
+            return t
+    return None
+
+
 def _latest_amount(hist: list) -> Optional[str]:
     """Most recently stated amount in the window, newest first.
 
@@ -1235,8 +1269,8 @@ _INF_VERBS = {
 _TO_RE = re.compile(r"\bto\b", re.IGNORECASE)
 _DEST_TAIL_RE = re.compile(
     r"\s+((?:the\s+)?[\w'&-]+(?:\s+[\w'&-]+){0,3}?)"
-    r"(?:\s+(?:to|at|by|before|after|around|for|please|pls|asap|now|today|tonight|"
-    r"tomorrow|thanks|thx|ok|okay)\b|[,.!?;]|$)",
+    r"(?:\s+(?:to|from|at|by|before|after|around|for|please|pls|asap|now|today|"
+    r"tonight|tomorrow|thanks|thx|ok|okay)\b|[,.!?;]|$)",
     re.IGNORECASE)
 
 # Filler that trails a place name in chat: "whitefield asap", "koramangala now".
@@ -1266,6 +1300,26 @@ def _tidy_place(phrase: str) -> Optional[str]:
         tokens.pop()
     out = " ".join(tokens).strip()
     return out or None
+
+
+# Where someone is, stated as a fact rather than as a "from" phrase. "get me a cab to
+# hsr, im at indiranagar" is the ordinary way to give a pickup and the dependency parse
+# never saw it as one, because there is no "from".
+_PICKUP_FALLBACK_RE = re.compile(
+    r"\b(?:i'?m|im|we'?re|were|currently|still)\s+(?:at|in|near|outside|by)\s+"
+    r"((?:the\s+)?[\w'&-]+(?:\s+[\w'&-]+){0,2}?)"
+    r"(?:\s+(?:and|but|so|right|rn|now|please|pls)\b|[,.!?;]|$)",
+    re.IGNORECASE)
+
+
+def _pickup_fallback(text: str) -> Optional[str]:
+    """Pickup stated as 'im at X', used only when no 'from' phrase was found."""
+    m = _PICKUP_FALLBACK_RE.search(text)
+    if not m:
+        return None
+    cand = _plausible_place(_tidy_place(
+        re.sub(r"^(?:the|a|an)\s+", "", m.group(1).strip(), flags=re.I)))
+    return _norm_place(cand)
 
 
 def _destination_fallback(text: str) -> Optional[str]:
@@ -1352,8 +1406,12 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
             pobj = next((child for child in token.children if child.dep_ == "pobj"), None)
             if pobj:
                 phrase = " ".join(t.text for t in pobj.subtree).strip()
-                if phrase.lower() not in _NOISE and len(phrase) > 2 and not to_phrases:
-                    # "at" can be destination if no "to" phrase found
+                # "at" only means destination when it is not saying where the rider
+                # already IS. "get me a cab to hsr, im at indiranagar" was putting
+                # Indiranagar in destination as well as pickup, sending the cab to
+                # the place it was supposed to collect from.
+                if (phrase.lower() not in _NOISE and len(phrase) > 2 and not to_phrases
+                        and not _PICKUP_FALLBACK_RE.search(text)):
                     to_phrases.append(phrase)
 
     # Strip articles from start
@@ -1398,6 +1456,12 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
         fallback = _destination_fallback(text)
         if fallback and fallback.lower() not in _NOISE:
             result["destination"] = clean_phrase(fallback)
+
+    # Fallback: pickup given as a statement of where they are, not a "from" phrase
+    if "pickup" not in result:
+        pk = _pickup_fallback(text)
+        if pk and pk.lower() not in _NOISE:
+            result["pickup"] = pk
 
     # Fallback: if no destination found but "home" is mentioned with movement verb
     if "destination" not in result:
@@ -2309,6 +2373,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         latest_dest = _latest_destination(hist)
                         if latest_dest:
                             merged["destination"] = latest_dest
+                        if merged.get("time") in (None, "", []):
+                            merged["time"] = _latest_time(hist)
                     result["slots"] = merged
 
                     # Keep triggered_by.slots in step with the effective values.
