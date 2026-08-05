@@ -732,6 +732,19 @@ class RequestMeta:
 
     def __init__(self):
         self.rooms: dict[str, list] = defaultdict(list)
+        # room -> {intent: ts} of the last fire, for duplicate suppression.
+        self.last_fire: dict[str, dict] = defaultdict(dict)
+
+    def mark_fired(self, room_id, intent):
+        if room_id:
+            self.last_fire[room_id][intent] = time.time()
+
+    def recently_fired(self, room_id, intent):
+        ts = self.last_fire.get(room_id, {}).get(intent)
+        return ts is not None and (time.time() - ts) <= CONV_CONTEXT_TIME_CAP
+
+    def clear_fired(self, room_id, intent):
+        self.last_fire.get(room_id, {}).pop(intent, None)
 
     def record(self, room_id, intent, sender, text, message_id, slots):
         if not room_id or not sender:
@@ -741,6 +754,13 @@ class RequestMeta:
                   "message_id": message_id, "slots": slots or None,
                   "ts": time.time()})
         del q[:-self.MAX_PER_ROOM]
+
+    def has_open(self, room_id, intent, sender):
+        """Is there an unanswered request for this intent from someone else?"""
+        now = time.time()
+        return any(e["intent"] == intent and e["sender"] != sender
+                   and now - e["ts"] <= CONV_CONTEXT_TIME_CAP
+                   for e in self.rooms.get(room_id) or [])
 
     def take(self, room_id, intent, sender):
         """Most recent matching request from someone else, consumed. None if absent."""
@@ -994,15 +1014,28 @@ _COUNTER_DEST = re.compile(
 
 # "where to?" / "where do you want to go" — the reply is the destination.
 _WHERE_Q = re.compile(
-    r"\bwhere\s+(?:to|do\s+you|are\s+you\s+going|should\s+i)\b|"
-    r"\bwhat'?s?\s+the\s+(?:address|destination|location)\b", re.IGNORECASE)
+    # "where to", "where u going", "where r u headed", "where do you want to go",
+    # "which station", "to where" — chat asks this a dozen ways.
+    r"\bwhere\s+(?:to|at|u\b|you\b|r\s+u\b|are\s+you\b|do\s+you\b|should\s+i\b|"
+    r"we\s+going\b|is\s+that\b)|"
+    r"\bto\s+where\b|\bwhich\s+(?:one|place|station|airport|mall|address)\b|"
+    r"\bwhat'?s?\s+the\s+(?:address|destination|location|place)\b|"
+    r"\bpick\s+(?:you|u)\s+up\s+where\b", re.IGNORECASE)
 
-# Short replies that answer something other than "where to".
+# Short replies that answer something other than "where to", plus the filler that
+# "make it ___" attracts. "yeah, pls make it rn if u can" matched _COUNTER_DEST and
+# produced destination "Rn If U" — a booking sent to a place that does not exist.
 _NOT_A_PLACE = {
     "yes", "no", "yeah", "yep", "nah", "sure", "ok", "okay", "k", "bet", "fine",
     "cool", "alright", "thanks", "thx", "ty", "please", "pls", "asap", "now",
     "soon", "idk", "dunno", "maybe", "wait", "hold", "one", "sec", "lol", "lmao",
+    "rn", "it", "that", "this", "them", "us", "quick", "quicker", "faster", "fast",
+    "happen", "work", "possible", "official", "count", "sooner", "later", "earlier",
+    "two", "three", "double", "half", "anything", "something", "whatever",
 }
+
+# "make it 6pm" / "make it 2" is a time or a count, never a destination.
+_TIMEY = re.compile(r"^\d|\b(?:am|pm|o'?clock|hrs?|hours?|mins?|minutes?)\b", re.IGNORECASE)
 
 
 def _norm_place(p: Optional[str]) -> Optional[str]:
@@ -1014,12 +1047,25 @@ def _norm_place(p: Optional[str]) -> Optional[str]:
     return p.title() if p.islower() and len(p) > 3 else p
 
 
+def _plausible_place(cand: Optional[str]) -> Optional[str]:
+    """Reject filler and times that slipped through a 'make it ___' match."""
+    if not cand:
+        return None
+    words = cand.split()
+    if not words or _TIMEY.search(cand):
+        return None
+    # Any filler word in the phrase means it is not a place name.
+    if any(w.lower().strip(".,!?") in _NOT_A_PLACE for w in words):
+        return None
+    return cand
+
+
 def _restated_destination(text: str) -> Optional[str]:
     """A destination named after the original request, or None."""
     m = _COUNTER_DEST.search(text)
     if m:
-        cand = _tidy_place(m.group(1).strip())
-        if cand and cand.lower() not in _NOT_A_PLACE:
+        cand = _plausible_place(_tidy_place(m.group(1).strip()))
+        if cand:
             return _norm_place(cand)
     return _norm_place(_destination_fallback(text))
 
@@ -1038,14 +1084,50 @@ def _latest_destination(hist: list) -> Optional[str]:
         found = _restated_destination(texts[i])
         if found:
             return found
-        # A short reply straight after "where to?" is the answer to it.
+        # A reply straight after "where to?" answers it. People rarely reply with the
+        # bare place — "grand central pls, need to be there by 6pm" is the normal shape —
+        # so cut at the first clause break and drop the trailing filler.
         if i > 0 and _WHERE_Q.search(texts[i - 1]):
-            words = texts[i].strip().strip("?.!,").split()
-            if 1 <= len(words) <= 3 and all(w.replace("'", "").isalpha() for w in words):
-                cand = " ".join(words)
-                if cand.lower() not in _NOT_A_PLACE:
-                    return cand.title() if cand.islower() else cand
+            head = re.split(r"[,.;!?]| but | and | need | i'?ll | im | i'?m ",
+                            texts[i].strip(), maxsplit=1)[0]
+            words = [w for w in head.split() if w]
+            while words and words[-1].lower().strip(".,!?") in _PLACE_TRAILING | {"pls", "please"}:
+                words.pop()
+            if 1 <= len(words) <= 4 and all(
+                    w.replace("'", "").replace("-", "").isalpha() for w in words):
+                cand = _plausible_place(" ".join(words))
+                if cand:
+                    return _norm_place(cand)
     return None
+
+
+def _latest_amount(hist: list) -> Optional[str]:
+    """Most recently stated amount in the window, newest first.
+
+    `take()` hands back the most RECENT request-shaped message, which is often not the
+    one carrying the figure:
+
+        "can you lend me 500? my wallet got stolen"   <- has the amount
+        "how do you want me to get it to you?"
+        "just send it to my upi"                      <- also request-shaped, no amount
+        "ok, sending now"                             <- fires, triggered_by = the upi one
+
+    so the payment sheet opened with no amount at all. Reading the window directly
+    finds the figure wherever it was actually said.
+    """
+    for msg in reversed(hist):
+        amt = _extract_amount(msg.get("text", ""))
+        if amt:
+            return amt
+    return None
+
+
+# A number followed by one of these is a count, not a sum: "paying attention to 3
+# things" was yielding $3. Only guards the bare-number path — an explicit "$3 things"
+# still reads as money.
+_COUNT_NOUNS = (r"things?|times?|people|persons?|guys|kids|days?|weeks?|months?|years?|"
+                r"hours?|hrs?|mins?|minutes?|seconds?|secs?|items?|ways?|reasons?|"
+                r"options?|places?|stops?|bags?|rooms?|seats?|tickets?|km|kms|miles?")
 
 
 def _extract_amount(text: str) -> Optional[str]:
@@ -1073,11 +1155,26 @@ def _extract_amount(text: str) -> Optional[str]:
         if re.search(r'\b' + word + r'\s*(?:dollars?|bucks?|rupees?|rs\.?|ringgit|rm)\b', text.lower()):
             return f"${num}"
     # Bare number in money context — "front me 50", "sent me the 30"
+    # -ing forms matter: "im sending you 3000 right now" is how an offer is normally
+    # worded, and `send` alone does not match it — the pattern needs whitespace
+    # immediately after the verb, which "sending" does not provide.
     m = re.search(
-        r'(?:send|sent|pay|paid|owe|owed|front|spot|lend|give|gave|venmo|cashapp|zelle)\s+(?:\w+\s+){0,2}(\d+(?:\.\d{1,2})?)\b',
+        r'\b(?:send(?:ing)?|sent|pay(?:ing)?|paid|owes?|owed|front(?:ing)?|'
+        r'spot(?:ting)?|lend(?:ing)?|lent|giv(?:e|ing)|gave|venmo(?:ing)?|'
+        r'cashapp(?:ing)?|zelle|cover(?:ing|ed)?|transfer(?:ring|red)?|'
+        r'put\s+in|chip(?:ping)?\s+in)'
+        r'\s+(?:\w+\s+){0,3}(\d[\d,]*(?:\.\d{1,2})?)\s*(?!\s*(?:' + _COUNT_NOUNS + r')\b)',
         text, re.IGNORECASE)
     if m:
-        return f"${m.group(1)}"
+        return f"${m.group(1).replace(',', '')}"
+    # A per-head share carries no currency and no verb next to the figure:
+    # "i covered dinner last night, 450 each" put nothing on the payment sheet.
+    # This is how a split gets written in chat, so it is worth its own pattern.
+    m = re.search(
+        r'\b(\d[\d,]*(?:\.\d{1,2})?)\s*(?:each|apiece|per\s+(?:head|person|pax)|'
+        r'a\s+(?:head|piece|pop))\b', text, re.IGNORECASE)
+    if m:
+        return f"${m.group(1).replace(',', '')}"
     return None
 
 
@@ -1146,6 +1243,7 @@ _DEST_TAIL_RE = re.compile(
 _PLACE_TRAILING = {
     "asap", "now", "please", "pls", "today", "tonight", "tomorrow", "thanks",
     "thx", "ok", "okay", "soon", "quickly", "immediately", "urgently", "fast",
+    "later", "too", "also", "instead", "again", "first", "next", "rn",
 }
 
 
@@ -1183,7 +1281,11 @@ def _destination_fallback(text: str) -> Optional[str]:
         head = phrase.split()
         if not head or head[0].lower() in _INF_VERBS:
             continue
-        return phrase
+        # Same trailing-filler trim the dependency path gets, or "to the airport later"
+        # comes back as the destination "Airport Later".
+        phrase = _tidy_place(phrase)
+        if phrase:
+            return phrase
     return None
 
 
@@ -2092,6 +2194,35 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         hist = conversation_ctx.get_window(room_id, size=w)
         fired, conv_scores = conv_classifier.predict(
             build_window(hist, {"sender": sender, "text": text}, size=w))
+        # Drop an echo of a fire that already happened.
+        #
+        # The classifier re-reads the window every message and has no memory, so a
+        # conversation that commits twice fires twice:
+        #   "where u going?" / "grand central" / "ok, got it"      <- fires
+        #   "yup thanks" / "no prob, doing it now"                 <- fires AGAIN
+        # That is two prompts for one cab, and the second one carries no metadata
+        # because the request record was consumed by the first.
+        #
+        # A repeat only counts as an echo when there is no open request left to answer
+        # and the message adds nothing new. A genuine second action names its own
+        # target — "ill book you an uber to koramangala too" carries a destination and
+        # scores 0.86 alone, so it survives. A restatement of the action already
+        # prompted for — "yeah sure" then "sending it now" — carries neither, and would
+        # otherwise put a second payment sheet under the same conversation.
+        _own = result.get("slots") or {}
+        _own_key = {"money": "amount", "ride": "destination"}
+        deduped = []
+        for intent in fired:
+            adds_new = _own.get(_own_key.get(intent)) not in (None, "", [])
+            scores_alone = (result["scores"].get(intent, 0)
+                            >= model_state["thresholds"].get(intent, 0.5))
+            if (request_meta.recently_fired(room_id, intent)
+                    and not request_meta.has_open(room_id, intent, sender)
+                    and not (scores_alone and adds_new)):
+                continue
+            deduped.append(intent)
+        fired = deduped
+
         result["intents"] = [i for i in result["intents"]
                              if i not in MANAGED_INTENTS] + list(fired)
         # "ok booking to indiranagar" scores travel 0.83 on its own — the intent model
@@ -2125,6 +2256,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         # message itself looks like a request, record it for a later fire.
         if fired:
             for intent in fired:
+                request_meta.mark_fired(room_id, intent)
                 src = request_meta.take(room_id, intent, sender)
                 if src:
                     result["conversation_state"]["triggered_by"] = {
@@ -2139,59 +2271,66 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # check on the whole dict keeps an all-null one and silently drops
                     # the real values. That is why ride came back with destination null
                     # at the top level while triggered_by had "Airport".
-                    if src["slots"]:
-                        merged = dict(result.get("slots") or {})
-                        for k, v in src["slots"].items():
-                            if merged.get(k) in (None, "", []):
-                                merged[k] = v
+                    # This runs whether or not the recorded request had slots of its
+                    # own. It used to be gated on `if src["slots"]:`, but the most
+                    # recent request-shaped message is often the one WITHOUT the
+                    # figure — "can you lend me 500" ... "just send it to my upi" ...
+                    # "sending now" hands back the upi message, whose slots are empty,
+                    # so the merge was skipped and the payment sheet opened blank.
+                    merged = dict(result.get("slots") or {})
+                    for k, v in (src["slots"] or {}).items():
+                        if merged.get(k) in (None, "", []):
+                            merged[k] = v
 
-                        # A counter-offer changes the amount. "can u lend me 2000" ->
-                        # "i can only do 1000" -> "cool sending now" must prompt for
-                        # 1000, not the 2000 originally asked for. The request record
-                        # only knows the first figure, so prefer the most recent amount
-                        # anyone actually said. Pre-filling the wrong number is worse
-                        # than pre-filling none — on a payment screen it invites
-                        # sending double.
-                        if intent == "money":
-                            latest = None
-                            for m in reversed(hist):
-                                a = _negotiated_amount(m["text"])
-                                if a:
-                                    latest = a
-                                    break
-                            if latest:
-                                merged["amount"] = latest
+                    # A counter-offer changes the amount. "can u lend me 2000" ->
+                    # "i can only do 1000" -> "cool sending now" must prompt for
+                    # 1000, not the 2000 originally asked for. The request record
+                    # only knows the first figure, so prefer the most recent amount
+                    # anyone actually said. Pre-filling the wrong number is worse
+                    # than pre-filling none — on a payment screen it invites
+                    # sending double.
+                    if intent == "money":
+                        latest = None
+                        for m in reversed(hist):
+                            a = _negotiated_amount(m["text"])
+                            if a:
+                                latest = a
+                                break
+                        if latest:
+                            merged["amount"] = latest
+                        elif merged.get("amount") in (None, "", []):
+                            merged["amount"] = _latest_amount(hist)
 
-                        # Same problem, ride side: the recorded request holds the
-                        # destination that was asked for, which may have been changed
-                        # since ("actually make it indiranagar") or may never have been
-                        # in the request at all ("where to?" -> "whitefield").
-                        if intent == "ride":
-                            latest_dest = _latest_destination(hist)
-                            if latest_dest:
-                                merged["destination"] = latest_dest
-                        result["slots"] = merged
+                    # Same problem, ride side: the recorded request holds the
+                    # destination that was asked for, which may have been changed
+                    # since ("actually make it indiranagar") or may never have been
+                    # in the request at all ("where to?" -> "whitefield").
+                    if intent == "ride":
+                        latest_dest = _latest_destination(hist)
+                        if latest_dest:
+                            merged["destination"] = latest_dest
+                    result["slots"] = merged
 
-                        # Keep triggered_by.slots in step with the effective values.
-                        # API_MOBILE tells both clients to read triggered_by.slots
-                        # FIRST and fall back to the top level, so leaving the original
-                        # figure here means the negotiated one never reaches the user:
-                        # $1000 agreed, $2000 pre-filled on the payment sheet. The
-                        # request's own wording stays in triggered_by.text.
-                        tb_slots = dict(src["slots"] or {})
-                        for k, v in merged.items():
-                            if v not in (None, "", []):
-                                tb_slots[k] = v
-                        result["conversation_state"]["triggered_by"]["slots"] = tb_slots
+                    # Keep triggered_by.slots in step with the effective values.
+                    # API_MOBILE tells both clients to read triggered_by.slots
+                    # FIRST and fall back to the top level, so leaving the original
+                    # figure here means the negotiated one never reaches the user:
+                    # $1000 agreed, $2000 pre-filled on the payment sheet. The
+                    # request's own wording stays in triggered_by.text.
+                    tb_slots = dict(src["slots"] or {})
+                    for k, v in merged.items():
+                        if v not in (None, "", []):
+                            tb_slots[k] = v
+                    result["conversation_state"]["triggered_by"]["slots"] = tb_slots
 
-                        if intent == "money":
-                            amt = merged.get("amount") or src["slots"].get("amount")
-                            # result["money"] can exist as an explicit None, so
-                            # setdefault is not enough.
-                            money = result.get("money") or {}
-                            if amt and not money.get("detected_amount"):
-                                money["detected_amount"] = amt
-                                result["money"] = money
+                    if intent == "money":
+                        amt = merged.get("amount") or (src["slots"] or {}).get("amount")
+                        # result["money"] can exist as an explicit None, so
+                        # setdefault is not enough.
+                        money = result.get("money") or {}
+                        if amt and not money.get("detected_amount"):
+                            money["detected_amount"] = amt
+                            result["money"] = money
                     break
         else:
             # A request is a message the intent model scores as money/ride but that the
@@ -2201,6 +2340,9 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 if result["scores"].get(intent, 0) >= thr:
                     request_meta.record(room_id, intent, sender, text, message_id,
                                         result.get("slots"))
+                    # A fresh request reopens the intent, so the next commitment is a
+                    # real fire rather than an echo of the previous one.
+                    request_meta.clear_fired(room_id, intent)
                     break
         sm_result = {"action": None, "pending_intent": None}
         if "money" not in result["intents"]:
@@ -2247,6 +2389,20 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         result = intent_lifecycle.process(room_id, text, result)
         conversation_ctx.add(room_id, text, result["intents"], result["scores"],
                              sender=sender)
+
+    # Phase 5b: A money/ride fire that came from a RESPONSE is aimed at the responder.
+    #
+    # detect_target() reads the message in isolation, so on "venmo me 20" -> "sure" it
+    # scores the pair as a payment request and returns show_to "others" — pointing the
+    # payment sheet at the person who ASKED for the money rather than the one who just
+    # agreed to send it. Both decision paths did this.
+    #
+    # Under two-phase firing the message that fires is by definition the acceptance, so
+    # the actor is always its sender. This does not touch immediate fires: a bare
+    # "venmo me 20" never reaches here with status "fired", and keeps "others".
+    if (result.get("conversation_state") or {}).get("status") == "fired":
+        if any(i in result["intents"] for i in MANAGED_INTENTS):
+            result["target"] = {"show_to": "sender", "reason": "accepted_request"}
 
     # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])
