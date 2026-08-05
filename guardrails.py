@@ -190,13 +190,18 @@ def run_guardrails(text: str, intents: list) -> Optional[dict]:
         intents: List of detected intents (used for context-aware checks)
 
     Returns:
-        None if no issues detected, otherwise:
+        None if no issues detected, otherwise EXACTLY these three keys:
         {
-            "flags": ["card_number", "scam_risk", ...],
+            "flags": ["card_number", ...],
             "warnings": ["Human-readable warning message", ...],
             "blocked": True/False (whether to suppress all intents),
-            "scam_type": ["pressure_tactic", ...] (if scam detected)
         }
+
+        This docstring used to list a fourth key, "scam_type", which the function has
+        never returned in any version. The backend modelled its struct on this
+        docstring, so Android received {"flags": [], "scam_type": [], "warnings": []}
+        and rendered an empty compliance banner. Keep this list matching the return
+        statement — it is the only place the response shape is written down.
     """
     flags = []
     warnings = []
@@ -221,6 +226,11 @@ def run_guardrails(text: str, intents: list) -> Optional[dict]:
 
     if _EXPIRY_PATTERN.search(text):
         flags.append("card_expiry")
+        # Every flag must carry warning text. This one and near_reporting_threshold
+        # did not, so the payload came back as {"flags": [...], "warnings": []} and the
+        # Android client — which shows the compliance banner whenever guardrails is
+        # non-null — rendered an empty message.
+        warnings.append("Card expiry date detected — avoid sharing card details in chat.")
         if "card_number" in flags or "cvv" in flags:
             block_intents = True
 
@@ -284,6 +294,10 @@ def run_guardrails(text: str, intents: list) -> Optional[dict]:
 
     if "money" in intents and _AML_JUST_UNDER_10K.search(text):
         flags.append("near_reporting_threshold")
+        warnings.append(
+            "This amount is just under a reporting threshold. Splitting payments to "
+            "stay below reporting limits is illegal."
+        )
 
     # ── Phishing URLs ──
     if _PHISHING_DOMAINS.search(text):
@@ -311,6 +325,14 @@ def run_guardrails(text: str, intents: list) -> Optional[dict]:
 
     # ── Return ──
     if not flags:
+        return None
+
+    # Never hand back a flag with nothing to show for it. Both clients treat a non-null
+    # guardrails object as "display the compliance banner", so an empty warnings list
+    # renders a blank banner — which is what Android was reporting. If a future flag is
+    # added without warning text this keeps the payload honest rather than silently
+    # shipping an empty message.
+    if not warnings:
         return None
 
     return {

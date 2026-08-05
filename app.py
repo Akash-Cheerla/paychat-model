@@ -822,8 +822,18 @@ _COMMON_NAMES = {
 }
 
 _TIME_PATTERNS = [
-    (r"\b(?:at|by|around|before|after)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)\b", "specific_time"),
+    # "for" belongs here as much as "at" — "book a cab to hsr for 7:30" is ordinary
+    # phrasing and was returning no time at all. The trailing lookahead keeps it from
+    # swallowing "for 20 mins", which is a duration and matched below.
+    # The \s* sits INSIDE the optional am/pm group on purpose: outside it, "at 8 please"
+    # captured "8 " with a trailing space and shipped that to the client.
+    (r"\b(?:at|by|around|before|after|for)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm|AM|PM))?)\b"
+     r"(?!\s*(?:minutes?|mins?|hours?|hrs?|days?|weeks?))", "specific_time"),
     (r"\b(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM))\b", "specific_time"),
+    # "tonight 9" / "tomorrow 8" — a bare clock time straight after a day word, with no
+    # preposition. Combines with the relative_day match below into "tonight at 9".
+    (r"\b(?:tomorrow|tonight|today|this\s+(?:evening|morning|afternoon))\s+(?:at\s+)?"
+     r"(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm|AM|PM))?)\b", "specific_time"),
     (r"\b(tomorrow|tonight|today|this\s+(?:evening|morning|afternoon))\b", "relative_day"),
     (r"\b(?:in|for)\s+(\d+)\s*(minutes?|mins?|hours?|hrs?)\b", "relative_offset"),
     (r"\b(\d+)\s*(?:minutes?|mins?|hours?|hrs?)\s+(?:from\s+now)\b", "relative_offset"),
