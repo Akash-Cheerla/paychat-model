@@ -72,6 +72,14 @@ The server can run the money/ride decision two ways. Which one is live is visibl
 | `triggered_by` | present on fire | present on fire — unchanged |
 | group chats | need `reply_to`, else nothing fires | fire without `reply_to` |
 
+**`target.show_to` is now always `"sender"` when `status == "fired"`**, with
+`reason: "accepted_request"`. Under two-phase firing the message that fires IS the
+acceptance, so the person who has to act is always the one who sent it. It previously
+returned `"others"` on money — which pointed the payment sheet at whoever *asked* for
+the money instead of the person who just agreed to send it. If you were already keying
+off `message.senderId` for these (as the sample code below does) nothing changes for
+you; if you were reading `target.show_to`, it is now correct.
+
 **Nothing you already do breaks.** `status == "fired"` is still the trigger and
 `triggered_by.slots` still carries the amount and destination. But three things go quiet:
 
