@@ -76,6 +76,26 @@ CONV_CONTEXT_TIME_CAP = int(os.environ.get("PAYCHAT_CONV_CONTEXT_TTL", 4 * 3600)
 
 INTENTS = ["money", "ride", "food_order", "contact", "alarm", "reminder", "calendar", "bills", "travel"]
 
+# Which of the nine the server actually SURFACES. The model still scores all nine and
+# the scores are still logged; this only controls what lands in `intents`.
+#
+# Money and ride are the only two trained and evaluated to shipping standard. The other
+# seven were split out of the training data months ago and never retrained, so they
+# misfire on ordinary chat — "lunch at 1?" scores calendar, "please?" scores food_order.
+# Product decision 2026-08-05: ship money and ride only until each of the rest gets its
+# own training round.
+#
+# Set PAYCHAT_ACTIVE_INTENTS="all" to surface all nine, or a comma list to widen it
+# selectively once an intent has been retrained.
+_active_env = os.environ.get("PAYCHAT_ACTIVE_INTENTS", "money,ride").strip()
+if _active_env.lower() in ("all", "*"):
+    ACTIVE_INTENTS = None          # no filtering
+else:
+    ACTIVE_INTENTS = {i.strip() for i in _active_env.split(",") if i.strip()}
+    unknown = ACTIVE_INTENTS - set(INTENTS)
+    if unknown:
+        raise ValueError(f"PAYCHAT_ACTIVE_INTENTS has unknown intents: {sorted(unknown)}")
+
 
 # ── DualHeadRoberta (v20 architecture) ──
 RESPONSE_CLASSES = ['ack', 'reject', 'future_promise', 'question', 'already_done', 'neutral']
@@ -2490,6 +2510,30 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             result["slots"] = None
             result["target"] = None
             result["context_boosted"] = None
+
+    # Phase 7: Only surface the intents the product actually ships.
+    #
+    # The model has nine heads, but only money and ride have been trained and evaluated
+    # to the standard we need — the other seven were split out of the training data
+    # months ago and never properly retrained, so they misfire (a bare "Sure" scoring
+    # calendar, "lunch at 1?" scoring calendar, "please?" scoring food_order). Product
+    # decision on 2026-08-05: money and ride only until each remaining intent gets its
+    # own training round.
+    #
+    # This filters the OUTPUT only. Scores for all nine are left untouched so the
+    # dogfood logs still record what would have fired — that is the data the later
+    # per-intent training rounds will be built from. Set PAYCHAT_ACTIVE_INTENTS to
+    # widen it again, e.g. "money,ride,contact".
+    if ACTIVE_INTENTS is not None:
+        kept = [i for i in result["intents"] if i in ACTIVE_INTENTS]
+        if kept != result["intents"]:
+            result["intents"] = kept
+            if not kept:
+                result["target"] = None
+                result["money"] = None
+                result["slots"] = None
+                result["conversation_state"] = None
+                result["lifecycle"] = None
 
     # Clean internal fields
     result.pop("_text", None)

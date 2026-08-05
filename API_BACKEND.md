@@ -138,7 +138,7 @@ This is important. The state machine matches responses to pending requests diffe
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `intents` | string[] | Fired intents (empty if nothing detected or if request is stored as pending) |
+| `intents` | string[] | Fired intents (empty if nothing detected or if request is stored as pending). **Only `money` and `ride` are surfaced** — see below |
 | `scores` | object | Confidence per intent (0.0–1.0) |
 | `slots` | object \| null | Extracted entities (flat key-value) |
 | `money` | object \| null | Money enrichment if money intent fired |
@@ -147,6 +147,29 @@ This is important. The state machine matches responses to pending requests diffe
 | `lifecycle` | object \| null | Cancel/defer/confirm state changes |
 | `guardrails` | object \| null | Compliance flags (PCI, AML, phishing) |
 | `latency_ms` | float | Inference time |
+
+### Which intents are surfaced
+
+As of 2026-08-05 the server returns **`money` and `ride` only**. The model still scores
+all nine and `scores` still contains all nine — that is what the dogfood logs capture —
+but the other seven never appear in `intents`, so no client can act on them.
+
+They were split out of the training data months ago and never retrained, so they misfire
+on ordinary chat. Each comes back once it has had its own training round.
+
+```bash
+# default — money and ride only
+PAYCHAT_ACTIVE_INTENTS=money,ride
+
+# widen selectively as intents are retrained
+PAYCHAT_ACTIVE_INTENTS=money,ride,contact
+
+# all nine, pre-2026-08-05 behaviour
+PAYCHAT_ACTIVE_INTENTS=all
+```
+
+The server refuses to start on an unrecognised intent name, so a typo fails loudly
+rather than silently disabling everything.
 
 ---
 
