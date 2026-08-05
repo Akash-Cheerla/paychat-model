@@ -210,6 +210,18 @@ func handleImmediateIntent(_ detection: Detection) {
 
 ## Intent → Popup Type
 
+> ⚠️ **Only `money` and `ride` are shipped right now.** As of 2026-08-05 the server
+> surfaces those two and nothing else — the other seven are still scored and logged, but
+> never appear in `detection.intents`, so no popup can fire for them.
+>
+> They were split out of the training data months ago and never retrained, so they
+> misfire on ordinary chat ("lunch at 1?" → calendar, "please?" → food_order). Each will
+> come back individually once it has had its own training round.
+>
+> Nothing to change on your side — you'll simply stop receiving them. Leave the handling
+> code in place; it'll start receiving events again as intents are re-enabled. Controlled
+> server-side by `PAYCHAT_ACTIVE_INTENTS`.
+
 | Intent | Popup action | State machine? | Example message |
 |--------|-------------|----------------|-----------------|
 | `money` | Open Venmo/payment flow | **Yes** — fires on response | "venmo me 30 bucks" |
