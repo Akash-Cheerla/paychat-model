@@ -9,3 +9,7 @@ dist/
 build/
 *.log
 .DS_Store
+
+# fp32 ONNX is only the intermediate that conv_model_int8.onnx is quantized from
+# (export_conv_onnx.py). Nothing loads it at runtime and it is 474MB.
+conv_model/conv_model.onnx

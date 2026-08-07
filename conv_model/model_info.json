@@ -5,14 +5,14 @@
     "money",
     "ride"
   ],
-  "max_length": 256,
+  "max_length": 320,
   "window": 10,
   "thresholds": {
-    "money": 0.9449999999999996,
-    "ride": 0.8099999999999996
+    "money": 0.9699999999999995,
+    "ride": 0.8249999999999996
   },
   "render": "speakers normalised so the final message's sender is A; spliced pending requests marked [earlier]; messages joined by ' | '",
   "loss": "AsymmetricLoss(gamma_neg=2.5, gamma_pos=1.0, clip=0.05)",
-  "trained_on": "conv_windows_v4 \u2014 143205 windows",
+  "trained_on": "conv_windows_v5 \u2014 361853 windows; 62,790 conversations, 46.6% group (3-6 speakers)",
   "rule": "FIRING_RULE.md"
 }
