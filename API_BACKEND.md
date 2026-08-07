@@ -189,7 +189,11 @@ Present on every response. Tells you what the decision layer decided.
 > #### ⚠️ Two decision layers — check `decided_by`
 >
 > The server can decide money/ride two ways, selected by `PAYCHAT_CONV_CLASSIFIER`.
-> Everything documented below describes the **rule layer**, which is what runs today.
+>
+> **Production runs the conversation classifier (`=1`) as of 2026-08-06** — the right-hand
+> column below. Everything documented outside this box describes the **rule layer**, which
+> is the code default and the rollback target, but is NOT what your users are hitting.
+> Check `conversation_state.decided_by`: it is `"conv_classifier"` on the live path.
 >
 > | | rule layer (default) | conversation classifier (`=1`) |
 > |---|---|---|

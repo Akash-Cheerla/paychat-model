@@ -1,6 +1,13 @@
 # Conversation classifier — deploy notes
 
-**Status: off by default. Deploying this changes nothing until the flag is set.**
+**Status: ON in production as of 2026-08-06.**
+
+The code default is still off (`Dockerfile` ships `PAYCHAT_CONV_CLASSIFIER=0`), but the
+running deployment sets it to `1`, so the classifier — not `conversation.py` — is what
+decides money and ride for real users today. Verified from the dogfood logs: group rooms
+fire without `reply_to`, which the rule layer cannot do.
+
+Do not read the rule-layer behaviour in `API_BACKEND.md` as describing production.
 
 ## What it is
 
@@ -47,14 +54,37 @@ not estimated.
 Both eval sets replay whole conversations through the real server, message by message, in
 a fresh room per conversation. Scored under `FIRING_RULE.md`.
 
-| | rules (today) | classifier |
-|---|---|---|
-| DeepSeek eval, 2,927 conversations | 57.6% | **81.3%** |
-| Claude eval, 400 conversations | 54.8% | **88.2%** |
-| long multi-intent eval, 319 conversations | 28.2% | **64.3%** |
-| hand-written chats, 21 | 16/20 | **21/21** |
-| false fires (long eval) | 149 | **20** |
-| missed (long eval) | 207 | **103** |
+> **The rules-vs-classifier numbers that used to sit here are gone.** They were scored
+> before the 2026-08-05 relabel and are not comparable to anything measured since. See
+> "A note on comparing numbers" below.
+
+### v5 vs v4 — both re-scored 2026-08-06 on current labels, same server code
+
+| eval set | group content | v4 | v5 |
+|---|---|---|---|
+| Claude eval, 400 conversations | 0% | 91.8% | **92.2%** |
+| long multi-intent eval, 319 | 19.7% | 64.6% | **69.0%** |
+| group held-out, 138 | 100%, 3 speakers | 71.0% | **74.6%** |
+| group_eval_v6, 787 | 100%, 3-6 speakers | 60.4% | **68.4%** |
+| DeepSeek eval, 2,927 conversations | 2.6% | not re-run | 87.4% |
+| hand-written chats, 21 | — | — | **21/21** (51/51 turns) |
+
+Conversation accuracy: a conversation counts only if every turn fired exactly right.
+
+The gain scales with group density — flat where there are no groups, largest where
+speaker counts are highest, which is what the v5 training round was for. Paired at turn
+level on `group_eval_v6`, v5 fixes 150 turns and breaks 70.
+
+### A note on comparing numbers
+
+Eval labels were regenerated **2026-08-05** under `FIRING_RULE.md` §3a (completed actions
+no longer fire), moving 36 turns on the Claude set and 226 on the DeepSeek set. Every
+`RUN_*.json` older than that date was scored on labels that no longer exist.
+
+This is not academic: v4 scores 89.25% on the Claude eval under the old labels and 91.8%
+under the current ones — a 2.55pp gain from the relabel alone, with no model change.
+**Re-run the old model, never quote its stored number.** `conv_model_v4/` is kept for
+exactly this.
 
 Also hand-labelled live with the product owner across 15 conversations: **11 matched**.
 Of the four that did not, two were spec questions rather than model errors, one was a bug
@@ -112,8 +142,21 @@ or rehydrating from the backend's message history.
   "ill book you an uber to your place" yields `destination: Office` — it resolves the
   vague place from the window without tracking whose place it is. Needs speaker-aware
   resolution.
+* **`let me <app> you <amount>` is a hole.** `let me send/transfer/pay/venmo/upi/phonepe
+  you 100` all fire; `let me gpay/paypal/cashapp/zelle/paytm you 100` and `let me give you
+  100` score 0.03-0.47. Every *other* phrasing of those same apps is fine — `im gpaying
+  you 100`, `sending you 100 on gpay`, `ill cashapp you the 100 now`, `sure sending on
+  zelle` all fire at 1.00. So it is one sentence frame, not missing app coverage. Present
+  in v4 too, which fires on **none** of that frame, so v5 is strictly better here.
+  Notable because gpay, paypal, cashapp and zelle are the four apps the product supports.
+* **An offer can fire twice.** `shall I send you 500?` fires on the question (targeted at
+  the sender, who is the payer — correct per FIRING_RULE §6e), and the acceptance can fire
+  again: two prompts, one payment. v4 fires on neither the question nor the acceptance,
+  so this is a new over-firing path rather than a regression.
 * **Every number above comes from generated conversations.** No real user data has been
-  measured. That is what the dogfood logging is for.
+  measured yet. The 2026-08-04/06 dogfood logs could not be used — the iOS and Android
+  clients had delivery bugs and had not implemented group intents at all, so the logs
+  reflect client behaviour more than model behaviour.
 
 ## Slot freshness
 
