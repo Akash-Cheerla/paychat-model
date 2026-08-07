@@ -700,7 +700,10 @@ class ConversationContext:
                 continue
             if entry.get("sender") is None:
                 continue
-            out.append({"sender": entry["sender"], "text": entry["text"]})
+            # ts rides along so slot recovery can scope itself to messages that came
+            # AFTER the request being answered. build_window ignores extra keys.
+            out.append({"sender": entry["sender"], "text": entry["text"],
+                        "ts": entry["ts"]})
         return out[-size:] if out else []
 
     def get_prev_messages(self, room_id: str, max_msgs: int = 3) -> list:
@@ -752,23 +755,79 @@ class RequestMeta:
 
     def __init__(self):
         self.rooms: dict[str, list] = defaultdict(list)
-        # room -> {intent: ts} of the last fire, for duplicate suppression.
+        # room -> {(intent, sender): ts} of the last fire, for duplicate suppression.
+        # Cleared when a new request arrives, so the next commitment counts as a real
+        # fire.
+        #
+        # Keyed by SENDER as well as intent. Keyed by room alone it suppressed the
+        # second person in "paid the wifi bill, 800 each you two" / "sending now" /
+        # "same, sending mine too" — the flatmate's commitment was read as an echo of
+        # mine and he silently got no payment sheet. Two people paying the same request
+        # is ordinary; one person restating their own commitment is the thing to
+        # suppress, and that is a per-speaker question.
         self.last_fire: dict[str, dict] = defaultdict(dict)
+        # Same timestamps, but NEVER cleared. This is the "everything before here is
+        # settled" line used to scope slot recovery. It has to survive clear_fired():
+        # a new request is exactly when the boundary matters most, and wiping it let a
+        # paid-off counter-offer leak into the next payment.
+        self.settled_at: dict[str, dict] = defaultdict(dict)
+        # The slots the last fire resolved to, and whether a NEW request has arrived
+        # since. One negotiation can fire twice — a counter-offer flips ownership, the
+        # asker accepts ("yeah 3000 helps") and then the payer confirms ("sending").
+        # Both are the same payment and must show the same figure. Scoping the second
+        # one to "after the last fire" hid the counter-offer and put the ORIGINAL 5000
+        # on the sheet instead of the agreed 3000. So: if no new request has arrived,
+        # this fire is a continuation — reuse what the last one resolved.
+        self.last_resolved: dict[str, dict] = defaultdict(dict)
+        self.new_request_since: dict[str, dict] = defaultdict(dict)
 
-    def mark_fired(self, room_id, intent):
+    def continues_last(self, room_id, intent):
+        """Is this fire part of the same negotiation as the previous one?"""
+        return (bool(self.last_resolved.get(room_id, {}).get(intent))
+                and not self.new_request_since.get(room_id, {}).get(intent))
+
+    def remember_resolved(self, room_id, intent, slots):
+        if room_id and slots:
+            self.last_resolved[room_id][intent] = dict(slots)
+
+    def mark_fired(self, room_id, intent, sender):
+        """Record a fire for duplicate suppression. Does NOT move the settled line."""
         if room_id:
-            self.last_fire[room_id][intent] = time.time()
+            self.new_request_since[room_id][intent] = False
+            self.last_fire[room_id][(intent, sender)] = time.time()
 
-    def recently_fired(self, room_id, intent):
-        ts = self.last_fire.get(room_id, {}).get(intent)
+    def mark_settled(self, room_id, intent):
+        """Close off a negotiation — only call when a real request was answered.
+
+        Kept separate from mark_fired because the model sometimes fires on a message
+        that answers nothing ("Sure but send it now as i need it urgently" scores 1.00
+        but takes no request, since the speaker is the one who asked). Advancing the
+        settled line there hid the "I can only do 60$" counter-offer from the fire that
+        followed, and the payment sheet showed the original 100 instead of the agreed
+        60. A fire that resolves no request settles nothing.
+        """
+        if room_id:
+            # per-room, not per-speaker: it marks where a negotiation closed, which is
+            # a property of the conversation.
+            self.settled_at[room_id][intent] = time.time()
+
+    def recently_fired(self, room_id, intent, sender):
+        ts = self.last_fire.get(room_id, {}).get((intent, sender))
         return ts is not None and (time.time() - ts) <= CONV_CONTEXT_TIME_CAP
 
     def clear_fired(self, room_id, intent):
-        self.last_fire.get(room_id, {}).pop(intent, None)
+        """A new request reopens the intent for everyone in the room."""
+        room = self.last_fire.get(room_id)
+        if room:
+            for key in [k for k in room if k[0] == intent]:
+                room.pop(key, None)
 
     def record(self, room_id, intent, sender, text, message_id, slots):
         if not room_id or not sender:
             return
+        # A new request starts a new negotiation — the next fire must resolve its own
+        # figures rather than inherit the previous payment's.
+        self.new_request_since[room_id][intent] = True
         q = self.rooms[room_id]
         q.append({"intent": intent, "sender": sender, "text": text,
                   "message_id": message_id, "slots": slots or None,
@@ -1030,6 +1089,11 @@ def _negotiated_amount(text: str) -> Optional[str]:
     if not m:
         return None
     val = m.group(1) or m.group(2)
+    if not val:
+        return None
+    # The capture class is [\d,]* to allow "1,500", which also swallows a trailing
+    # comma: "how about 3000, thats all i have" produced "$3000," on the payment sheet.
+    val = val.rstrip(",").replace(",", "")
     return f"${val}" if val else None
 
 
@@ -1111,13 +1175,25 @@ def _latest_destination(hist: list) -> Optional[str]:
     """
     texts = [msg.get("text", "") for msg in hist]
     for i in range(len(texts) - 1, -1, -1):
-        found = _restated_destination(texts[i])
-        if found:
-            return found
+        # A message only donates a destination if it is plausibly about the ride.
+        # Three ways it can qualify:
+        #   - it restates the destination ("actually make it indiranagar")
+        #   - it answers a "where to?" question
+        #   - it mentions a cab at all
+        # Without the third condition an unrelated "took the dog to the vet" sitting in
+        # the window became the destination, and the cab would have been booked to
+        # "vet". _latest_time has had this guard since it was written; the destination
+        # side was missing it.
+        restated = _COUNTER_DEST.search(texts[i])
+        answers_where = i > 0 and _WHERE_Q.search(texts[i - 1])
+        if restated or _RIDE_CONTEXT.search(texts[i]):
+            found = _restated_destination(texts[i])
+            if found:
+                return found
         # A reply straight after "where to?" answers it. People rarely reply with the
         # bare place — "grand central pls, need to be there by 6pm" is the normal shape —
         # so cut at the first clause break and drop the trailing filler.
-        if i > 0 and _WHERE_Q.search(texts[i - 1]):
+        if answers_where:
             head = re.split(r"[,.;!?]| but | and | need | i'?ll | im | i'?m ",
                             texts[i].strip(), maxsplit=1)[0]
             words = [w for w in head.split() if w]
@@ -1165,6 +1241,37 @@ def _latest_time(hist: list) -> Optional[dict]:
     return None
 
 
+def _since(hist: list, ts: float) -> list:
+    """Window trimmed to messages after `ts` — the previous fire for this intent.
+
+    Everything that recovers a slot from the window has to be scoped, or it reaches
+    back into a conversation that was already settled. Reported from live testing:
+
+        "can you send me hundred bucks"
+        "I can only do 60$ man, is that fine?"    <- counter-offer
+        "Sure sending now"                        -> fires $60, correct
+        "Can you send 40$ for my lunch please"    <- a NEW, unrelated request
+        ...movie chat...
+        "about the lunch money let send you now"  -> fired $60. Should be $40.
+
+    The anchor is the PREVIOUS FIRE, not the request that triggered this one. Scoping
+    to the request looks right and is not: the most recent request-shaped message is
+    often an acceptance carrying an incidental figure ("Remaining $40 I'll arrange"),
+    and anchoring there hides the real counter-offer that came before it. Once a
+    payment has fired, everything up to that point is settled — that is the line.
+    """
+    if not ts:
+        return hist
+    return [m for m in hist if m.get("ts", 0) > ts]
+
+
+# "how much?" — the reply is a bare number with no currency and no verb, so
+# _extract_amount alone never sees it. Mirrors _WHERE_Q on the ride side.
+_HOW_MUCH_Q = re.compile(
+    r"\bhow\s+much\b|\bhow\s+many\b|\bwhat'?s?\s+the\s+(?:amount|total|damage)\b|"
+    r"\bhow\s+much\s+(?:do\s+)?(?:you|u)\s+need\b", re.IGNORECASE)
+
+
 def _latest_amount(hist: list) -> Optional[str]:
     """Most recently stated amount in the window, newest first.
 
@@ -1179,10 +1286,18 @@ def _latest_amount(hist: list) -> Optional[str]:
     so the payment sheet opened with no amount at all. Reading the window directly
     finds the figure wherever it was actually said.
     """
-    for msg in reversed(hist):
-        amt = _extract_amount(msg.get("text", ""))
+    texts = [m.get("text", "") for m in hist]
+    for i in range(len(texts) - 1, -1, -1):
+        amt = _extract_amount(texts[i])
         if amt:
             return amt
+        # A bare figure answering "how much?" — "can you send me some money" /
+        # "how much" / "450" / "ok sending".
+        if i > 0 and _HOW_MUCH_Q.search(texts[i - 1]):
+            bare = re.fullmatch(r"\s*(?:\$|₹)?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*[.!]?\s*",
+                                texts[i])
+            if bare:
+                return f"${bare.group(1).replace(',', '')}"
     return None
 
 
@@ -1207,8 +1322,15 @@ def _extract_amount(text: str) -> Optional[str]:
     for p in patterns:
         m = re.search(p, text, re.IGNORECASE)
         if m:
-            val = m.group(0).strip()
-            if re.match(r'^\d', val) and not re.search(r'(?:dollar|buck|rupee|rs\.?|inr|ringgit|rm|myr)', val, re.IGNORECASE):
+            # "how about 3000, thats all i have" captured "3000," and the comma went
+            # onto the payment sheet.
+            val = m.group(0).strip().rstrip(".,;:!?")
+            # "40$" and "500₹" put the symbol after the number. Prefixing blindly gave
+            # "$40$", which is what the payment sheet displayed.
+            trailing = re.match(r'^([\d,]+(?:\.\d{1,2})?)\s*([$₹])$', val)
+            if trailing:
+                val = trailing.group(2) + trailing.group(1)
+            elif re.match(r'^\d', val) and not re.search(r'(?:dollar|buck|rupee|rs\.?|inr|ringgit|rm|myr)', val, re.IGNORECASE):
                 val = '$' + val
             return val
     number_words = {
@@ -1216,8 +1338,13 @@ def _extract_amount(text: str) -> Optional[str]:
         "hundred": "100", "thousand": "1000", "five": "5", "fifteen": "15",
     }
     for word, num in number_words.items():
-        if re.search(r'\b' + word + r'\s*(?:dollars?|bucks?|rupees?|rs\.?|ringgit|rm)\b', text.lower()):
-            return f"${num}"
+        m = re.search(r'\b' + word + r'\s*(dollars?|bucks?|rupees?|rs\.?|ringgit|rm)\b',
+                      text.lower())
+        if m:
+            # "fifty rupees" was coming back as $50. Keep the currency the user used.
+            unit = m.group(1)
+            symbol = "₹" if unit.startswith(("rupee", "rs")) else "$"
+            return f"{symbol}{num}"
     # Bare number in money context — "front me 50", "sent me the 30"
     # -ing forms matter: "im sending you 3000 right now" is how an offer is normally
     # worded, and `send` alone does not match it — the pattern needs whitespace
@@ -2310,7 +2437,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             adds_new = _own.get(_own_key.get(intent)) not in (None, "", [])
             scores_alone = (result["scores"].get(intent, 0)
                             >= model_state["thresholds"].get(intent, 0.5))
-            if (request_meta.recently_fired(room_id, intent)
+            if (request_meta.recently_fired(room_id, intent, sender)
                     and not request_meta.has_open(room_id, intent, sender)
                     and not (scores_alone and adds_new)):
                 continue
@@ -2350,7 +2477,12 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         # message itself looks like a request, record it for a later fire.
         if fired:
             for intent in fired:
-                request_meta.mark_fired(room_id, intent)
+                # Capture the PREVIOUS fire before overwriting it — that timestamp is
+                # the boundary for slot recovery (see _since). Read from settled_at,
+                # not last_fire: last_fire is cleared whenever a new request arrives.
+                prev_fire_ts = request_meta.settled_at.get(room_id, {}).get(intent, 0)
+                continues = request_meta.continues_last(room_id, intent)
+                request_meta.mark_fired(room_id, intent, sender)
                 src = request_meta.take(room_id, intent, sender)
                 if src:
                     result["conversation_state"]["triggered_by"] = {
@@ -2383,9 +2515,14 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # anyone actually said. Pre-filling the wrong number is worse
                     # than pre-filling none — on a payment screen it invites
                     # sending double.
+                    # Scope every window lookup to messages after the previous fire for
+                    # this intent. Unscoped, a settled negotiation leaks into the next
+                    # one — see _since().
+                    scoped = _since(hist, prev_fire_ts)
+
                     if intent == "money":
                         latest = None
-                        for m in reversed(hist):
+                        for m in reversed(scoped):
                             a = _negotiated_amount(m["text"])
                             if a:
                                 latest = a
@@ -2393,18 +2530,18 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         if latest:
                             merged["amount"] = latest
                         elif merged.get("amount") in (None, "", []):
-                            merged["amount"] = _latest_amount(hist)
+                            merged["amount"] = _latest_amount(scoped)
 
                     # Same problem, ride side: the recorded request holds the
                     # destination that was asked for, which may have been changed
                     # since ("actually make it indiranagar") or may never have been
                     # in the request at all ("where to?" -> "whitefield").
                     if intent == "ride":
-                        latest_dest = _latest_destination(hist)
+                        latest_dest = _latest_destination(scoped)
                         if latest_dest:
                             merged["destination"] = latest_dest
                         if merged.get("time") in (None, "", []):
-                            merged["time"] = _latest_time(hist)
+                            merged["time"] = _latest_time(scoped)
                     result["slots"] = merged
 
                     # Keep triggered_by.slots in step with the effective values.
@@ -2413,10 +2550,34 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # figure here means the negotiated one never reaches the user:
                     # $1000 agreed, $2000 pre-filled on the payment sheet. The
                     # request's own wording stays in triggered_by.text.
-                    tb_slots = dict(src["slots"] or {})
+                    # Only the slots this intent can actually use. One message can open
+                    # both ("send me 900 and book me a cab to hsr"), and without this
+                    # the payment sheet came back carrying destination=hsr alongside
+                    # the amount. _INTENT_SLOT_KEYS is the same map slot extraction
+                    # already uses, so the two stay in step.
+                    allowed = set(_INTENT_SLOT_KEYS.get(intent, []))
+                    tb_slots = {k: v for k, v in (src["slots"] or {}).items()
+                                if k in allowed}
                     for k, v in merged.items():
-                        if v not in (None, "", []):
+                        if k in allowed and v not in (None, "", []):
                             tb_slots[k] = v
+
+                    # Continuation of the same negotiation — no new request since the
+                    # last fire — so keep the figures that fire resolved to. Without
+                    # this, "spot me 5000" / "how about 3000" / "yeah 3000 helps"
+                    # (fires 3000) / "sending" put 5000 on the second sheet, because
+                    # scoping to "after the last fire" hid the counter-offer.
+                    if continues:
+                        prev = request_meta.last_resolved.get(room_id, {}).get(intent, {})
+                        for k, v in prev.items():
+                            if k in allowed and v not in (None, "", []):
+                                tb_slots[k] = v
+                                merged[k] = v
+                        result["slots"] = merged
+                    request_meta.remember_resolved(room_id, intent, tb_slots)
+                    # A real request was answered — close the negotiation off so its
+                    # figures cannot leak into the next one.
+                    request_meta.mark_settled(room_id, intent)
                     result["conversation_state"]["triggered_by"]["slots"] = tb_slots
 
                     if intent == "money":
@@ -2431,7 +2592,13 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         else:
             # A request is a message the intent model scores as money/ride but that the
             # classifier did not fire on — i.e. someone asking rather than committing.
-            for intent in MANAGED_INTENTS:
+            # Record under EVERY managed intent that crosses threshold. One message
+            # routinely opens both — "send me 900 and book me a cab to hsr" scores
+            # money 0.81 and ride 0.96. This used to `break` after the first match,
+            # and because MANAGED_INTENTS is a set the winner depended on iteration
+            # order: the same conversation recorded money on one run and ride on the
+            # next, so the payment sheet had an amount only some of the time.
+            for intent in sorted(MANAGED_INTENTS):
                 thr = model_state["thresholds"].get(intent, 0.5)
                 if result["scores"].get(intent, 0) >= thr:
                     request_meta.record(room_id, intent, sender, text, message_id,
@@ -2439,7 +2606,6 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # A fresh request reopens the intent, so the next commitment is a
                     # real fire rather than an echo of the previous one.
                     request_meta.clear_fired(room_id, intent)
-                    break
         sm_result = {"action": None, "pending_intent": None}
         if "money" not in result["intents"]:
             result["money"] = None
