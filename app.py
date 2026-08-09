@@ -599,6 +599,155 @@ _TARGET_REQUEST_ME = [
     re.compile(r'\b(?:remind|wake)\s+me\b', re.IGNORECASE),
 ]
 
+# ── Who pays, when the firing message is a bare acceptance ──
+#
+# "Sure" carries no information about who parts with the money. The answer is in the
+# message being accepted, and the two shapes point in OPPOSITE directions:
+#
+#   REQUEST  "can you send me 100"  -> "Sure"   the ACCEPTER pays
+#   OFFER    "shall I send you 100" -> "Sure"   the OFFERER pays
+#
+# Phase 5b used to assume the accepter always pays. That is right for requests and
+# backwards for offers, so an offer accepted with "Sure" put the payment sheet in front
+# of the person RECEIVING the money. Reported from a real chat: "Shall I paypal you 100
+# rupees?" / "Sure" showed the prompt to the payee.
+#
+# The apps are listed explicitly rather than as a generic verb because "paypal me 100"
+# and "shall I paypal you" only differ by the me/you pronoun.
+_PAY_APP = (r"(?:send|pay|transfer|venmo|cashapp|cash\s?app|zelle|paypal|gpay|"
+            r"google\s?pay|paytm|phonepe|upi|spot|lend|give|shoot|drop)")
+_RIDE_ACT = r"(?:book|get|order|grab|call|arrange)"
+
+# The SPEAKER of this message is the one who will act (offer).
+_OFFER_BY_SPEAKER = [
+    re.compile(rf"\b(?:shall|should|can|may)\s+i\s+(?:just\s+)?{_PAY_APP}\s+(?:you|u)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_PAY_APP}\s+(?:you|u)\b", re.IGNORECASE),
+    re.compile(rf"\bwant\s+me\s+to\s+{_PAY_APP}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?ll|ll|'?m|m)?\s*(?:will|gonna|going\s+to)?\s*{_PAY_APP}\s+(?:you|u)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:shall|should|can)\s+i\s+{_RIDE_ACT}\s+(?:you|u)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_RIDE_ACT}\s+(?:you|u)\b", re.IGNORECASE),
+]
+# The OTHER person is the one who will act (request).
+_REQUEST_OF_OTHER = [
+    re.compile(rf"\b{_PAY_APP}\s+me\b", re.IGNORECASE),
+    re.compile(rf"\bcan\s+(?:you|u)\s+(?:please\s+)?{_PAY_APP}\b", re.IGNORECASE),
+    re.compile(rf"\b{_RIDE_ACT}\s+me\b", re.IGNORECASE),
+    re.compile(r"\byou\s+(?:still\s+)?owe\s+me\b", re.IGNORECASE),
+]
+
+
+# A request every member owes separately, rather than one debt with one payer.
+_DIVISIBLE = re.compile(
+    r"\b(?:each|per\s+(?:head|person)|your\s+shares?|their\s+shares?|"
+    r"split\s+(?:it\s+)?(?:\d+\s+ways|between|among)|\d+\s+ways|"
+    r"everyone\s+(?:owes|sends?|pays?)|you\s+(?:two|three|four|all)|"
+    r"all\s+of\s+(?:you|us))\b", re.IGNORECASE)
+
+# "split 5 ways", "between 4 of us", "4 way split" — a headcount stated in the message.
+_WAYS = re.compile(r"\b(?:split\s+)?(\d{1,2})\s*[- ]?(?:way|ways)\b|"
+                   r"\b(?:between|among)\s+(?:the\s+)?(\d{1,2})\b", re.IGNORECASE)
+
+_AMT_NUM = re.compile(r"(\d[\d,]*(?:\.\d+)?)")
+
+# The figure is already a per-person share — never divide it again.
+_PER_PERSON_AMT = re.compile(
+    r"\d[\d,]*\s*(?:rs|rupees|dollars|bucks|\$)?\s*(?:each|per\s+(?:head|person)|a\s?piece)"
+    r"|(?:each|per\s+(?:head|person))\s*[:=]?\s*\d", re.IGNORECASE)
+# The figure is the whole bill, so a share can be derived from it.
+_TOTAL_AMT = re.compile(
+    r"\b(?:total|in\s+all|altogether|came\s+to|cost|costs|was|is|bill\s+was)\b", re.IGNORECASE)
+
+
+def _per_person_share(text: str, total: str, participants: int = None):
+    """Turn a stated TOTAL into a per-person figure, or None if we cannot be sure.
+
+    "trip was 5000, send me your shares" is 1000 each in a room of five and 2500 in a
+    room of two. The message alone never says which, so the headcount has to come from
+    the message ("split 5 ways") or from the caller (`participants`).
+
+    Returns None rather than guessing. An empty amount field is a minor annoyance; a
+    confidently wrong one on a payment screen invites sending the wrong sum.
+    """
+    if not total:
+        return None
+    # Only a TOTAL can be divided. "5000, thats 1000 each" already states the share, and
+    # dividing it again gave 200 — worse than the blank field this function exists to
+    # avoid. Require the figure to be marked as a total, and bail if the message marks
+    # it per-person.
+    if _PER_PERSON_AMT.search(text or ""):
+        return None
+    if not _TOTAL_AMT.search(text or ""):
+        return None
+    m = _AMT_NUM.search(str(total))
+    if not m:
+        return None
+    try:
+        value = float(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+
+    n = None
+    w = _WAYS.search(text or "")
+    if w:
+        n = int(w.group(1) or w.group(2))
+    elif participants and participants > 1:
+        n = participants
+    if not n or n < 2:
+        return None
+
+    share = value / n
+    if share != int(share):
+        return None                      # uneven split — let a person decide, not us
+    keep = str(total).replace(m.group(1), "")     # preserve the currency mark
+    return f"{keep.strip()}{int(share)}".strip() or str(int(share))
+
+
+def _norm_slot(v) -> str:
+    """Compare slot values by their digits/words, not their formatting.
+
+    "100 rupees", "₹100", "$100" and "100" are the same payment written four ways. A raw
+    string compare would call each one a new action and prompt again for it.
+    """
+    if v in (None, "", []):
+        return ""
+    s = str(v).lower()
+    digits = re.sub(r"[^0-9.]", "", s)
+    return digits or re.sub(r"[^a-z]", "", s)
+
+
+def _resolve_payer(room_id: str, sender: str) -> str:
+    """Who parts with the money — the sender of this message, or the other party.
+
+    Walks back to the last message from a different sender and asks which shape it was.
+    Only that message matters: it is the thing the current message is accepting. Falls
+    back to `sender` when nothing matches, which keeps the previous behaviour (accepter
+    pays) for every shape this does not recognise.
+
+    Returning the payer's ID rather than a bool lets the duplicate-fire check key on the
+    payer. An offer and its acceptance come from DIFFERENT senders but name the SAME
+    payer, so a sender-keyed check sees two unrelated fires and lets both through —
+    that is why "shall I send you 100" / "Sure" produced two prompts for one payment.
+    """
+    if not room_id or not sender:
+        return sender
+    # Scan back for the most recent message that actually PROPOSES something. Stopping
+    # at the immediately preceding turn was too strict: filler between the proposal and
+    # the acceptance hid it. "can i pay you 100 rupees" / "??" / "Sure" resolved off the
+    # "??" and pointed the sheet at the payee.
+    #
+    # Own messages count too — if I offered and I am now saying "Sending now", I am
+    # still the payer, and both fires must resolve to the same person or the duplicate
+    # check compares two different keys and lets both through.
+    for entry in reversed(conversation_ctx.get_window(room_id, size=10)):
+        who = str(entry.get("sender"))
+        t = entry.get("text") or ""
+        if any(p.search(t) for p in _OFFER_BY_SPEAKER):
+            return who                    # whoever offered is the one who pays
+        if any(p.search(t) for p in _REQUEST_OF_OTHER):
+            # Someone asked to be paid; the payer is whoever answers, not the asker.
+            return sender if who != str(sender) else sender
+    return sender
+
 
 def detect_target(text: str, intents: list, money_info: dict = None) -> dict:
     """
@@ -822,7 +971,7 @@ class RequestMeta:
             for key in [k for k in room if k[0] == intent]:
                 room.pop(key, None)
 
-    def record(self, room_id, intent, sender, text, message_id, slots):
+    def record(self, room_id, intent, sender, text, message_id, slots, divisible=False):
         if not room_id or not sender:
             return
         # A new request starts a new negotiation — the next fire must resolve its own
@@ -831,7 +980,14 @@ class RequestMeta:
         q = self.rooms[room_id]
         q.append({"intent": intent, "sender": sender, "text": text,
                   "message_id": message_id, "slots": slots or None,
-                  "ts": time.time()})
+                  "ts": time.time(),
+                  # A divisible request is owed by every member separately ("1000 each"),
+                  # so it must survive being answered. take() consumes an ordinary
+                  # request, which is right for "lend me 500" — one debt, one payer —
+                  # and wrong for a split: the second, third and fourth payers found
+                  # nothing left to read and their prompts opened with no amount.
+                  "divisible": bool(divisible),
+                  "taken_by": set()})
         del q[:-self.MAX_PER_ROOM]
 
     def has_open(self, room_id, intent, sender):
@@ -842,7 +998,14 @@ class RequestMeta:
                    for e in self.rooms.get(room_id) or [])
 
     def take(self, room_id, intent, sender):
-        """Most recent matching request from someone else, consumed. None if absent."""
+        """Most recent matching request from someone else. None if absent.
+
+        Ordinary requests are consumed. A divisible one ("1000 each") is owed by every
+        member separately, so it stays in the queue and only records who has answered —
+        otherwise the first payer eats it and everyone after them gets a prompt with no
+        amount. Each sender may still take it only once, which keeps a single person
+        restating their own commitment from resolving it twice.
+        """
         q = self.rooms.get(room_id)
         if not q:
             return None
@@ -853,6 +1016,11 @@ class RequestMeta:
                 continue
             if now - e["ts"] > CONV_CONTEXT_TIME_CAP:
                 continue
+            if e.get("divisible"):
+                if sender in e.get("taken_by", ()):
+                    continue
+                e.setdefault("taken_by", set()).add(sender)
+                return e
             return q.pop(i)
         return None
 
@@ -1164,7 +1332,7 @@ def _restated_destination(text: str) -> Optional[str]:
     return _norm_place(_destination_fallback(text))
 
 
-def _latest_destination(hist: list) -> Optional[str]:
+def _latest_destination(hist: list, rider: str = None) -> Optional[str]:
     """Most recently named destination in the window, newest first.
 
     Two things break the naive "read it off the request" approach:
@@ -1172,7 +1340,26 @@ def _latest_destination(hist: list) -> Optional[str]:
       2. "can you get me a cab" -> "where to?" -> "whitefield"
     In (1) the request holds a destination that is no longer wanted; in (2) it
     holds none at all and the real one arrived in a later message.
+
+    `rider` restricts donations to the person who asked for the ride. Without it the
+    BOOKER could silently redirect the trip. Reported from a real chat:
+
+        A: book me one now to Windsor, Ontario, I'm at London Ontario
+        G: Can book from your location to the Toronto airport      <- never agreed to
+        G: Okay. Booking                                           -> booked to Toronto
+
+    Toronto is ~200km from Windsor. FIRING_RULE §6e: a counter-offer is a new proposal,
+    not an acceptance, so it cannot rewrite the trip on its own. Both cases above still
+    work — the rider is the one who says "actually make it indiranagar" and the one who
+    answers "where to?". If the rider does agree to the booker's suggestion, their
+    agreement is a later message and wins on recency.
     """
+    # Check the sender of the message that DONATES the destination, rather than
+    # filtering the window first. Filtering removes the booker's "where to?", and the
+    # answer-detection below needs it to sit immediately before the rider's reply.
+    def owns(i):
+        return rider is None or str(hist[i].get("sender")) == str(rider)
+
     texts = [msg.get("text", "") for msg in hist]
     for i in range(len(texts) - 1, -1, -1):
         # A message only donates a destination if it is plausibly about the ride.
@@ -1186,14 +1373,14 @@ def _latest_destination(hist: list) -> Optional[str]:
         # side was missing it.
         restated = _COUNTER_DEST.search(texts[i])
         answers_where = i > 0 and _WHERE_Q.search(texts[i - 1])
-        if restated or _RIDE_CONTEXT.search(texts[i]):
+        if owns(i) and (restated or _RIDE_CONTEXT.search(texts[i])):
             found = _restated_destination(texts[i])
             if found:
                 return found
         # A reply straight after "where to?" answers it. People rarely reply with the
         # bare place — "grand central pls, need to be there by 6pm" is the normal shape —
         # so cut at the first clause break and drop the trailing filler.
-        if answers_where:
+        if answers_where and owns(i):
             head = re.split(r"[,.;!?]| but | and | need | i'?ll | im | i'?m ",
                             texts[i].strip(), maxsplit=1)[0]
             words = [w for w in head.split() if w]
@@ -1366,6 +1553,27 @@ def _extract_amount(text: str) -> Optional[str]:
         r'a\s+(?:head|piece|pop))\b', text, re.IGNORECASE)
     if m:
         return f"${m.group(1).replace(',', '')}"
+    # A stated TOTAL with no payment verb anywhere near it. "the trip came to 5000,
+    # send me your shares" and "trip cost 5000, split 5 ways" put nothing on the sheet,
+    # because every pattern above wants either a currency mark or a verb next to the
+    # figure, and a total has neither.
+    #
+    # Two ways to qualify, because "was" and "is" are far too weak on their own —
+    # "he was 25" and "the queue was 20 people" are not payments:
+    #   - an unambiguous cost verb (cost / came to / totalled), or
+    #   - a weak verb, but anchored to something that has a bill.
+    # The trailing guard keeps "the trip was 3 days" and "dinner was 2 hours" out.
+    _BILL_NOUN = (r'(?:trip|bill|dinner|lunch|breakfast|meal|tab|cab|uber|ola|ride|taxi|'
+                  r'tickets?|rent|groceries|food|hotel|stay|booking|total)')
+    for pat in (
+        r'\b(?:cost|costs|came\s+to|comes\s+to|totall?ed|totals?)\s+'
+        r'(?:about\s+|around\s+|like\s+|roughly\s+)?(\d[\d,]*(?:\.\d{1,2})?)',
+        rf'\b{_BILL_NOUN}\b[^.!?]{{0,24}}?\b(?:was|is|were)\s+'
+        r'(?:about\s+|around\s+|like\s+|roughly\s+)?(\d[\d,]*(?:\.\d{1,2})?)',
+    ):
+        m = re.search(pat + r'\s*(?!\s*(?:' + _COUNT_NOUNS + r')\b)', text, re.IGNORECASE)
+        if m:
+            return f"${m.group(1).replace(',', '')}"
     return None
 
 
@@ -2176,7 +2384,7 @@ _MONEY_HAS_DIRECTIVE = re.compile(
 
 def full_pipeline(text: str, room_id: str = None, context: list = None,
                    sender: str = None, message_id: str = None,
-                   reply_to: str = None) -> dict:
+                   reply_to: str = None, participants: int = None) -> dict:
     """Run the complete detection pipeline: model → keywords → suppression → slots → state machine → lifecycle."""
     # Phase 1a: Model inference (standalone, no context prefix — context is for state machine)
     if context is not None:
@@ -2430,14 +2638,34 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         # scores 0.86 alone, so it survives. A restatement of the action already
         # prompted for — "yeah sure" then "sending it now" — carries neither, and would
         # otherwise put a second payment sheet under the same conversation.
+        # Keyed on the PAYER, not the message sender. An offer and its acceptance come
+        # from different senders but name the same payer ("shall I send you 100" / "Sure"),
+        # so a sender-keyed check treated them as two unrelated payments and prompted
+        # twice. _resolve_payer falls back to the sender for every ordinary request, so
+        # the request -> ack path is unchanged.
         _own = result.get("slots") or {}
         _own_key = {"money": "amount", "ride": "destination"}
+        _payer = _resolve_payer(room_id, sender)
+        # Kept so the request-recording branch below can tell "the classifier said
+        # nothing" apart from "the classifier fired and we suppressed it as an echo".
+        _classifier_fired = set(fired)
         deduped = []
         for intent in fired:
-            adds_new = _own.get(_own_key.get(intent)) not in (None, "", [])
+            _k = _own_key.get(intent)
+            _mine = _own.get(_k)
+            # "Names a target" is not enough to count as a new action — it has to name a
+            # DIFFERENT one. Narrating the same payment twice ("Sure" -> "Sending 100
+            # now.") repeats the amount that was already prompted for, and letting that
+            # through put a second sheet under the same 100 rupees.
+            _prev = (request_meta.last_resolved.get(room_id, {}).get(intent) or {}).get(_k)
+            adds_new = (_mine not in (None, "", [])
+                        and _norm_slot(_mine) != _norm_slot(_prev))
             scores_alone = (result["scores"].get(intent, 0)
                             >= model_state["thresholds"].get(intent, 0.5))
-            if (request_meta.recently_fired(room_id, intent, sender)
+            # recently_fired keys on the PAYER (who parts with the money); has_open keys
+            # on the SENDER (is there a request left for *me* to answer). They are
+            # different questions and only coincide when the accepter is the payer.
+            if (request_meta.recently_fired(room_id, intent, _payer)
                     and not request_meta.has_open(room_id, intent, sender)
                     and not (scores_alone and adds_new)):
                 continue
@@ -2482,7 +2710,9 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 # not last_fire: last_fire is cleared whenever a new request arrives.
                 prev_fire_ts = request_meta.settled_at.get(room_id, {}).get(intent, 0)
                 continues = request_meta.continues_last(room_id, intent)
-                request_meta.mark_fired(room_id, intent, sender)
+                # Recorded under the payer, matching the key the dedup check above reads.
+                # Recording under the sender would never match on an accepted offer.
+                request_meta.mark_fired(room_id, intent, _payer)
                 src = request_meta.take(room_id, intent, sender)
                 if src:
                     result["conversation_state"]["triggered_by"] = {
@@ -2519,6 +2749,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # this intent. Unscoped, a settled negotiation leaks into the next
                     # one — see _since().
                     scoped = _since(hist, prev_fire_ts)
+                    blanked = set()      # slots deliberately cleared, see below
 
                     if intent == "money":
                         latest = None
@@ -2532,12 +2763,37 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         elif merged.get("amount") in (None, "", []):
                             merged["amount"] = _latest_amount(scoped)
 
+                        # A divisible request states the TOTAL; each member owes a
+                        # share. Divide only when the headcount is known — from the
+                        # message ("split 5 ways") or from the caller's `participants`.
+                        # Skipped when the asker already stated the per-person figure
+                        # ("5000, thats 1000 each"), since _negotiated_amount picks
+                        # that up and dividing again would give 200.
+                        if src.get("divisible") and merged.get("amount"):
+                            share = _per_person_share(src.get("text") or "",
+                                                      merged["amount"], participants)
+                            if share:
+                                merged["amount"] = share
+                            elif (_TOTAL_AMT.search(src.get("text") or "")
+                                  and not _PER_PERSON_AMT.search(src.get("text") or "")):
+                                # Divisible, and the figure we hold is the TOTAL, but the
+                                # headcount is unknown (no `participants`) or the split is
+                                # uneven. Blank the field rather than pre-fill 5000 when
+                                # the person owes 1000 — the whole point of computing a
+                                # share is not to put the wrong number on a payment sheet.
+                                merged["amount"] = None
+                                # Setting None is not enough: the triggered_by sync below
+                                # only overwrites with truthy values, so the total would
+                                # survive from src["slots"]. Mark it for removal.
+                                blanked.add("amount")
+
                     # Same problem, ride side: the recorded request holds the
                     # destination that was asked for, which may have been changed
                     # since ("actually make it indiranagar") or may never have been
                     # in the request at all ("where to?" -> "whitefield").
                     if intent == "ride":
-                        latest_dest = _latest_destination(scoped)
+                        # Only the rider can change where they are going.
+                        latest_dest = _latest_destination(scoped, rider=src.get("sender"))
                         if latest_dest:
                             merged["destination"] = latest_dest
                         if merged.get("time") in (None, "", []):
@@ -2561,6 +2817,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     for k, v in merged.items():
                         if k in allowed and v not in (None, "", []):
                             tb_slots[k] = v
+                    for k in blanked:
+                        tb_slots.pop(k, None)
 
                     # Continuation of the same negotiation — no new request since the
                     # last fire — so keep the figures that fire resolved to. Without
@@ -2599,10 +2857,20 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             # order: the same conversation recorded money on one run and ride on the
             # next, so the payment sheet had an amount only some of the time.
             for intent in sorted(MANAGED_INTENTS):
+                # An echo the dedup just swallowed is NOT a request. `fired` was
+                # reassigned to the deduped list above, so without this check a
+                # suppressed restatement looks identical to "the classifier stayed
+                # silent" — it got recorded as a fresh request and cleared the fire
+                # record, which let the NEXT restatement through. Both reported
+                # double-prompts came from this: "Sure" -> "Sending asap" (suppressed,
+                # but cleared the record) -> "Got intent for sending asap" (fired).
+                if intent in _classifier_fired:
+                    continue
                 thr = model_state["thresholds"].get(intent, 0.5)
                 if result["scores"].get(intent, 0) >= thr:
                     request_meta.record(room_id, intent, sender, text, message_id,
-                                        result.get("slots"))
+                                        result.get("slots"),
+                                        divisible=bool(_DIVISIBLE.search(text)))
                     # A fresh request reopens the intent, so the next commitment is a
                     # real fire rather than an echo of the previous one.
                     request_meta.clear_fired(room_id, intent)
@@ -2659,12 +2927,17 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     # payment sheet at the person who ASKED for the money rather than the one who just
     # agreed to send it. Both decision paths did this.
     #
-    # Under two-phase firing the message that fires is by definition the acceptance, so
-    # the actor is always its sender. This does not touch immediate fires: a bare
-    # "venmo me 20" never reaches here with status "fired", and keeps "others".
+    # Under two-phase firing the message that fires is by definition the acceptance —
+    # but the actor is NOT always its sender. Accepting a request means you pay;
+    # accepting an offer means the other person pays. Resolving that needs the previous
+    # turn, so ask the window instead of assuming. This does not touch immediate fires:
+    # a bare "venmo me 20" never reaches here with status "fired", and keeps "others".
     if (result.get("conversation_state") or {}).get("status") == "fired":
         if any(i in result["intents"] for i in MANAGED_INTENTS):
-            result["target"] = {"show_to": "sender", "reason": "accepted_request"}
+            if _resolve_payer(room_id, sender) != sender:
+                result["target"] = {"show_to": "others", "reason": "accepted_offer"}
+            else:
+                result["target"] = {"show_to": "sender", "reason": "accepted_request"}
 
     # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])
@@ -2778,6 +3051,16 @@ class DetectRequest(BaseModel):
     sender: Optional[str] = None
     context: Optional[list] = None
     reply_to: Optional[str] = None
+    # How many people are in the room, INCLUDING the sender. Optional and additive —
+    # every existing caller keeps working without it.
+    #
+    # Needed for one thing only: turning a total into a per-person share. "trip was
+    # 5000, send me your shares" means 1000 each in a room of five and 2500 in a room
+    # of two, and nothing in the message says which. Without it the prompt is left
+    # blank rather than guessed, because a wrong figure on a payment screen is worse
+    # than an empty one. Do NOT infer it from who has spoken — in a 5-person trip only
+    # two people may be talking.
+    participants: Optional[int] = None
 
 
 class DetectResponse(BaseModel):
@@ -2822,7 +3105,7 @@ def detect(req: DetectRequest):
     rid = req.room_id or req.chat_id
     result = full_pipeline(req.text, room_id=rid, context=req.context,
                            sender=req.sender, message_id=req.message_id,
-                           reply_to=req.reply_to)
+                           reply_to=req.reply_to, participants=req.participants)
     return DetectResponse(
         **{k: v for k, v in result.items() if k in DetectResponse.model_fields},
         chat_id=req.chat_id,
