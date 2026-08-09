@@ -13,3 +13,7 @@ build/
 # fp32 ONNX is only the intermediate that conv_model_int8.onnx is quantized from
 # (export_conv_onnx.py). Nothing loads it at runtime and it is 474MB.
 conv_model/conv_model.onnx
+
+# Training data stays on disk, not in git — conversations_v5.json never was tracked
+# and conversations_v6 is 51MB. The generators in data_gen/ are the reproducible part.
+data/conversations/
