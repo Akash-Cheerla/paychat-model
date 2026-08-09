@@ -1,0 +1,4448 @@
+[
+ {
+  "scenario": "m_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you send me $40 for the uber to downtown? i forgot my wallet and the driver's waiting",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it now—check your phone",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you send me $40 for the uber back from brooklyn? i'll pay you back tomorrow i promise",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it rn—check your cash app in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you send me $40 for the uber to brooklyn? i'm short and the fare spiked",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u send $25 for the uber back from downtown tonight? i forgot my wallet at home",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it now 👍",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u send $40 for the domino's order? my cards being weird rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, sending now—check ur venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, totally forgot—thanks for covering the tattoo deposit last week, i owe you like $75 right?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "k sending it now, check your venmo in a sec.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just realized i still owe you $25 from the pizza last friday, sorry for the delay",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "sending it over now, should pop up in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just realized i never venmo’d you for the concert tickets you grabbed for us",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "sending it now, $85 to your account 👍",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man thanks for covering my share of the uber last night, i owe you like 12 bucks for the ride back from brooklyn",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "just zelle’d you $12 now, should hit your account in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "owe u for the metro card top-up from tuesday—$30 right?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "sending it via venmo now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man sorry i completely forgot about the concert tickets, i owe you $85 for mine",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "sending it right now via venmo, check your phone",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man i totally forgot to venmo you for the ubers last weekend, i owe you like $27 right?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "okay sending it now, just got the notification through, check your app",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man just realized i never paid you back for those ride tickets to brooklyn, that was $40 right?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "okay sending it rn, check your venmo in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $50 til friday? gotta pay the electric bill otherwise theyre cutting it tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh sorry man i wish i could but im literally at $12 til payday, blew it all on car repairs last week",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday? just short on rent and need it for the delivery fee",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh sorry man i’m broke till payday too, literally have like $20 in my account right now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $50 til friday? my car's acting up and i gotta get it to the shop near downtown.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh sorry dude, i'm broke til payday myself. i just dropped $80 on groceries and rent's due soon.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $40 till friday? my wallet's somewhere in the lost and found of the 57 bus, i swear.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh, sorry dude, i'm tapped out till payday. literally counting pennies for my metrocard this week.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "bro can u spot me $40 till friday? trying to grab this hoodie from the selden st drop but my accounts dead.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ah shit sorry man, i’m totally broke rn, literally just paid rent and got like $12 left till payday. can’t help this one.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey could you spot me $50 till friday? car broke down and need it for the tow to queens.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ah man sorry, im dead broke till payday myself—barely got $20 for groceries this week. can maybe help next month tho.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did you end up sending the money for the tickets?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sent it earlier this morning, $40 total right?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did u end up sending that $50 for the concert tickets yet?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah man already sent it earlier, check ur account.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did you ever send that money for the concert tickets?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i sent it this morning, should be in your account by now.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did u end up sending the money for the concert tickets?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sent it earlier this morning, should be in your account by now 👍",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did you ever send me that $40 for the tickets?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sent it earlier this morning, should be in your account by now.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did you end up sending that $50 for the concert tickets yet?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sorry, sent it this morning around 10, should be in your account already.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did u ever send the money for the ride to downtown?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sent it earlier this morning, should be in your account already",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_already_done",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey did you ever send that $40 for the concert tickets?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sent it earlier this morning, should be in your account by now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, super short on rent this week, could you spot me a hundred dollars till i get paid?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, but i cant send it till wednesday—will that work?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey i know this is random but could you spot me $50 till end of the month? my car broke down near downtown and the tow was way more than i thought",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "damn that sucks, yeah i got you. i can send it this thursday, not right now since my paycheck hits wednesday night, ok?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, i'm short like 40 bucks for rent this week, any chance you can spot me?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah for sure, i can send it tuesday after my paycheck clears, not right now though ok?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey, any chance you could spot me $50 till i sort out my car situation? i need it for the belt repair shop near park street.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, but i can't send anything today—i'll transfer it on tuesday morning, promise.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, could you spot me $50 till payday? my car broke down near downtown and the tow’s gonna cost me.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, but i can’t send it right now—wallet’s empty till friday. i’ll send it thursday afternoon, promise.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey, can you spot me $50 till next week? my metro card died and i gotta get to brooklyn for work tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no worries, i’ll send it on thursday for sure, just kinda tight rn til payday",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey dude, can you spot me $50 till next week? need it for the bus fare to brooklyn kinda broke rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, i’ll send it wednesday when i get paid, not before that, cool?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_future_promise",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $40 for my metro card this week? i swear i’ll pay you back next friday.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no problem, i’ll send it to your account on wednesday morning, gotta wait till then though.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just checking my notes from last weekend... you still owe me $40 for that uber back from brooklyn lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah haha that sounds right, my brain just erases anything money-related tho",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just remembered you still owe me $40 from the ride to brooklyn last week lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeahhh true that, my bad, i’ll get you sometime",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just saw my statement, that $50 from last month's split is still sitting there btw",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i know, it's there, no stress",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "just remembered you still owe me $40 for the concert tickets from last month lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah that sounds right, i’ll get to it eventually, no stress",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just a heads up, you still owe me $40 from the ubers last weekend",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "haha yeah that sounds right, my bad. i’ll sort it out eventually",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "yo just remembered you still owe me $40 from that uber to andheri last month lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah thats true, i do. my bad. anyway did you see the new memes today",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "yo just remembered you still owe me $40 from that xyz cab ride last week lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "haha yeah true, my bad, i’ll get you sometime for sure",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_statement_not_request",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey just remembered you still owe me $40 from the uber that night we went to wicker park",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh yeah that’s right lol, i’ll get you sometime",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u cover my part of the rent this month? i'm short like $300",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oof that's a lot… i can do $150 at most, is that ok?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah that works, thanks so much",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool, sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $200 until friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "damn that's a lot rn, i can do $120 if that works?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah that works, thanks so much",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $500 until friday? need it for the car repair",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "damn that's steep, i can do $300 for now. that work?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah $300 helps a ton, thanks",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool sending it over right now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $500 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oof thats a lot, i can do $300 if that works?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah $300 is fine, thanks so much",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool sending it now 👍",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey could you spot me $200 for my rent this week? i get paid friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i can do $120 max right now, that work?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah that’s cool, thanks so much",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sending it over now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $200 for the festival tickets? i’ll pay you back next week",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i can do $120 max, sorry that’s all i’ve got left this month. that work?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah ok $120 is fine, thanks for helping out",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool sending it now. check your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $500 for the rent this month? i’m short and it’s due friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "that’s a lot right now, i can do $300 — does that work for you?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah okay, $300 is fine, thanks so much",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool, sending it now — check your account in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_counter_offer",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $200 for the concert tickets tonight? i’ll pay you back friday i swear",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "whoa that’s a lot, can we do $120? i’m kinda tight this week. that cool?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah okay, $120 works. thanks a ton",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "alright sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay so if i drive you to the airport on friday, will you cover the parking fee? it’s like $35 at seattle-tacoma",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sounds good, i’ll venmo you the $35 after we park",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can you spot me $20 for the uber back to brooklyn? i'll venmo you tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it now—just get home safe",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can you spot me $40 for the uber to brooklyn? i’ll venmo you back friday.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, send me the details.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "could you spot me $120 for the new tire? i’ll pay you back friday after my shift",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, i’ll send it now. just grab it from downtown tire shop on 5th if you want it quick",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey if u could spot me $60 for the uber to brooklyn i'll venmo u back friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, i got u. send me the address.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey, can you grab the uber to brooklyn for me? i'll venmo you $45?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure that works, just send me the address and i'll book it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can you grab my ubereats from the place near bandra station? i'll venmo you $14 for the bowl and tip",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, $14 works, just send the order details quick",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_accepted",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "could you grab me a cab from downtown to lax? i'll venmo you back, $45 cool?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah that works, sending the request now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the amount, 450 rupees for the cab to bandra.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the $38 for the ride to marathahalli.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the amount for the uber to brooklyn, just tell me the total and i’ll venmo it right now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the $25 for the ride to bandra",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay let me send you the amount for the uber to brooklyn, $18.50 right",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the $15 for the cab to brooklyn, i never plugged in my card.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the amount for the cab from andheri to bandra, just $12",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_offer_let_me",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "let me send you the amount right now, it's $12 for the airport pickup in dwarka.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_deferral_then_commit",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u send me $40 for the uber to brooklyn? i’m stuck at the airport and forgot my card",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh i wish i could but i’m literally broke right now—got bills hitting today",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ok no worries… actually if u can spare even $20 by tonight, that’d save me walking 3 miles in the rain",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "fine, fine—sending $20 now. don’t make me regret this 😑",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_deferral_then_commit",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man can you spot me $50 till friday? car repair came up",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh not right now, i just paid rent and im tight till payday",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah i get it no worries... hey actually any chance now? the shop won't release my car without cash",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "fine fine, sending $50 now—just get it back by friday ok?",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_deferral_then_commit",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday? just need it for groceries",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "uhh not right now honestly, i’m kinda tight this week",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ok no worries… actually, could you do even $20 just for tonight? i’m really stuck",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "fine, fuck it, sending $20 now. pay me back when you can",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_deferral_then_commit",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh not right now, im tight this week",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "hey i know i asked already but really stuck, uber to downtown and im short",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "fine, sending it now. dont make this a habit lol",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you venmo me $40 for the concert tickets i fronted?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh wait did you see that video of the cat stuck in the tree downtown koreatown?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "haha no link me that sounds absurd but also our money tho",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh right yeah sending the $40 now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 for the concert tickets? i’ll pay you back friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh did you see the storm last night? my street is literally a river rn",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah it’s insane, the drain outside my place is overflowing too",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "okay sorry, sending the $40 now actually. check your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you venmo me $40 for the concert tickets? i'll pay you back friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "omg did you see that weird cloud formation today? looked like a dragon or something",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah lol i saw it from the bus, super random but kinda cool ngl",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh right, the tickets—sending the $40 now actually",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday? rent's due tomorrow and i'm short",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh btw did u see that new taco place opened near the subway? apparently they do $5 burritos",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "no way, that's wild. maybe we can hit that up after payday if i make it through this week",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah for sure. and sending the $40 now, check ur venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 for the concert tickets? i’ll pay you back friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh btw did you see that weird dog video on jane’s story? the one with the squeaky toy",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "no but now i have to watch it, she always finds the best ones haha",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "lol anyway yeah hold on, sending the $40 now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can you send me the $40 you owe me for dinner?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh btw did you see sarah’s post about moving to brooklyn? that’s wild",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah crazy, but she’s always talked about nyc ever since school",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "right sorry, sending it now over venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_drift_then_ack",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you send me $40 for the concert ticket by tonight?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "oh btw did you see the new trailer for that movie? looks insane",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah i did, the cgi actually looks decent for once",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "right sorry, sending the $40 now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey are you able to front me $40? i'll pay you back friday after my shift",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure thing, sending it to your venmo now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "it's been a minute, did it go through? not seeing it yet",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah just sent it, check again",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday? my paycheck is late and rent is due tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no worries, sending it now via venmo",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go through? i dont see it yet, just checking",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah it’s done, check again — should be there now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending it now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go through? not seeing it yet",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "just sent, check again—should be there",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no worries, sending now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go through? i don’t see anything yet",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "just sent, check again—done",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $40 till friday? my pay's late and i gotta grab groceries before the rain hits",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah np, sending it to your venmo now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go thru? i'm checking and not seeing anything yet, might be lagging",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "just confirmed, it's there now — check your notifs again, all good",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u lend me 40$ till friday? my card got decline for the uber back from brooklyn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure no problem sending now via venmo",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go through? i don’t see it yet on my end",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yup just sent it, check again—should be there in a sec",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $40 till friday? forgot my wallet at home and need to grab dinner",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no worries, sending it now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it come through? my bank app isnt showing anything yet",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "just resent, check again — its done now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_chasing",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $50? rent’s due tomorrow and i’m short",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no worries, sending now through venmo",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "A",
+    "text": "did it go through? not seeing anything yet might be lagging",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "just sent, check again—it’s done",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, can you spot me $50 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sorry dude, i’m totally broke rn, just paid rent",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ah no worries, forget it",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah wait, i got you, sending it now actually",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh i wish but im literally broke rn, paycheck doesn't hit till next week.",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "no worries, i'll figure something out.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait actually i found $20 in my old coat, sending it now.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday? my card got declined at the gas station in brooklyn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh i wish but im literally broke rn, just paid rent and my account is at $12",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ah no worries, i’ll figure something out lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait actually i just checked my savings, sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u spot me $40 till friday? car broke down near downtown",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh i wish i could but i’m totally broke rn, rent ate everything",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "no worries, it’s fine, i’ll figure something out",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait actually just checked my wallet—i got a $50 in there. sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey you think you could spot me $50 till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh sorry man i'm totally broke rn, rent just wiped me out",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "all good, no worries, i'll figure something out",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait actually i just checked my other account—sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday? my paypal got hacked and rent is due tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "shit man i wish i could but im literally at $12 til my next check, groceries are already looking grim",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ah no worries, i’ll figure something out with the landlord",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait no, lemme check my savings – yeah okay i’ll send it now, just pay me back when you can",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday? my card got declined at the pump",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "man i wish i could but im literally at $12 in my account rn, rent ate everything",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "ah no worries, i’ll figure something out, thanks anyway",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait, actually i just found some cash in my jacket, sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_revive",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $40 till friday? my card got declined at the metro station uptown",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "shit dude i’m broke rn, just paid rent and my account’s at like $12",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "no worries, it’s fine, i’ll figure something out",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "wait actually i can pull from my savings, sending it now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_smaller_offer",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $200 for the concert tickets this weekend? i'll pay you back next friday promise",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh sorry dude i really can't swing that much right now, rent just cleared my account",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "but i could do like $80 if that helps at all? covers your train pass and a few drinks maybe",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "oh word? yeah that actually helps a lot, thanks man you're a lifesaver 🙏",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_reject_then_smaller_offer",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you spot me $200 till friday? rent’s due and im short",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ugh i wish i could but that’s way too much for me rn, i’m tight this week",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i could do $50 if that helps at all? grab you something from the grocery run",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "honestly that helps a lot, thank you so much. i’ll pay you back next payday",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey dinner came to $84.30 total, so $28.10 each",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no worries, i'll cover mine and c's share—just send me your half of the total",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey dinner was $87 total, so $29 each. could you venmo me your share plus c’s?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got it, sending $58 now. c’s been busy with work all day so i’ll cover them.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ok so dinner was $84 total, that’s $28 each",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i’ll cover mine and C’s, so just send me $28 and i’ll pay the whole bill",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ok so dinner was $84.30 total, split 3 ways that's $28.10 each",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i got it, i'll cover mine and c's share so just send me your half or whatever",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey dinner came to $87 total so $29 each, can you both send your share?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no worries, i'll cover mine and C's too, so i'll just send you $58 for both of us.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "dinner was $87 total, so that's $29 each",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "don't worry about it, i'll cover mine and c's share, so just send me your $29",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey so dinner came to $86 total, that's about 28.67 each if we split three ways",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no worries, just send me the total and i’ll cover my share plus c’s too",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_split_covers_two",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "dinner came to 67 bucks total, can each of us send 22.33? just wanting to confirm before i pay.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no worries, i’ll cover mine and C’s share, so i got 44.67 for you.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can someone spot me $40 for the concert tickets? paypal works",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got u, sending now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "ugh wait my card just got blocked by my bank, sorry give me 10 mins",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "don’t stress B, i’ll cover it—sent $40 to A, u owe me a drink",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got $20 i can borrow for my metro card till friday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i got u, sending it now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "shit sorry my card just got blocked, can’t do it",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "nah it’s fine, i’ll cover it. sending now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can someone spot me $40 for the uber to brooklyn? my paypal is being weird",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, sending now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "ah shit nevermind, my card just got blocked, bank flagged it as fraud",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "no worries, i’ll cover it. just send me the address when you’re ready",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay so i need to pay $45 for my metro card refill and im broke till friday, can anyone spot me?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, sending it now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "ugh nevermind, my card just got blocked by the bank, sorry dude",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "no worries, i’ll cover the $45—send me your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay team, the group project ppt needs paid printing by tomorrow, can anyone spot me $15 for that business center near pearl street?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yea i got u, gonna do it online right now from the digital store front.",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "oh no, my card just got blocked by the bank, can't process anything atm.",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "no worries, i'll cover it, just send me the link and i’ll pay for it from my phone.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay who can spot me $30 for my metro card till friday? i'm broke till payday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i got you, sending it now",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "wait my card just got blocked lol, can't do it rn sorry",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "don't worry i'll cover it, sending you $30 now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone got like $15 i can borrow for my metro card? forgot my wallet at home",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got u, just zelle me back later",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "ah shit actually my card just got blocked, bank flagged it for fraud",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "no worries, i’ll cover it—send me your venmo a",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_handoff",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got $40 i can borrow till friday? need it for the parking ticket near downtown",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, just venmo me the request",
+    "fire": [
+     "money"
+    ]
+   },
+   {
+    "sender": "B",
+    "text": "ah crap scratch that, my card just got blocked by the bank for fraud",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "no worries, send it to me instead, i’ll cover it right now",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone wanna split a cab to brooklyn heights tonight? i'm short like 10 bucks",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "also if anyone can spot me $15 for pizza before we head out, i'm broke till friday",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got the cab covered, don't worry about the 10",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone able to spot me $20 for the concert ticket? pay back friday",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "also need $15 for the uber split to brooklyn tomorrow, can someone cover?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you for the uber, c",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can anyone spot me $40 until friday for the concert ticket?",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "hey could one of you cover my movie ticket tonight? it’s like ₹300 and i’m short.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah got you on the concert, a. send me your upi id.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can someone spot me $20 for the concert ticket, i'll pay back friday",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "also anyone able to chip in like $10 for gas to austin next weekend",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you for the concert ticket, send me your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can anyone spot me $40 for my half of the netflix and spotify bills? totally forgot",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry to jump in but could someone also lend me like 500 rupees for my metro card till payday?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure no probs, i’ll send you the $40 for netflix, a.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can anyone spot me $40 for the concert ticket? i get paid friday i swear",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "also if anyone’s feeling generous, need $25 for the uber split to brooklyn tomorrow",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got the $40 for the ticket, a, no worries—just venmo me back when you can",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can anyone spot me $20 for my train ticket back from brooklyn tonight? i’m short after paying rent",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "hey while you’re at it, anyone able to chip in $15 for the group movie tickets tomorrow? i’ll grab them all",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, i’ll send you $20 for the train, a—sorry c, i’m tight on cash this week but got you next time",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_two_requests_one_ack",
+  "tier": "hard",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone got 20 bucks i can borrow? im short for the uber to brooklyn tonight",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "wait can someone spot me $15 for the pizza order? my cards acting up",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i can cover the pizza just get me back later dude",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got $20 till friday? need it for my metro card",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "bro you still use the metro, just find some loose change under the couch",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i got you, sending it now.",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone got like $15 till friday? payday’s lagging and i’m short for the metro card to brooklyn",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "i’d spot you but my wallet’s currently on a solo vacation in the bahamas, sorry bro",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got it, sending it to your venmo now — check your phone in a sec",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "yo anyone got $20 they can spot me till friday? car broke down near dumbo",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "i got u bro, i’ll venmo u some monopoly money rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah i got it, sending now check your cash app",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got like $20 i can borrow till friday? forgot my wallet at home and need to grab lunch",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sure, i've got a crisp high-five and some good vibes for you, that work?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, sending it now, grab me a soda too",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got $20 till friday? forgot my wallet at the delhi hauz khas metro",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "my money is currently tied up in a very serious investment... a large cheese burst pizza, sorry bro",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ya i got you, sending it now, check your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey anyone got like $20 till friday? rent check bounced n im short",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "I’d spot you but my wallet’s on a diet and it’s cheating on me rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i got you, sending via zelle now—check your phone",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "yo anyone got $20 till friday? car ran outta gas near ponsonby",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "i’ve got $20 but it’s glued to my wallet for emotional support, sorry mate",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, sending it now—check your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "m_group_one_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone got $20 i can borrow till friday? my card's dying and i need gas to get to work",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "i'd spot you but my wallet's on a diet this week, sorry bro",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah i got you, sending it now—check your venmo",
+    "fire": [
+     "money"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to powai? stuck at andheri and my phone's dying",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, booking it right now—eta ~10 mins, $12 ok?",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_request_ack",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book me an ola to indiranagar metro? i'm running late for work",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, booking it now—should be there in 5 mins",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "booking the cab right now, should be there in like 10 mins",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ok booking the cab now from bandra to andheri, it’s like $9, sending you the link",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "just booking the cab now, heading to indiranagar—splitting it like last time, right?",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "booking the cab rn, gonna be like $18 to andheri east. seeya in 20?",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ok booking the cab rn, getting you the uber to koregaon park—dtc to panchshil tech park, should be like $4-5 with the surge?",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "okay booking the cab from indiranagar to koramangala now, just fyi—spot flex will cover it, i owe you $6 for my half",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "booking the cab now, picking you up from indiranagar in 20, it’s like $8 to kormangala, you can pay me back later",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_self_initiated",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "booking the cab rn, $12 to indiranagar, sending u the split request in a sec",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book me an uber to bandra real quick? i'm running late and my app's glitching",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no lol it's literally a 10 min walk from here, just head down linking road and you'll be there",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to bandra real quick? my phone's dying",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah just walk, it's like 20 mins from here. save the $8",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to bandra real quick? im kinda stuck at work and my phone's dying",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah man just walk, it's like 15 mins from here—save the $8 for chai instead",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to bandra? my phone's about to die and i'm stuck near linking road",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah dude just walk, it's like 15 mins from there, save the $5",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab to andheri west? uber's being weird on my phone",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah just walk it's like 15 mins from bandra, you'll survive",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to andheri west? i’m at the station",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah just walk, it’s like 15 mins. don’t waste $8 on that.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab from bandra to andheri? uber app keeps crashing on me",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah just walk it's literally 15 mins away, you'll survive",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rejection",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to bandra real quick? my phone's dead and i gotta get there asap.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah just walk it, it's like 15 mins from yours. save the $10.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u pick me up from downtown by the metro stop? my cars at the shop and it's raining, i'll pay u back for gas",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, gimme 15 min, i'll be there. don't worry bout gas, just buy me a coffee later",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u pick me up? my car wont start and im stuck near the andheri signal, gonna be late for work lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, gimme 15 mins. im on my way, $5 for the petrol tho 😤 but fine, coming to get u now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey are u free around 6? can u pick me up from the gym on miller ave? my car broke down again lol",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no problem, i’ll grab u there at 6. want me to drop u anywhere after?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey, my car just died outside colaba. any chance you could come pick me up?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, sending me your exact spot and i’ll be there in like 20.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey r u free? could u pick me up from andheri station? my car's in the shop and its pouring rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah im coming, give me 20 mins. will u pay for parking at your place tho? $5 says yes or no",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey, can you pick me up from andheri station in like 20 mins? my car’s at the mechanic and uber’s showing 400 bucks rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah sure, i’ll hop in my car and be there by then. just wait by the west exit.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey ur still heading to downtown later right? can u pick me up from the tremont st stop, my car's in the shop",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no problem, i'll swing by around 6:30, just text me when ur out front",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_own_car",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey man, any chance you could swing by and pick me up from downtown coffee? my car’s at the shop til tmrw.",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah for sure, im on my way now. give me like 15 mins, i’ll pull up in front of the starbucks on main st.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "dude these cab prices r insane rn, $32 just to get from downtown to lax??",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah tell me about it, it’s like they double every time there’s a slightly busy hour.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "dude these cab prices are insane rn, like $28 to get from brooklyn to midtown??",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah it’s brutal man, i paid $35 for the same ride yesterday, not worth it at all.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "man these cab prices are insane rn, $28 to go from brooklyn to soho??",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "i know right, it's getting ridiculous, even the short rides are like $15 now.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "bro these cab rates are insane rn, like 1.2x surge to go from brooklyn to manhattan, almost $40 for a 20 min ride",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah ik it’s brutal, even the short hop to midtown is like $25 now, i’ll split it if we take one tho",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "just looked at uber to downtown from brooklyn heights and it’s $38 like what the hell is that",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah man surge pricing is brutal rn, even for a short ride it’s nasty i paid $22 to go 10 blocks last night",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "man these cabs are insane rn, $28 just to get from brooklyn to lower manhattan?? thought it was like $15 before",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah prices are terrible these days, even a short hop to the village cost me $18 last night it's wild",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "dude cab prices are insane rn, $18 to go from downtown to brooklyn heights?? that’s robbery",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no kidding, it’s brutal everywhere lately, even short rides are like $12 now",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_price_talk",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "bro why is every cab to brooklyn like $30 right now?? insane pricing today",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah it’s brutal, even the short hops to lower manhattan are $20+. i swear they hike it at every slightly busy hour.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book an uber for me to andheri east? i’m running late for the meeting",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already done, it’s pulling up in 2 mins for $6, check the app",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me to powai? i'm running late for the meeting",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already did, it's parked outside galaxy, arriving in 2 mins",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab to downtown? im running late for the movie",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already done, got u one from andheri west, its pulling up in 5 mins, cost around $12 ok?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book an uber for me to bandra west? i'll send u the pin",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already did, it's about 5 mins away, $12 total",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to andheri station? im running late",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already done, itll be there in 4 mins. check the app, $12 ride.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me an uber to bandra? i’m at andheri station",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "done already booked one, it’s pulling up in like 2 mins",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me? need to get from brooklyn to manhattan in like 20 min",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already did, it’s pulling up outside your place in 2 min, $35",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_already_booked",
+  "tier": "easy",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me? need to get to brooklyn bridge park asap",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "already got it, the uber is pulling up outside in like 2 mins, u good?",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to powai lake for me pls",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually wait, change that—go to linking road instead",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "cool, on it, booking to linking road right now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to andheri west? the one near versova beach",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually wait—change it to bandra station instead, sorry",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no worries, booking it to bandra now for $12",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can u book an indrive to kamala mills for me pls",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "scratch that, actually change it to bandra fort",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok no prob, booking the fort one right now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab to camden market please",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually scratch that, change it to shoreditch instead if that’s okay",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah no problem, booking it to shoreditch now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to indiranagar for me?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually wait, change it to koramangala instead",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok no problem, booking koramangala now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book me an uber to bandra west?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually wait, change that—make it andheri east instead",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok no worries, booking now for andheri east",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab to indiranagar?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually no, make it koramangala instead",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, booking it now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_rider_changes_dest",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to andheri west for me?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "actually wait, change it to bandra station instead",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, booking bandra now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can u book a cab to bandra west for me? im at the airport rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "how about we skip bandra and grab late dinner at colaba instead taj hotel side",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "yeah im booking the colaba ride now, hope ur hungry",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "heyy can u book a cab to andheri west for me? im at bandra station rn, kinda in a rush",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "lol why andheri, let’s go to juhu beach instead, it’s like 10 min away and way better",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "okayyy booking the juhu ride now, see u in 5 mins, don’t argue 😂",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to downtown oakland pls? im at the mission in sf rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "why tho, lets go to napa instead, way more chill for wine taste",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok booking it now, see u in 10, this is gonna be fun",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to downtown brooklyn? im at the whole foods on 3rd ave rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah let’s hit up crown heights instead, there’s that new ramen spot u wanted to try",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok booking the cab to crown heights now, see u in 10",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to the airport from my place in brooklyn heights?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah, too far and traffic’s bad. what about meeting at downtown crossing instead, market basket area?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok whatever, booking for downtown crossing now.",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can you book an uber to bandra west for me? i'm at infinity mall in andheri",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "why bandra? let's go to juhu beach instead, way closer and chill right now",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "alright booking the cab to juhu, i'll send the ride details in a sec",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book a cab to bandra west for me? im stuck at andheri east near the metro",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "no way, bandra traffic is hell rn—lets just go to juhu beach instead, way closer and chill",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "okay booking the cab to juhu now, you owe me $5 for the surge",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_booker_suggests_not_agreed",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab to juhu beach pls, im at bandra station rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "nah lets go to versova instead, way less crowd and better sunset spots",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok im booking the cab to versova now, see u in 5",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book me a cab? need to head out in like 10 mins",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "andheri west, near the station",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok, booking now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book that cab for me rn?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "just drop me at sector 32, near the park",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "got it, booking now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book that cab for me, the usual app",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "around seaport in boston, by the aquarium",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "kk getting it now, 10 min wait",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me? need to leave in 20 mins",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "the airport, terminal 2",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "got it, booking now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me rn? bit urgent",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "the airport, terminal 2",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "okay, booking now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me? need to get somewhere quick",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "just drop me off at andheri station west, near the flyover",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok gimme a sec, booking now",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can u book a cab for me rn?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "brooklyn bridge, dumbo area",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "okay, booking now.",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_where_to",
+  "tier": "medium",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can you book a cab for me real quick?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "sure, where to?",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "just drop me near brigade road in bangalore",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "ok booking now, one sec",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone able to book me a cab to brooklyn heights? got a late shift",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "ugh sorry cant, in a meeting rn",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "on it, booking from union square now, give me 2 min",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can anyone book me an uber to brooklyn heights? my phone's dead and i'm stuck in manhattan",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "ugh i'm in a meeting all day, sorry",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "booking it now, check your email for the receipt—sent to your messenger too",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "can anyone book me an uber to downtown brooklyn? i’m stranded at the airport",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry dude i’m in a meeting till 6, can’t",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "on it, booking it now—should be like $35, sending you the driver’s info",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can someone book me a cab to downtown brooklyn? stuck at the office and it’s pouring",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry dude i’m in a meeting till 8, can’t",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "on it now, $18 estimate, sending you the details in a sec",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "yo can anyone book me a cab to powai from bandra? uber says $12",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry man im in a meeting rn cant do it",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "got it, booking it now on my app",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ok can someone book me a cab to bandra west? meeting ran late im stuck at the airport",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry can't rn, im in a call with my mom",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "doing it now, sending you the driver details in 5",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "anyone free to book me an uber to brooklyn heights? my phone’s dead and i’m stuck in soho",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "ugh sorry i’m in a meeting till 6, can’t",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "on it now, sending it to the usual spot? give me the exact corner",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_group_taker",
+  "tier": "medium",
+  "kind": "GROUP",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "hey can anyone book me a cab to juhu beach? mine just canceled and im stranded",
+    "fire": []
+   },
+   {
+    "sender": "C",
+    "text": "sorry dude im in a meeting rn cant do it",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "on it, booking now—5 mins out, sent the details to ur phone",
+    "fire": [
+     "ride"
+    ]
+   }
+  ]
+ },
+ {
+  "scenario": "r_discussed_not_booked",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "metro or cab to brooklyn? cab’s faster but pricier i think",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "take the metro honestly, it’s like half the price and traffic’s bad rn anyway",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah you’re prob right, i’ll decide later once im out the door",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_discussed_not_booked",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "ugh the rain is getting crazy, should i just cab it to bandra or try the metro from andheri?",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "honestly take the cab, metro will be packed and the walk from the station in this wet hell isn't worth saving 300 rupees.",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah but traffic might be worse... i'll decide in 5 mins, don't book anything yet.",
+    "fire": []
+   }
+  ]
+ },
+ {
+  "scenario": "r_discussed_not_booked",
+  "tier": "hard",
+  "kind": "DM",
+  "turns": [
+   {
+    "sender": "A",
+    "text": "metro or cab to brooklyn heights later? cab’s faster but pricier i think",
+    "fire": []
+   },
+   {
+    "sender": "B",
+    "text": "take the metro honestly—rush hour traffic on the bridge is a nightmare and you’ll save like $15",
+    "fire": []
+   },
+   {
+    "sender": "A",
+    "text": "yeah true, i’ll decide once i’m actually out the door lol",
+    "fire": []
+   }
+  ]
+ }
+]
