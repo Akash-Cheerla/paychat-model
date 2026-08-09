@@ -244,6 +244,43 @@ _FUTURE_PROMISE_PATTERNS = [
     re.compile(r"\bgive\s+me\s+(?:a\s+(?:few|couple)\s+)?(?:days?|time)\b", re.IGNORECASE),
 ]
 
+# Explicit future-time markers, used ONLY to demote a self-initiated action to a promise.
+#
+# Deliberately much narrower than _FUTURE_PROMISE_PATTERNS above. Reordering that whole
+# set ahead of the self-initiated check was tried and reverted (see the note in
+# ResponseClassifier.classify) because its 4th pattern matches "back", so "ill pay you
+# back rn" — an immediate payment — got suppressed as a promise.
+#
+# This set therefore contains only phrases that pin an action to a LATER time. "back",
+# "soon" and "later" as a bare adverb are excluded for that exact reason, and an explicit
+# "now" marker overrides anything here, so "ill pay you back rn" stays self-initiated.
+_FUTURE_TIME_MARKER = re.compile(
+    r"\b(?:tomorrow|tmrw|tmr|tonight|"
+    # Full weekday names stand alone — "ill pay you friday" is a promise. Only the full
+    # spellings, never bare "sat"/"sun", which would match "i sat down" / "sunny".
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"next\s+(?:week|month|mon|tue|wed|thu|fri|sat|sun)\w*|"
+    r"(?:this|on)\s+(?:week|weekend|mon|tue|wed|thu|fri|sat|sun)\w*|"
+    r"when\s+i\s+get\s+paid|after\s+payday|"
+    r"end\s+of\s+(?:the\s+)?(?:week|month)|"
+    r"in\s+a\s+(?:few|couple)\s+(?:days?|weeks?))\b", re.IGNORECASE)
+
+# An explicit "right now" beats a future marker in the same message: "ill send it now,
+# rest on friday" is an action happening now.
+_NOW_MARKER = re.compile(
+    r"\b(?:rn|right\s+now|now|asap|already|as\s+we\s+speak)\b", re.IGNORECASE)
+
+# In-progress vs completed. §3a turns on this distinction: in-progress fires, completed
+# does not. Completion wins when both appear.
+_IN_PROGRESS_MARKER = re.compile(
+    r"\b(?:sending|paying|transferring|booking|ordering|grabbing|calling|"
+    r"venmo-?ing|cashapp-?ing|zell(?:e)?ing|paypal-?ing|gpay-?ing|"
+    r"on\s+it|doing\s+it|working\s+on\s+it|one\s+sec|hold\s+on)\b", re.IGNORECASE)
+_COMPLETED_MARKER = re.compile(
+    r"\b(?:just\s+sent|already\s+sent|already\s+paid|already\s+did|sent\s+it|paid\s+it|"
+    r"sent\s+already|check\s+(?:ur|your)\s+(?:venmo|cashapp|app|phone|gpay|phonepe)|"
+    r"done\s+sent|its?\s+booked|already\s+booked|eta\b)", re.IGNORECASE)
+
 _REJECTION_PATTERNS = [
     re.compile(r"^\s*(?:nah|nope|no|hell\s+no|naw|pass)\s*[.!]*\s*$", re.IGNORECASE),
     re.compile(r"^\s*nah\s+(?:i(?:'?m|m)\s+good|i(?:'?m|m)\s+ok|not\s+(?:now|rn|today)|bro|man|fam|dude|bruh|thanks|thank\s+you)\s*[.!]*\s*$", re.IGNORECASE),
@@ -332,9 +369,16 @@ _SELF_INITIATED_RIDE_PATTERNS = [
 ]
 
 
-# Bare greetings/filler that should never count as a response to a pending request
+# Bare greetings/filler that should never count as a response to a pending request.
+#
+# ok / okay / k / kk / yeah / nah are NOT here. This guard only runs when a pending
+# request exists, and in that position they are the answer to it — "k" after "cashapp me
+# 50" is a confirmation and "nah" is a rejection. Forcing them neutral made every bare
+# ack keep_pending, which is the single most common acceptance form in real chat.
+# BARE_ACK_MSG_LIMIT bounds how long a bare ack stays valid; that is the mechanism for
+# stale acks, not this guard.
 _GREETING_ONLY = re.compile(
-    r"^(?:h[ie]y*|hi+|hello|yo+|sup|what'?s?\s*up|hola|hm+|oh|lol|lmao|haha+|ok(?:ay)?|k|yea+h?|nah|wow|damn|bruh?|dude|bro|ayo|wsg|gm|gn|morning|night|bye|later|peace|testing|test)\s*[.!?]*$",
+    r"^(?:h[ie]y*|hi+|hello|yo+|sup|what'?s?\s*up|hola|hm+|oh|lol|lmao|haha+|wow|damn|bruh?|dude|bro|ayo|wsg|gm|gn|morning|night|bye|later|peace|testing|test)\s*[.!?]*$",
     re.IGNORECASE,
 )
 
@@ -439,10 +483,15 @@ class ResponseClassifier:
         # did not shrink. Distinguishing "rn" from "friday" needs the model, not
         # regex precedence.
 
-        # Self-initiated actions — fire immediately regardless of pending (regex stays)
-        if any(p.search(t) for p in _SELF_INITIATED_MONEY_PATTERNS):
-            return ResponseType.SELF_INITIATED
-        if any(p.search(t) for p in _SELF_INITIATED_RIDE_PATTERNS):
+        # Self-initiated actions — fire immediately regardless of pending (regex stays).
+        # Unless the commitment is pinned to a later time: "ill send 100 this friday" is a
+        # promise, not an action in progress. This uses _FUTURE_TIME_MARKER, not the full
+        # _FUTURE_PROMISE_PATTERNS the note above describes — that set matches "back" and
+        # is what broke "ill pay you back rn". An explicit "now" marker wins outright.
+        if (any(p.search(t) for p in _SELF_INITIATED_MONEY_PATTERNS)
+                or any(p.search(t) for p in _SELF_INITIATED_RIDE_PATTERNS)):
+            if _FUTURE_TIME_MARKER.search(t) and not _NOW_MARKER.search(t):
+                return ResponseType.FUTURE_PROMISE
             return ResponseType.SELF_INITIATED
 
         # If no pending request from others, this can't be a response
@@ -460,11 +509,26 @@ class ResponseClassifier:
         # ML response_head — used only when it clears its confidence bar
         if pending_cls is not None and current_cls is not None and model is not None and torch is not None:
             ml_result, _conf, accepted = _ml_classify_response(model, pending_cls, current_cls)
-            if accepted:
-                if ml_result == ResponseType.NEUTRAL and any(i in MANAGED_INTENTS for i in model_intents):
-                    return ResponseType.NEW_REQUEST
+
+            # ALREADY_DONE now silences the request (§3a), so a wrong one costs a real
+            # prompt. The response head was trained when "just sent" fired and does not
+            # separate done from in-progress — it scored "sounds good sending now" as
+            # already_done at 0.76. An explicit in-progress marker with no completion
+            # marker overrules it. Remove once the head is retrained under the
+            # 2026-08-02 rule.
+            if (accepted and ml_result == ResponseType.ALREADY_DONE
+                    and _IN_PROGRESS_MARKER.search(t) and not _COMPLETED_MARKER.search(t)):
+                logger.info(f"already_done overruled by in-progress marker: '{t}'")
+                return ResponseType.POSITIVE_ACK
+
+            # A confident NEUTRAL is "no opinion", not a verdict. Returning it here let
+            # the head veto unambiguous regex signals — "nah just walk its like 10 min"
+            # scored neutral at 0.798 and left a rejected ride sitting pending, which the
+            # next stray "ok" would then fire. Neutral falls through; the regex below
+            # returns NEUTRAL too if it also sees nothing.
+            if accepted and ml_result != ResponseType.NEUTRAL:
                 return ml_result
-            # Not confident enough — fall through to regex below.
+            # Not confident enough, or no opinion — fall through to regex below.
 
         # Regex fallback
         regex_result = _regex_classify_response(text)
@@ -502,7 +566,11 @@ class DecisionEngine:
             return Action.CANCEL, f"rejected pending {pending.intent}"
 
         if response_type == ResponseType.ALREADY_DONE:
-            return Action.FIRE, f"completed — confirmed pending {pending.intent}"
+            # FIRING_RULE.md §3a (revised 2026-08-02): a completed action is information,
+            # not a trigger — "just sent it on gpay" / "done, eta 5 mins" leave the app
+            # nothing to do. Previously fired. The pending is still consumed (see the
+            # NO_FIRE branch) so a later stray "ok" cannot re-fire a finished payment.
+            return Action.NO_FIRE, f"already done — nothing left to do for {pending.intent}"
 
         if response_type == ResponseType.QUESTION:
             return Action.KEEP_PENDING, f"clarifying question — still pending"
@@ -680,20 +748,38 @@ class ConversationStateMachine:
                 elif relevant_pending:
                     final_intents.append(relevant_pending.intent)
                     relevant_pending.mark_responded(sender)
-            elif (response_type in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE)
-                  and len(pending_from_others) > 1):
-                # Multiple pendings: classify response against each one independently
-                for p in pending_from_others:
+            elif response_type == ResponseType.POSITIVE_ACK and len(effective_pending) > 1:
+                # Multiple pendings: classify the response against each one independently.
+                #
+                # Iterate effective_pending, NOT pending_from_others. When reply_to named
+                # a specific request, effective_pending is just that one; looping the
+                # unfiltered list resolved every open request in the room, so a single
+                # swipe-reply ack in a group returned intents=['money', 'money'].
+                #
+                # ALREADY_DONE is no longer in this branch — under §3a it resolves to
+                # NO_FIRE, so it never reaches an Action.FIRE path.
+                resolved_any = False
+                for p in effective_pending:
                     if p.has_responded(sender):
                         continue
                     if p.cls_embedding is not None and current_cls is not None and model is not None and torch is not None:
                         per_result, _c, _ok = _ml_classify_response(model, p.cls_embedding, current_cls)
-                        if _ok and per_result in (ResponseType.POSITIVE_ACK, ResponseType.ALREADY_DONE):
+                        if _ok and per_result == ResponseType.POSITIVE_ACK:
                             final_intents.append(p.intent)
                             p.mark_responded(sender)
+                            resolved_any = True
                     else:
                         final_intents.append(p.intent)
                         p.mark_responded(sender)
+                        resolved_any = True
+
+                # The per-pending pass can reject every candidate — "ok sending the 20 and
+                # booking the uber" scored neutral against both. Reporting status="fired"
+                # with no intent hands the app an empty prompt, so fall back to the single
+                # most relevant pending rather than fire nothing.
+                if not resolved_any and relevant_pending:
+                    final_intents.append(relevant_pending.intent)
+                    relevant_pending.mark_responded(sender)
             elif relevant_pending:
                 final_intents.append(relevant_pending.intent)
                 relevant_pending.mark_responded(sender)
@@ -792,11 +878,25 @@ class ConversationStateMachine:
             }
 
         else:  # NO_FIRE
+            # ALREADY_DONE resolves the request even though it fires nothing (§3a).
+            # Without consuming it the pending stays open and the next unrelated "ok"
+            # fires a payment that was already made.
+            if response_type == ResponseType.ALREADY_DONE and relevant_pending:
+                relevant_pending.mark_responded(sender)
+                self.store.remove_pending(room_id, relevant_pending.intent,
+                                          relevant_pending.sender)
+
             conv_state = {
                 "status": "no_fire",
                 "response_type": response_type,
                 "reason": reason,
             }
+            if relevant_pending:
+                conv_state["triggered_by"] = {
+                    "sender": relevant_pending.sender,
+                    "text": relevant_pending.text,
+                    "message_id": relevant_pending.message_id,
+                }
 
         logger.info(f"[{room_id}] {sender}: {text!r} → {response_type} → {action} ({reason}) → intents={final_intents}")
 
