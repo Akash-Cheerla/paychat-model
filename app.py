@@ -647,8 +647,26 @@ _REQUEST_OF_OTHER = [
 _DIVISIBLE = re.compile(
     r"\b(?:each|per\s+(?:head|person)|your\s+shares?|their\s+shares?|"
     r"split\s+(?:it\s+)?(?:\d+\s+ways|between|among)|\d+\s+ways|"
+    # A split with NO count stated anywhere — "lets split it", "we'll split the bill".
+    # This is how people actually say it, and without it the commonest phrasing was
+    # not treated as a split at all: _per_person_share never ran, the blanking below
+    # it never ran, and the FULL total went onto the payment sheet. Showing 3000 to
+    # someone who owes 1000 is the one direction a payment prompt must never be
+    # wrong in. With this, a known headcount divides and an unknown one blanks.
+    r"split(?:ting)?\s+(?:it|this|that|the\s+(?:bill|tab|cost|fare|total|check))|"
     r"everyone\s+(?:owes|sends?|pays?)|you\s+(?:two|three|four|all)|"
     r"all\s+of\s+(?:you|us))\b", re.IGNORECASE)
+
+# A question ABOUT an amount is not a request FOR it. Recording it as one gave later
+# commitments an extra request to answer: "How much do you owe me?" scores 0.787 on the
+# money head, crossed the 0.606 threshold, and became an open request, so a single $20
+# debt produced four payment sheets — one per commitment, each consuming a different
+# spurious record. Deliberately narrow: it only excludes the interrogative forms, so
+# "can you send me 500?" and "you still owe me 500" are untouched and still fire.
+_AMOUNT_INQUIRY = re.compile(
+    r"\bhow\s+much\b"
+    r"|\bwhat'?s?\s+(?:the\s+)?(?:total|damage|amount)\b"
+    r"|\bwhat\s+do\s+(?:i|we|you)\s+owe\b", re.IGNORECASE)
 
 # "split 5 ways", "between 4 of us", "4 way split" — a headcount stated in the message.
 _WAYS = re.compile(r"\b(?:split\s+)?(\d{1,2})\s*[- ]?(?:way|ways)\b|"
@@ -2971,6 +2989,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 # double-prompts came from this: "Sure" -> "Sending asap" (suppressed,
                 # but cleared the record) -> "Got intent for sending asap" (fired).
                 if intent in _classifier_fired:
+                    continue
+                # Asking what the figure IS opens nothing. See _AMOUNT_INQUIRY — this
+                # is the whole fix for one debt producing a sheet per commitment.
+                if _AMOUNT_INQUIRY.search(text):
                     continue
                 thr = model_state["thresholds"].get(intent, 0.5)
                 if result["scores"].get(intent, 0) >= thr:

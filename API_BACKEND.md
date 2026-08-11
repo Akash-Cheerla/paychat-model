@@ -62,8 +62,27 @@ This is the only endpoint you need. Call it for every message (DMs and group cha
 | `context` | object[] | No | Previous messages. Each object: `{"text": "...", "sender": "..."}`. Pass last 2-3 messages. If omitted, server tracks internally per room_id. |
 | `message_id` | string | No | Message ID (echoed back, also stored with pending requests for `triggered_by`) |
 | `reply_to` | string | No | Message ID of the message being replied to (from the chat app's reply-to-message feature). **Required for group chats** — see below. |
+| `participants` | int | No | Number of people in the room, **including the sender**. Group rooms only; ignored for `dm_*`. Used to divide a split — see Splits below. Nothing breaks without it. |
 
 **`sender` is required now.** Without it the server falls back to immediate-fire mode (no request→response tracking), which defeats the whole point of the state machine.
+
+### Splits — why `participants` matters
+
+"the trip came to 5000, send me your shares" is 1000 each in a room of five and 2500 in
+a room of two. The message never says which, and the server has no way to know how many
+people are in the room.
+
+- **Headcount stated in the message** ("split 3 ways", "1000 each") — the figure is
+  divided, or used as-is if it is already per-person. `participants` is not needed.
+- **`participants` supplied** — the total is divided by it.
+- **Neither** — the amount comes back **blank** rather than guessed. A payment sheet
+  pre-filled with 5000 when the user owes 1000 is worse than one they have to type into.
+
+A split is owed by every member separately, so the request is not consumed by whoever
+pays first: each person who commits gets their own prompt for their own share. The same
+person restating their commitment does not get a second prompt.
+
+DM rooms infer two people and need nothing.
 
 **`context` format changed.** Old format was a plain string array — that still works for backward compat but you lose sender info on context messages. New format is an array of `{"text": "...", "sender": "..."}` objects. Sender on context messages matters because the state machine needs to know who said what.
 

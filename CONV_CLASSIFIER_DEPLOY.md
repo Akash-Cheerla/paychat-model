@@ -31,7 +31,24 @@ Optional overrides:
 ```bash
 export PAYCHAT_CONV_MODEL=/path/to/conv_model      # default: ./conv_model
 export PAYCHAT_CONV_CONTEXT_TTL=14400              # default: 4h, see "timing" below
+export PAYCHAT_RIDE_DIVISIBLE=0                    # default: 1, see below
 ```
+
+`PAYCHAT_RIDE_DIVISIBLE` controls whether a ride request stays answerable after the
+first person commits. On (the default), "we need 2 cabs to the airport" / "i'll book
+one" / "i'll book the other" gives **both** bookers a prompt carrying the destination;
+off, the first commitment consumes the request and everyone after it gets a blank
+destination to retype. Off is the pre-2026-08-11 behaviour, kept as a rollback that
+needs no redeploy. Money is unaffected either way — it is divisible only when the
+wording says so ("1000 each").
+
+## ⚠ The Dockerfile default disagrees with production
+
+`Dockerfile` ships `PAYCHAT_CONV_CLASSIFIER=0`; production runs `1`. A clean rebuild
+that does not set the variable in its own environment will come up on the **rule layer**
+— a materially different product, and none of the measurements in this repo describe it.
+If you are deploying fresh, set it explicitly. This mismatch should be fixed at the
+source; it is recorded here because it has already caused one round of confusion.
 
 ## What it needs
 

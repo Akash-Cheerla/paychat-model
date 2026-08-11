@@ -158,6 +158,29 @@ that the false-fire risk did not materialise.
 Not price questions, not bill discussion, not paying a shop or landlord, not future
 promises, not idioms (`pay attention`), not jokes (`send me a million lol`).
 
+## 5a. Splits — one request, owed by everyone separately
+
+A split is **not** answered by whoever pays first. "dinner came to 3000, send me your
+shares" is owed by every member, so each person who commits gets their own prompt for
+their own share. The same person restating their commitment does not get a second one.
+
+The amount shown is the **share**, never the total — and we would rather show nothing
+than the wrong figure:
+
+| the message says | prompt shows |
+|---|---|
+| `dinner was 3000, split 3 ways` | 1000 — headcount is in the message |
+| `dinner was 3000, lets split it` + `participants: 3` | 1000 — headcount from the backend |
+| `dinner was 3000, lets split it`, no `participants` | **blank** |
+| `dinner was 5000, thats 1000 each` | 1000 — already per-person, never divided again |
+
+The blank case is the important one. A payment sheet pre-filled with 3000 for someone
+who owes 1000 invites sending triple; an empty field costs them one typed number. In a
+DM the headcount is known to be two, so nothing is ever blank there.
+
+`lets split it` with no number is the commonest phrasing of all and must be treated as
+a split — for a while it was not, and the full total went onto the sheet.
+
 ## 6. Timing and conversation flow
 
 * **Distance does not matter.** A genuine acceptance ten messages later still fires.
