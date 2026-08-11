@@ -1094,6 +1094,47 @@ if CONV_CLASSIFIER_ON:
         raise SystemExit(f"conversation classifier requested but import failed: {e}")
 
 
+def _model_identity() -> dict:
+    """Which models are actually loaded, for the log line.
+
+    A deploy can change the model without changing a line of code — `conv_model/` in
+    the repo held v5 while production ran v4 for five days — so a log that records only
+    the request cannot say what decided it. After a swap the previous days become
+    unattributable, which is what happened when v4 and v5 numbers had to be untangled
+    by hand.
+
+    Read once at startup, not per request. `trained_on` is what distinguishes the conv
+    models from each other (v4: 143,205 windows; v5: 361,853), and the thresholds are
+    included because they move between runs and change behaviour on their own.
+    """
+    def info(p):
+        try:
+            return json.loads((Path(p) / "model_info.json").read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+    conv_dir = os.environ.get("PAYCHAT_CONV_MODEL",
+                              str(Path(__file__).resolve().parent / "conv_model"))
+    base, conv = info(MODEL_DIR), info(conv_dir)
+    out = {
+        "base": base.get("architecture", "unknown"),
+        "base_dir": Path(MODEL_DIR).name,
+        "decided_by": "conv_classifier" if conv_classifier is not None else "rules",
+        "active_intents": sorted(ACTIVE_INTENTS) if ACTIVE_INTENTS else "all",
+    }
+    if conv_classifier is not None:
+        out.update({
+            "conv_dir": Path(conv_dir).name,
+            "conv_trained_on": conv.get("trained_on", "unknown"),
+            "conv_thresholds": conv.get("thresholds", {}),
+        })
+    return out
+
+
+MODEL_VERSION = _model_identity()
+logger.info("model identity: %s", MODEL_VERSION)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # PHASE 3 — Slot Extraction
 # ═══════════════════════════════════════════════════════════════════════
@@ -3207,6 +3248,11 @@ class DetectRequest(BaseModel):
     # than an empty one. Do NOT infer it from who has spoken — in a 5-person trip only
     # two people may be talking.
     participants: Optional[int] = None
+    # Whatever identifies the app build that produced this message, e.g. "ios-1.4.2".
+    # Never used for classification — it is echoed back and written to the log line so
+    # a mixed log can be filtered by client. Until everyone updates their app, the logs
+    # contain several builds at once and there is otherwise no way to tell them apart.
+    client: Optional[str] = None
 
 
 class DetectResponse(BaseModel):
@@ -3223,6 +3269,11 @@ class DetectResponse(BaseModel):
     chat_id: Optional[str] = None
     message_id: Optional[str] = None
     sender: Optional[str] = None
+    # Which models decided this, e.g. {"base": "v25", "conv": "v30/conv_model", "decided_by": "conv_classifier"}.
+    # Without it a log line cannot say whether v4 or v5 produced a given prompt, which
+    # made a whole day of dogfood logs unattributable after a model swap.
+    model_version: Optional[dict] = None
+    client: Optional[str] = None
 
 
 # ── Routes ──
@@ -3257,6 +3308,11 @@ def detect(req: DetectRequest):
         chat_id=req.chat_id,
         message_id=req.message_id,
         sender=req.sender,
+        # Both are pass-through: `client` identifies the app build that sent the
+        # message, `model_version` identifies what decided it. Neither touches
+        # classification; they exist so a mixed log can be filtered after the fact.
+        client=req.client,
+        model_version=MODEL_VERSION,
     )
 
 
