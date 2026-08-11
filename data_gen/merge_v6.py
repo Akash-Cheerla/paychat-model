@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = "data/conversations/conversations_v5.json"
 ADDS = ["data/conversations/gap_fill_v6.json",
         "data/conversations/gap_fill_offerq.json",
-        "data/conversations/gap_fill_splits.json"]
+        "data/conversations/gap_fill_splits.json",
+        "data/conversations/gap_fill_smaller.json"]
 OUT = "data/conversations/conversations_v6.json"
 EVALS = ["data/eval/group_eval_v6.json", "data/eval/behaviour_eval.json",
          "data/eval/claude_eval.json", "data/eval/eval_conversations.json",

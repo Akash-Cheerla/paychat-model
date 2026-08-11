@@ -74,6 +74,13 @@ CONTEXT_TIME_CAP = 300  # 5 minutes — ignore context messages older than this
 # same reason on the rules path.
 CONV_CONTEXT_TIME_CAP = int(os.environ.get("PAYCHAT_CONV_CONTEXT_TTL", 4 * 3600))
 
+# A ride request stays answerable by everyone who offers, instead of being consumed by
+# the first person to commit — see the record() call. On by default; set to 0 to A/B it
+# against the old consume-on-first-fire behaviour, or to roll back in prod without a
+# redeploy. Money is unaffected either way: it is divisible only when the wording says
+# so ("1000 each").
+RIDE_DIVISIBLE = os.environ.get("PAYCHAT_RIDE_DIVISIBLE", "1").strip() not in ("0", "false", "no")
+
 INTENTS = ["money", "ride", "food_order", "contact", "alarm", "reminder", "calendar", "bills", "travel"]
 
 # Which of the nine the server actually SURFACES. The model still scores all nine and
@@ -658,7 +665,8 @@ _TOTAL_AMT = re.compile(
     r"\b(?:total|in\s+all|altogether|came\s+to|cost|costs|was|is|bill\s+was)\b", re.IGNORECASE)
 
 
-def _per_person_share(text: str, total: str, participants: int = None):
+def _per_person_share(text: str, total: str, participants: int = None,
+                      _is_dm_room: bool = False):
     """Turn a stated TOTAL into a per-person figure, or None if we cannot be sure.
 
     "trip was 5000, send me your shares" is 1000 each in a room of five and 2500 in a
@@ -692,6 +700,11 @@ def _per_person_share(text: str, total: str, participants: int = None):
         n = int(w.group(1) or w.group(2))
     elif participants and participants > 1:
         n = participants
+    elif _is_dm_room:
+        # A dm_<lo>_<hi> room is two people by definition, so the caller never has to
+        # tell us. Keeps `participants` a GROUP-only field for the backend, and still
+        # lets "dinner was 2000, split between us" fill in 1000 in a DM.
+        n = 2
     if not n or n < 2:
         return None
 
@@ -995,6 +1008,14 @@ class RequestMeta:
         now = time.time()
         return any(e["intent"] == intent and e["sender"] != sender
                    and now - e["ts"] <= CONV_CONTEXT_TIME_CAP
+                   # A divisible request this sender has ALREADY answered is not open
+                   # to them. Ordinary requests leave the queue when taken, so "is it
+                   # still here" was the same question as "is it unanswered"; a
+                   # divisible one stays for the next person, and without this check it
+                   # reported open forever. That disabled the echo suppression that
+                   # reads has_open — "i'll book it" then "booking it now" from the
+                   # same person produced two sheets for one cab, the second blank.
+                   and sender not in (e.get("taken_by") or ())
                    for e in self.rooms.get(room_id) or [])
 
     def take(self, room_id, intent, sender):
@@ -1330,6 +1351,49 @@ def _restated_destination(text: str) -> Optional[str]:
         if cand:
             return _norm_place(cand)
     return _norm_place(_destination_fallback(text))
+
+
+# An address stated in its own message. _pickup_fallback only sees the message it is
+# given, so "book me a cab to the airport" / "im at vakil garden city" / "Sure" fired
+# with pickup=None — the address was one message away and never looked at. Reported from
+# a real booking chat where the rider sent the address on its own line.
+_ADDRESS_STATEMENT = re.compile(
+    r"\b(?:my\s+address\s+is|address\s*[:\-]|pick\s+me\s+up\s+(?:from|at)|"
+    r"i'?m\s+at|im\s+at|currently\s+at|starting\s+from)\s+(.{3,80})",
+    re.IGNORECASE)
+
+
+def _latest_pickup(hist: list, rider: str = None) -> Optional[str]:
+    """Most recent address the RIDER stated, for a booking that carries no pickup.
+
+    Deliberately narrow, and only ever used to FILL an empty pickup — never to replace
+    one the request already named:
+
+      * explicit markers only ("my address is", "im at", "pick me up from"). Treating
+        any message that looks like an address as a pickup would grab a restaurant, a
+        delivery address, or a friend's address that happened to be mentioned.
+      * rider only, the same rule as the destination — the person booking cannot set
+        where someone else is standing.
+      * the caller passes a window already scoped to messages after the previous fire,
+        so a settled trip's address cannot leak into the next booking.
+
+    "my location" / "my home" / "office" are kept as written rather than resolved. The
+    product shows the pickup as an editable field and may resolve it via GPS later, so a
+    literal is more useful than a blank.
+    """
+    for entry in reversed(hist):
+        if rider is not None and str(entry.get("sender")) != str(rider):
+            continue
+        text = entry.get("text") or ""
+        got = _pickup_fallback(text)
+        if got:
+            return got
+        m = _ADDRESS_STATEMENT.search(text)
+        if m:
+            cand = _plausible_place(_tidy_place(m.group(1).strip().rstrip(".,;!?")))
+            if cand:
+                return _norm_place(cand)
+    return None
 
 
 def _latest_destination(hist: list, rider: str = None) -> Optional[str]:
@@ -1708,8 +1772,43 @@ def _destination_fallback(text: str) -> Optional[str]:
     return None
 
 
+# An address block typed across separate lines:
+#
+#     Can you book a cab for me
+#     Vakil garden city, Kanakapura road Bangalore
+#     To Bengaluru international airport terminal 2
+#
+# The parse wants one sentence. Given the raw newlines it returned pickup "Bangalore"
+# and destination "Bengaluru" — the last word before the break and the first after "To"
+# — while the SAME text written inline after "from" parsed both in full. People send
+# addresses on their own line, so this rewrites the block into the inline form the
+# parser already handles: the line before a "To ..." line becomes the pickup.
+_TO_LINE = re.compile(r"^\s*to\s+(.+)$", re.IGNORECASE)
+
+
+def _flatten_address_block(text: str) -> str:
+    if "\n" not in text:
+        return text
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if len(lines) < 2:
+        return " ".join(lines)
+    out, i = [], 0
+    while i < len(lines):
+        m = _TO_LINE.match(lines[i])
+        if m and i > 0 and not re.search(r"\b(from|to)\b", lines[i - 1], re.I):
+            # previous line is a bare address and this one names the destination
+            if not re.search(r"\bfrom\b", " ".join(out), re.I):
+                out[-1] = f"from {out[-1]}"
+            out.append(f"to {m.group(1)}")
+        else:
+            out.append(lines[i])
+        i += 1
+    return " ".join(out)
+
+
 def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
     """Extract pickup and destination from ride/travel messages using dependency parsing."""
+    text = _flatten_address_block(text)
     doc = _nlp(text)
     result = {}
     _NOISE = {"me", "us", "it", "that", "this", "one", "uber", "lyft", "cab", "ride",
@@ -2770,8 +2869,9 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         # ("5000, thats 1000 each"), since _negotiated_amount picks
                         # that up and dividing again would give 200.
                         if src.get("divisible") and merged.get("amount"):
-                            share = _per_person_share(src.get("text") or "",
-                                                      merged["amount"], participants)
+                            share = _per_person_share(
+                                src.get("text") or "", merged["amount"], participants,
+                                _is_dm_room=bool(room_id and room_id.startswith("dm_")))
                             if share:
                                 merged["amount"] = share
                             elif (_TOTAL_AMT.search(src.get("text") or "")
@@ -2798,6 +2898,12 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                             merged["destination"] = latest_dest
                         if merged.get("time") in (None, "", []):
                             merged["time"] = _latest_time(scoped)
+                        # FILL an empty pickup from an address the rider stated in an
+                        # earlier message. Never replaces a pickup the request named.
+                        if merged.get("pickup") in (None, "", []):
+                            got = _latest_pickup(scoped, rider=src.get("sender"))
+                            if got:
+                                merged["pickup"] = got
                     result["slots"] = merged
 
                     # Keep triggered_by.slots in step with the effective values.
@@ -2868,9 +2974,27 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     continue
                 thr = model_state["thresholds"].get(intent, 0.5)
                 if result["scores"].get(intent, 0) >= thr:
+                    # Ride requests are ALWAYS divisible; money only when the wording
+                    # says so ("1000 each"). A trip can be booked by anyone who offers
+                    # — "need 2 cabs to the airport" / "i'll book one" / "i'll book the
+                    # other" — and consuming the request on the first fire left every
+                    # later booker with a blank destination to retype.
+                    #
+                    # No cap on how many. We surface an intent to whoever expressed it;
+                    # whoever actually taps the sheet wins. Capping at a parsed cab
+                    # count would deny the sheet to a substitute ("actually i'll book
+                    # that one" / "sure you book, i wont"), and telling a substitution
+                    # apart from a third cab needs a withdrawal signal this path does
+                    # not have — the classifier emits only fired/no_fire.
+                    #
+                    # A stale destination cannot leak into a DIFFERENT trip: a new
+                    # request records its own entry, take() returns the most recent
+                    # match, and the request's own slots win the merge. Both guards are
+                    # covered in test_ride_slots.py.
                     request_meta.record(room_id, intent, sender, text, message_id,
                                         result.get("slots"),
-                                        divisible=bool(_DIVISIBLE.search(text)))
+                                        divisible=((intent == "ride" and RIDE_DIVISIBLE)
+                                                   or bool(_DIVISIBLE.search(text))))
                     # A fresh request reopens the intent, so the next commitment is a
                     # real fire rather than an echo of the previous one.
                     request_meta.clear_fired(room_id, intent)

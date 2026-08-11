@@ -93,6 +93,32 @@ OFFER_DECLINE = [
     "nah dont, seriously", "its ok, forget it", "no really its fine",
 ]
 
+# ── Gap 5: refused, then offers a SMALLER amount ──
+# "man let me help you with atleast 10-20" after "nah im broke" scores 0.03. Only 30
+# windows in v6 had this shape, which is why it survived the last round untouched.
+#
+# ROLES ARE VERIFIED AGAINST derive() BEFORE USE. That is the whole lesson of the v6
+# offer_q failure: derive() re-derives every label from the role tag and silently drops
+# roles it does not recognise, so an invented name turns the entire scenario into
+# negatives. Two sequences, both checked to produce a fire on the right turn:
+#   counter_offer -> ack_money   fires on the asker agreeing   (FIRING_RULE 6e)
+#   self_money                   fires immediately             (a plain commitment)
+SMALLER_OFFER = [
+    "let me help you with {amt} at least", "i can do {amt} if that helps",
+    "ill give you {amt} for now", "can i just do {amt}?",
+    "i can manage {amt}", "how about {amt} instead",
+    "ill cover {amt} of it", "i could stretch to {amt}",
+    "let me at least give you {amt}", "ill do {amt} now and the rest later",
+    "i can spare {amt}", "would {amt} help for now",
+]
+SMALLER_ACCEPT = ["yeah that helps thanks", "that works", "ok that helps",
+                  "yeah anything helps", "sure that would help", "ok cool thanks",
+                  "yeah please", "that would be great actually", "ok perfect thanks"]
+# Sympathy without an offer — must NOT fire.
+SYMPATHY = ["ah that sucks", "no worries man", "all good, next time",
+            "damn ok", "yeah i get it", "no stress", "ok np",
+            "wish i could help more", "yeah money's tight for everyone rn"]
+
 SCENES = ["dinner last night", "the cab fare", "movie tickets", "the groceries",
           "your half of rent", "the concert tickets", "lunch yesterday",
           "the hotel booking", "petrol money", "the birthday gift"]
@@ -125,6 +151,14 @@ def call(body, temp=1.2):
         return r.json()["choices"][0]["message"]["content"]
     except Exception:
         return None
+
+
+# Label through the SAME function build_conv_dataset.py uses. Setting `fire` by hand is
+# pointless — the builder re-derives every label from the role tag, which is how 997
+# offer labels silently became 0 in the v6 round.
+def derive_labels(seq):
+    from gen_conversations import derive
+    return derive(seq)
 
 
 HIN = ("bhai", "yaar", "paisa", "kitna", "acha", "theek", "haan", "nahi", "kya", "arre")
@@ -165,6 +199,84 @@ def build(spec):
         lead = rnd.randint(1, 3)
         roles = "B is the one who will pay. A is owed the money."
         key_role, fire = "self_money", ["money"]
+
+    elif gap == "smaller":
+        big = rnd.choice(["50", "100", "500", "1000", "2000", "20 bucks"])
+        small = rnd.choice(["10", "20", "200", "500", "half of it", "10-20"])
+        offer = rnd.choice(SMALLER_OFFER).format(amt=small)
+        style = rnd.random()
+        if style < 0.35:                     # B commits outright -> fires on B
+            lines = [("A", f"can you send me {big}", "request_money"),
+                     ("B", rnd.choice(["nah im broke till friday", "cant right now man",
+                                       "i dont have that much rn"]), "reject"),
+                     ("B", offer, "self_money")]
+        elif style < 0.75:                   # counter-offer -> fires when A agrees
+            lines = [("A", f"can you send me {big}", "request_money"),
+                     ("B", rnd.choice(["nah im broke till friday", "thats a lot man",
+                                       "cant do the full amount"]), "reject"),
+                     ("B", offer, "counter_offer"),
+                     ("A", rnd.choice(SMALLER_ACCEPT), "ack_money")]
+        else:                                # sympathy only -> nothing fires
+            lines = [("A", f"can you send me {big}", "request_money"),
+                     ("B", rnd.choice(["nah im broke till friday", "cant right now"]),
+                      "reject"),
+                     ("A", rnd.choice(SYMPATHY), "neutral")]
+        # Only the lines that CARRY the pattern are pinned — the offer, and the
+        # acceptance when there is one. Pinning the request and the refusal too gave
+        # 20% unique text, which teaches the exact tokens rather than the shape.
+        free = [(s, t, r) for s, t, r in lines if r in ("request_money", "reject")]
+        pinned = [(s, t, r) for s, t, r in lines if r not in ("request_money", "reject")]
+        desc = {"request_money": f"A asks B for {big}, saying what it is for",
+                "reject": "B says they cannot manage that much right now"}
+        body = ('Write a short chat between 2 friends in English about '
+                f'{rnd.choice(SCENES)}.\n'
+                f'Start with {rnd.randint(1,2)} messages of natural back-and-forth.\n'
+                'Then, in this order:\n'
+                + "\n".join(f'{s}: [{desc[r]}]' for s, t, r in free) + '\n'
+                + "\n".join(f'{s}: {t}   <- use this EXACT wording, unchanged'
+                            for s, t, r in pinned) + '\n'
+                'Vary the wording of the bracketed lines; do not use stock phrases. '
+                'Real texting: lowercase, contractions, occasional typos, no emoji. '
+                'English only.\nFormat "SPEAKER: message", one per line, nothing else.')
+        raw = call(body)
+        parsed = parse(raw, {"A", "B"})
+        # DeepSeek sometimes copies the instruction verbatim, brackets and all.
+        if any(t.strip().startswith(("[", "(", "-")) or "]" in t for _, t in parsed):
+            return None
+        want = [(s, t.lower().strip(" .!?")) for s, t, r in lines
+                if r not in ("request_money", "reject")]
+        got = [(s, t.lower().strip(" .!?")) for s, t in parsed]
+        pos, ok = -1, True
+        for w in want:
+            try:
+                pos = got.index(w, pos + 1)
+            except ValueError:
+                ok = False
+                break
+        if not ok or any(h in t.lower().split() for _, t in parsed for h in HIN):
+            return None
+        # Pinned lines are matched by text. The free ones (request, refusal) are the
+        # last A and B messages before the first pinned line — anything earlier is chat.
+        pin_by_text = {(s, t.lower().strip(" .!?")): r for s, t, r in pinned}
+        first_pin = min((i for i, (s, t) in enumerate(parsed)
+                         if (s, t.lower().strip(" .!?")) in pin_by_text), default=None)
+        if first_pin is None or first_pin < 2:
+            return None
+        seq = []
+        for i, (s, t) in enumerate(parsed):
+            key = (s, t.lower().strip(" .!?"))
+            if key in pin_by_text:
+                role = pin_by_text[key]
+            elif i == first_pin - 1:
+                role = "reject"
+            elif i == first_pin - 2:
+                role = "request_money"
+            else:
+                role = "neutral"
+            seq.append({"sender": s, "text": t, "role": role})
+        out = derive_labels(seq)
+        return {"scenario": "gap_smaller", "market": "mixed",
+                "relationship": "friends", "participants": 2, "turns": out}
 
     elif gap == "offer_q":
         # A offers, B answers. The fire is on B's ANSWER, and A is the payer.

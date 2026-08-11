@@ -88,6 +88,42 @@ def main(paths):
         print(f"  [{'LABEL' if n else 'ok':13}] {name}: {n}")
         fails += n > 0
 
+    # 2b. THE CHECK THAT WOULD HAVE SAVED THE v6 TRAINING RUN.
+    #
+    # build_conv_dataset.py re-derives every label from the `role` tag and silently
+    # drops roles derive() does not recognise. gap_fill_offerq used an invented role
+    # ("offer_money"), so all 997 of its firing labels became 0 — the whole scenario
+    # trained as negatives and the model came back WORSE at the thing it was meant to
+    # learn. Nothing in the file itself looked wrong; the loss happened downstream.
+    #
+    # So: label the data the way the builder will, and fail if they disagree.
+    try:
+        import sys as _s
+        _s.path.insert(0, str(ROOT / "data_gen"))
+        from gen_conversations import derive
+        mine = drv = 0
+        worst = None
+        for c in rows:
+            got = derive([{"sender": t["sender"], "text": t["text"], "role": t["role"]}
+                          for t in turns_of(c)])
+            m = sum(1 for t in turns_of(c) if t.get("fire"))
+            d = sum(1 for t in got if t.get("fire"))
+            mine += m
+            drv += d
+            if m and not d and worst is None:
+                worst = (c.get("scenario"), turns_of(c)[-1]["text"][:50])
+        lost = mine - drv
+        bad = abs(lost) > max(5, 0.02 * max(mine, 1))
+        print(f"  [{'LABELS LOST' if bad else 'ok':13}] fires in file {mine}, after derive() {drv}")
+        if bad:
+            print(f"                  the builder will use {drv}, not {mine}")
+            if worst:
+                print(f"                  e.g. [{worst[0]}] {worst[1]!r}")
+            print("                  check every role is one derive() knows")
+        fails += bad
+    except Exception as e:
+        print(f"  [SKIPPED     ] derive() cross-check unavailable: {e}")
+
     # 3. language
     hin = sum(1 for c in rows for t in turns_of(c)
               if any(h in t.get("text", "").lower().split() for h in HIN))
