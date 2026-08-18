@@ -252,6 +252,73 @@ Use `detection.slots` for immediate intents. For money/ride fired from a respons
 
 ---
 
+## `needs_location` — resolving "my location" / "home" / "office"
+
+**Stop attaching `current_latitude` / `current_longitude` to every message.** The
+classifier has never read those fields and does not need them. Live location on every
+message is a lot of data collected for the fraction of a percent of messages that can
+use it.
+
+Instead, when a ride fires with a self-referential place, the response carries a
+`needs_location` block telling you exactly what to resolve, and whose it is. Resolve it
+on-device when the sheet opens. No coordinate ever has to reach the server.
+
+```json
+"slots": { "pickup": "My Location", "destination": "Marathalli", "time": null },
+"target": { "show_to": "sender", "reason": "accepted_request" },
+"needs_location": {
+  "user_id": "30",
+  "fields": [
+    { "slot": "pickup", "phrase": "My Location", "resolve": "gps", "place": null }
+  ]
+}
+```
+
+The key is **absent** unless a ride fires with a self-referential place, and money
+never sets it.
+
+| Field | Meaning |
+|-------|---------|
+| `user_id` | Who said the phrase. **Not** necessarily who sees the prompt — see below. |
+| `fields[].slot` | `pickup` or `destination` — which slot to overwrite once resolved. |
+| `fields[].phrase` | The literal text, for showing in the editable field before it resolves. |
+| `fields[].resolve` | `gps` or `saved_place` — see below. |
+| `fields[].place` | For `saved_place`: `home` or `office`. `null` for `gps`. |
+
+| `resolve` | What to do |
+|-----------|-----------|
+| `gps` | Device location. "my location", "here". |
+| `saved_place` | The user's profile address book, `place` says which. Not GPS — "home" is still home when they're out. |
+
+Named places ("tin factory", "adidas store") are never reported — search those in Places
+with a local bias as you would anyway. The block appears only for slots you cannot
+resolve by searching, because they refer to a person rather than a place.
+
+### `user_id` is the trap — read this one
+
+The prompt opens for whoever is **acting** (`target.show_to`), and on an accepted
+request that is **not** the person who said "my location":
+
+```
+30: "book a cab from my location to marathalli"   <- "my" means user 30
+31: "sure"                                        <- fires; sheet opens on 31
+```
+
+`needs_location.user_id` is `"30"`. If user 31's app resolves "My Location" against its
+own GPS, **the cab goes to the wrong person.** So:
+
+```
+if needs_location.user_id == currentUser.id:
+    resolve locally (device GPS, or the user's own saved home/office)
+else:
+    that place belongs to someone else — use their shared profile place if you have it,
+    otherwise leave the field as written and let the user edit it
+```
+
+Leaving it as written is always a safe fallback. The field is editable by design.
+
+---
+
 ## Money-Specific Fields
 
 When `money` intent fires on a response (status: "fired"), combine info from two places:

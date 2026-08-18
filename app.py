@@ -1003,6 +1003,22 @@ class RequestMeta:
                 room.pop(key, None)
 
     def record(self, room_id, intent, sender, text, message_id, slots, divisible=False):
+        # An EDIT arrives with the same message_id and sender as the original. Replace
+        # the stored request instead of appending a second one: the edited version
+        # always wins (Akash, 2026-08-12), and leaving the stale copy in the queue means
+        # a later commitment can still take it — "book a cab to madiwala", edited to
+        # tinfactory, then "sure" / "booking it now" produced TWO prompts for one cab.
+        #
+        # take() already returns the most recent match, so the edited text wins for the
+        # first answer either way. It is the second answer that reaches back to the
+        # stale record, which is why this is a replace and not a re-order.
+        if message_id:
+            q = self.rooms.get(room_id) or []
+            for e in q:
+                if e.get("message_id") == message_id and e["intent"] == intent:
+                    e.update({"text": text, "slots": slots, "ts": time.time(),
+                              "divisible": bool(divisible)})
+                    return
         if not room_id or not sender:
             return
         # A new request starts a new negotiation — the next fire must resolve its own
@@ -1412,6 +1428,81 @@ def _restated_destination(text: str) -> Optional[str]:
     return _norm_place(_destination_fallback(text))
 
 
+# ---------------------------------------------------------------------------
+# Location resolution hint.
+#
+# The iOS client was attaching current_latitude/current_longitude to EVERY message so
+# that a ride booked "from my location" could be resolved. Nothing on this side has
+# ever read those fields — pickup is a string the client fills in — so it was live
+# location collected on every message for the fraction of a percent that can use it.
+#
+# Instead of coordinates flowing in, a hint flows out: which slot is self-referential,
+# whose it is, and how to resolve it. The client resolves it locally, at the moment
+# the sheet opens, and no coordinate ever reaches the server.
+#
+# WHOSE it is, is the part that bites. The prompt opens for whoever is acting
+# (target.show_to), and on an accepted request that is NOT the person who said
+# "my location":
+#
+#     30: "book a cab from my location to marathalli"   <- "my" means user 30
+#     31: "sure"                                        <- fires; sheet opens on 31
+#
+# A client resolving "My Location" against its own GPS books the cab from 31. So the
+# hint always names the speaker of the phrase, and the client compares it against the
+# device owner before using device GPS.
+#
+# "home"/"office" are a saved-place lookup, not GPS — they resolve against the address
+# book being added to the user profile, and stay useful when the user is elsewhere.
+#
+# A named place ("tin factory", "adidas store") is deliberately NOT reported. The client
+# runs those through Places with a local bias whether we say so or not, so a hint there
+# tells it nothing it does not already know.
+# Exact match after lowercasing and stripping punctuation. Deliberately a short list of
+# the common phrasings rather than an attempt at every one: an unlisted phrase falls
+# through to the pickup being shown as written in an editable field, which is a safe
+# miss. Guessing wrong is not. "my pg" / "my hostel" / "my room" are left out on
+# purpose — they are accommodation, so GPS is wrong whenever the rider is not there,
+# and there is no saved entry for them either.
+_GPS_PLACES = {
+    "my location", "my current location", "current location", "my loc",
+    "my current loc", "my current spot", "my location right now",
+    "my current position", "where i am", "where i am now", "where im at",
+    "my position", "this location", "here",
+}
+_SAVED_PLACES = {
+    "home":   {"home", "my home", "my house", "my place", "my flat", "my apartment"},
+    "office": {"office", "my office", "work", "my work", "my workplace"},
+}
+_LOC_STRIP = re.compile(r"[^a-z ]+")
+
+
+def _location_hint(slots: dict, speaker) -> Optional[dict]:
+    """Which ride slots the client has to resolve locally, and whose location they are.
+
+    Returns None for an ordinary booking — a named pickup and destination need nothing
+    from the device, and a hint on those would have the client asking for GPS it has no
+    use for.
+    """
+    if not slots:
+        return None
+    fields = []
+    for key in ("pickup", "destination"):
+        raw = slots.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        norm = _LOC_STRIP.sub("", raw.strip().lower()).strip()
+        if norm in _GPS_PLACES:
+            fields.append({"slot": key, "phrase": raw, "resolve": "gps", "place": None})
+            continue
+        saved = next((pl for pl, names in _SAVED_PLACES.items() if norm in names), None)
+        if saved:
+            fields.append({"slot": key, "phrase": raw,
+                           "resolve": "saved_place", "place": saved})
+    if not fields:
+        return None
+    return {"user_id": str(speaker) if speaker is not None else None, "fields": fields}
+
+
 # An address stated in its own message. _pickup_fallback only sees the message it is
 # given, so "book me a cab to the airport" / "im at vakil garden city" / "Sure" fired
 # with pickup=None — the address was one message away and never looked at. Reported from
@@ -1663,8 +1754,25 @@ def _extract_amount(text: str) -> Optional[str]:
         r'\b(?:send(?:ing)?|sent|pay(?:ing)?|paid|owes?|owed|front(?:ing)?|'
         r'spot(?:ting)?|lend(?:ing)?|lent|giv(?:e|ing)|gave|venmo(?:ing)?|'
         r'cashapp(?:ing)?|zelle|cover(?:ing|ed)?|transfer(?:ring|red)?|'
+        # "need 500 for rent" is how someone asks without naming a payment verb at
+        # all. The count-noun guard below already keeps "need 3 people" and "need 5
+        # rooms" out, which is what made this safe to add.
+        r'need(?:s|ed|ing)?|'
         r'put\s+in|chip(?:ping)?\s+in)'
         r'\s+(?:\w+\s+){0,3}(\d[\d,]*(?:\.\d{1,2})?)\s*(?!\s*(?:' + _COUNT_NOUNS + r')\b)',
+        text, re.IGNORECASE)
+    if m:
+        return f"${m.group(1).replace(',', '')}"
+    # The figure first, what it is for second: "500 for the tickets pls", "300 for
+    # dinner last night". No currency mark, no verb, nothing the patterns above can
+    # anchor to — but it is one of the commonest ways to ask, and the prompt was
+    # opening blank every time.
+    #
+    # Anchored to the start of the message so it cannot pick a number out of the
+    # middle of a sentence, and `for` must not be followed by a digit, which keeps
+    # "2 for 1 deal" out.
+    m = re.match(
+        r'\s*(\d[\d,]*(?:\.\d{1,2})?)\s*(?!\s*(?:' + _COUNT_NOUNS + r')\b)\s+for\s+(?!\d)',
         text, re.IGNORECASE)
     if m:
         return f"${m.group(1).replace(',', '')}"
@@ -3161,6 +3269,31 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 result["conversation_state"] = None
                 result["lifecycle"] = None
 
+    # Tell the client which ride slots it has to resolve on-device, so it can stop
+    # attaching live coordinates to every message. Placed after the guardrail and
+    # active-intent filters so a suppressed ride cannot leave a stray hint behind.
+    # Also emitted on the REQUEST, before anything fires. The rider's app cannot wait
+    # for the fire to decide what to attach — it has to build the message before we
+    # ever see it — so the hint reaching only the fire would be unusable for the one
+    # case that actually needs coordinates on the wire: 31 booking from 30's location,
+    # which 31's phone cannot know. On the request the speaker is the sender; on the
+    # fire it is triggered_by.sender, who is not the person the prompt opens for.
+    #
+    # Safe to emit on a non-firing message because slot extraction has already filtered:
+    # "ola from my location is so expensive" and "cabs from my office are always late"
+    # come back with pickup=None, so they produce no hint. Only a real booking puts a
+    # self-referential phrase in a pickup slot.
+    tb = ((result.get("conversation_state") or {}).get("triggered_by") or {})
+    if "ride" in (result.get("intents") or []):
+        # triggered_by.slots is what both clients read first; fall back to the top
+        # level for an immediate fire, which has no triggered_by.
+        hint = _location_hint(tb.get("slots") or result.get("slots") or {},
+                              tb.get("sender", sender))
+    else:
+        hint = _location_hint(result.get("slots") or {}, sender)
+    if hint:
+        result["needs_location"] = hint
+
     # Clean internal fields
     result.pop("_text", None)
     result.pop("_cls_embedding", None)
@@ -3265,6 +3398,10 @@ class DetectResponse(BaseModel):
     lifecycle: Optional[dict] = None
     guardrails: Optional[dict] = None
     conversation_state: Optional[dict] = None
+    # Which ride slots the client must resolve on-device, and whose location they are.
+    # Present only when a ride fires with a self-referential pickup/destination — the
+    # signal that replaced current_latitude/current_longitude on every message.
+    needs_location: Optional[dict] = None
     latency_ms: float
     chat_id: Optional[str] = None
     message_id: Optional[str] = None

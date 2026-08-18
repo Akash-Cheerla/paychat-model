@@ -15,6 +15,7 @@ render() is duplicated verbatim rather than imported from the notebook.
 """
 import json
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger("paychat.conv")
@@ -78,6 +79,26 @@ class ConversationClassifier:
 
         info = json.loads((d / "model_info.json").read_text())
         self.thresholds = info.get("thresholds", {"money": 0.5, "ride": 0.5})
+        # Override the trained thresholds without retraining or editing the model dir:
+        #     PAYCHAT_CONV_THRESHOLDS="money=0.85,ride=0.80"
+        #
+        # The thresholds are chosen by an argmax over an F-beta curve that is nearly
+        # flat, so they move a lot between runs on the same data (ride has been 0.825,
+        # 0.38 and 0.95 across rounds) and they are not obviously the right operating
+        # point. Money currently sits at 0.97 against ride's 0.825 while being the
+        # weaker intent, so being able to sweep this against the coverage gate is the
+        # difference between "we need another training round" and "we have been
+        # shipping a badly chosen operating point".
+        _ov = os.environ.get("PAYCHAT_CONV_THRESHOLDS", "").strip()
+        if _ov:
+            for part in _ov.split(","):
+                if "=" in part:
+                    k, _, v = part.partition("=")
+                    try:
+                        self.thresholds[k.strip()] = float(v)
+                    except ValueError:
+                        logger.warning("bad PAYCHAT_CONV_THRESHOLDS entry: %r", part)
+            logger.info("conv thresholds overridden: %s", self.thresholds)
         # Read window and max_length FROM the model rather than hardcoding them. These
         # two numbers must match training exactly; a silent mismatch is what dropped the
         # intent model from 0.94 to 0.03 when context was first tried. v1 trained at

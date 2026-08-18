@@ -24,10 +24,22 @@ fixing eval labels alone will not move the model.
 
 ## The one principle
 
+> **An intent fires only when someone intends to BOOK, SEND, or PAY.
+> No such intention, no prompt.**
+
+Product owner, 2026-08-14. Apply this test first, before anything else in this
+document. If the answer is no, stop — nothing further can make it fire.
+
+The longer form, which the sections below expand on:
+
 > **Fire only when there is an actionable cause, and the responsible party has
 > committed to acting on it.**
 
-Everything below follows from that sentence.
+Why the short test earns its place at the top: 66 eval labels were found firing `ride`
+for a friend agreeing to drive someone in their own car — "ya ill take the car, be ready
+by 6:45". Every one of them passes a loose reading of "committed to acting on it", and
+every one fails the book/send/pay test in a second. Nobody was booking anything, so
+there was nothing for the app to do.
 
 ---
 
@@ -48,6 +60,36 @@ A request is an **instruction directed at the other person** to do something now
 
 A message that is not a request **must not create a pending**. This is the most
 common source of false fires: a statement gets stored, then any warm reply fires it.
+
+## 1a. A statement fires only on an EXPLICIT commitment — added 2026-08-11
+
+§1 says a statement is not a request and creates no pending. That leaves the case that
+comes up constantly in real chats: someone states a debt, a shortfall or a cost, and the
+other person replies. What happens depends entirely on **what the reply commits to**.
+
+A bare acknowledgement after a statement fires nothing — "alright" or "ok" is most often
+just receiving the information. The prompt appears only when the reply says they will
+act.
+
+| conversation | fires? |
+|---|---|
+| `you still owe me 300` / `alright` | ❌ acknowledging the fact |
+| `you still owe me 300` / `oh i forgot, will send now` | ✅ commitment |
+| `im short 300 this month` / `sure` | ❌ a polite noise, nothing agreed |
+| `im short 300 this month` / `im sorry, will send` | ✅ commitment |
+| `dinner was 3000 last night` / `ok` | ❌ cost talk |
+| `dinner was 3000 last night` / `ill send my half now` | ✅ commitment |
+| `need 300 for rent, can you help` / `i can help man, sending now` | ✅ commitment |
+
+**The test:** did the reply say they will send/pay/book, or did it only acknowledge?
+
+This is the one place where a bare `ok` behaves differently after a statement than after
+a request. After a REAL request (§2) a bare `ok` is a full acceptance, because the
+request already named the action — there is something to say "ok" to. After a statement
+there is nothing to accept, so the commitment has to be in the reply itself.
+
+The amount stated is still carried onto the prompt when it does fire. The statement is
+not a request, but it is where the figure lives.
 
 ## 2. What counts as ACCEPTANCE
 
