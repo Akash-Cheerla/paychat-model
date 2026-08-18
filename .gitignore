@@ -17,3 +17,18 @@ conv_model/conv_model.onnx
 # Training data stays on disk, not in git — conversations_v5.json never was tracked
 # and conversations_v6 is 51MB. The generators in data_gen/ are the reproducible part.
 data/conversations/
+
+# Personal WhatsApp exports - third-party messages, never committed
+data/private_wa/
+
+# Trained models and training archives — hundreds of MB each, rebuilt by the notebook.
+conv_model_v*/
+saved_model_v*/
+conv_model_prev*/
+conv_model_v*_local/
+*.zip
+
+# Dogfood logs are real user messages from the team's own chats. They stay on disk.
+data/eval/dogfood_*.jsonl
+data/eval/sender_missing_evidence.jsonl
+data/private_wa/
