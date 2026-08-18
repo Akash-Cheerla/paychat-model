@@ -179,10 +179,17 @@ def one(scen):
 # what derive() DOES with the role, so every role is probed for its fire outcome.
 ROLE_FIRES = {
     "ack_money": ["money"], "ack_ride": ["ride"],
-    "self_ride": ["ride"],
+    "self_ride": ["ride"], "self_money": ["money"],
     # A request opens a pending and fires nothing by itself — FIRING_RULE §1. The
     # prompt appears when someone commits, which is the whole premise of the product.
     "request_money": [], "request_ride": [],
+    # An offer is a request with the direction reversed: it opens a pending, fires
+    # nothing itself, and the acceptance fires. Added 2026-08-11 — before that an offer
+    # was labelled request_money, which hid it inside a role scoring 99.8% while the
+    # coverage gate measured offers failing 40-60% of the time.
+    "offer_money": [], "offer_ride": [],
+    # §1a — a statement creates no pending, so a bare ack has nothing to accept.
+    "statement_money": [], "statement_ride": [],
     "neutral": [], "reject": [], "future_promise": [], "already_done": [],
 }
 # A role that fires needs an open request to answer; a self-initiated one does not.
