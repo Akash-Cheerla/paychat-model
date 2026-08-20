@@ -183,6 +183,66 @@ affirmative gets no prompt on that message, and gets one moments later when they
 payment prompt. Revisit only with real usage data showing bare preparation is common AND
 that the false-fire risk did not materialise.
 
+## 3c. Need, offer, action — three shapes that look alike — added 2026-08-20
+
+Ruled by Gowtham over WhatsApp on 2026-08-20. These three read almost identically and
+fire completely differently, which is why the training data ended up split roughly
+50/50 on `let me book a cab` and the model scores it 0.07 in every context.
+
+| shape | example | fires? |
+|---|---|---|
+| **need** | `ill need to book a cab back home` | ❌ never — a need is not an action |
+| **offer** | `let me book a cab` / `let me send you 500` | ❌ not alone — waits for the other party |
+| **in progress** | `im booking an uber` / `im sending you 20 now` | ✅ immediately, per §3 |
+
+`I may book a cab ride home` is a need. `need` is not a trigger word, it is the
+opposite of one.
+
+**An offer that ANSWERS a request is an acceptance, and fires at once.** "Request and
+answer will always trigger" — so `can you book me a cab to the airport` / `let me book
+a cab` fires on the second message, and so does `ok let me book a cab`. The waiting
+rule applies only to an offer nobody asked for.
+
+An unprompted offer fires on the confirmation, not on a third message from the offerer:
+`let me send you 500` / `ok` fires on the `ok`. The offerer does not have to speak again.
+
+**Who sees it.** The prompt goes to whoever performs the action — the person paying, or
+the person booking — never automatically to whoever typed the confirming message. On
+`let me send you 500` / `ok`, the prompt is A's, though B sent the message that fired it.
+
+**Everyone who answered gets it.** In a group, if two people both answer the request,
+both get the prompt; it is theirs to sort out who acts. Delivered as a list of user IDs,
+not as a broadcast to the room.
+
+**No time limit.** An open request stays answerable for as long as it is still in the
+window. A request at 9am answered at 6pm fires.
+
+**A prompt can be withdrawn.** An explicit reversal (`maybe not now`, `nvm`) or a report
+that it is already done (`already sent it`, `cab's booked`) takes a shown prompt back off
+the screen. A withdrawn intent may fire again if the deal is revived — `actually go ahead
+send it` prompts a second time, and that is not a duplicate.
+
+### Not yet solved: quoted conversations
+
+On 2026-08-20 a ride prompt appeared while two of us were discussing these very rules.
+The message was:
+
+    Let's say
+    B: can you book me a cab to airport (around 9 AM)
+    A: okay(6-7PM)
+
+That single message scores 0.997 — it contains a request and an acceptance, so the model
+reads it as a real exchange. The `Yes` two messages later fired again off the same primed
+context. Andril's earlier report was the same category: he described the app and the app
+responded.
+
+The self-acknowledgement guard cannot help. The quoted request genuinely came from the
+other speaker, so there is a real open request and `Yes` is a real acceptance. Every
+component behaved correctly.
+
+No rule here yet — recording it because it is the third instance and the team is
+currently the whole user base.
+
 ## 4. Ride means ride-hailing ONLY
 
 | message | fires ride? |
