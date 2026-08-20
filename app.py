@@ -624,6 +624,11 @@ _TARGET_REQUEST_ME = [
 _PAY_APP = (r"(?:send|pay|transfer|venmo|cashapp|cash\s?app|zelle|paypal|gpay|"
             r"google\s?pay|paytm|phonepe|upi|spot|lend|give|shoot|drop)")
 _RIDE_ACT = r"(?:book|get|order|grab|call|arrange)"
+# Needed to widen the offer patterns below without widening them too far. _RIDE_ACT
+# is deliberately broad - "get", "grab", "call" - so an offer pattern that drops the
+# "you" requirement has to be anchored on the thing being booked instead, or
+# "let me get the door" resolves as a ride offer.
+_RIDE_NOUN = r"(?:cab|uber|ola|lyft|taxi|auto|ride|rideshare)"
 
 # The SPEAKER of this message is the one who will act (offer).
 _OFFER_BY_SPEAKER = [
@@ -633,6 +638,30 @@ _OFFER_BY_SPEAKER = [
     re.compile(rf"\bi(?:'?ll|ll|'?m|m)?\s*(?:will|gonna|going\s+to)?\s*{_PAY_APP}\s+(?:you|u)\b", re.IGNORECASE),
     re.compile(rf"\b(?:shall|should|can)\s+i\s+{_RIDE_ACT}\s+(?:you|u)\b", re.IGNORECASE),
     re.compile(rf"\b(?:let\s+me|lemme)\s+{_RIDE_ACT}\s+(?:you|u)\b", re.IGNORECASE),
+    # An offer is still an offer when it does not name who it is for. Every pattern
+    # above requires "you", so "let me book a cab" and "should I book a cab?" matched
+    # nothing, _resolve_payer fell back to the sender, and the prompt was shown to
+    # whoever typed "ok" rather than the person doing the booking.
+    #
+    # Reported as case 3 on 2026-08-20: A "should I book a cab?" / B "yeah" fired and
+    # put the prompt on B, who books nothing. Ruled the same day - the prompt goes to
+    # whoever performs the action, never automatically to the sender of the message
+    # that happened to fire it.
+    #
+    # Anchored on the ride noun rather than just the verb, because _RIDE_ACT contains
+    # get/grab/call and "let me get the door" is not an offer of a cab. The money pair
+    # is anchored on a figure for the same reason: _PAY_APP contains give/drop/shoot,
+    # and "let me give it a shot" is not an offer to pay.
+    re.compile(rf"\b(?:shall|should|can|may)\s+i\s+(?:just\s+)?{_RIDE_ACT}\s+"
+               rf"(?:\w+\s+){{0,2}}{_RIDE_NOUN}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_RIDE_ACT}\s+"
+               rf"(?:\w+\s+){{0,2}}{_RIDE_NOUN}\b", re.IGNORECASE),
+    re.compile(rf"\bi(?:'?ll|ll)\s+{_RIDE_ACT}\s+"
+               rf"(?:\w+\s+){{0,2}}{_RIDE_NOUN}\b", re.IGNORECASE),
+    re.compile(rf"\b(?:shall|should|can|may)\s+i\s+(?:just\s+)?{_PAY_APP}\s+"
+               rf"(?:\w+\s+){{0,2}}\d", re.IGNORECASE),
+    re.compile(rf"\b(?:let\s+me|lemme)\s+{_PAY_APP}\s+"
+               rf"(?:\w+\s+){{0,2}}\d", re.IGNORECASE),
 ]
 # The OTHER person is the one who will act (request).
 _REQUEST_OF_OTHER = [
