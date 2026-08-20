@@ -1139,10 +1139,22 @@ def _model_identity() -> dict:
         "active_intents": sorted(ACTIVE_INTENTS) if ACTIVE_INTENTS else "all",
     }
     if conv_classifier is not None:
+        # Report the thresholds actually in force, not the ones on disk. A sweep sets
+        # PAYCHAT_CONV_THRESHOLDS per arm, and reporting model_info.json regardless made
+        # three arms at 0.50/0.30/0.15 all claim 0.675/0.590 — indistinguishable from
+        # the env var being ignored, which is the failure that voided a whole eval round
+        # once already. Apply the same override the classifier applies.
+        _th = dict(conv.get("thresholds", {}))
+        for part in os.environ.get("PAYCHAT_CONV_THRESHOLDS", "").strip().split(","):
+            k, _, v = part.partition("=")
+            try:
+                _th[k.strip()] = float(v)
+            except ValueError:
+                pass
         out.update({
             "conv_dir": Path(conv_dir).name,
             "conv_trained_on": conv.get("trained_on", "unknown"),
-            "conv_thresholds": conv.get("thresholds", {}),
+            "conv_thresholds": _th,
         })
     return out
 
@@ -2931,6 +2943,28 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             # recently_fired keys on the PAYER (who parts with the money); has_open keys
             # on the SENDER (is there a request left for *me* to answer). They are
             # different questions and only coincide when the accepter is the payer.
+            # An acknowledgement needs something to acknowledge, and it cannot be your
+            # own request.
+            #
+            # Reported by Andril with a screenshot: he sent four cab requests, none of
+            # which fired, then "I'm sending you one dollar" (money, correct), then
+            # "Oh I got it now" - and a RIDE prompt appeared at conv 0.997 on a message
+            # about the app itself. Every message was his own, so there was nobody to
+            # answer him. The classifier reads a window where the speakers are
+            # normalised, so a one-sided conversation looks exactly like a request
+            # answered by someone else, and "I got it" is a textbook acceptance.
+            #
+            # take() already refuses to hand slots to a self-answer; nothing refused to
+            # FIRE on one. The two questions are asked in different places and only the
+            # first was being asked.
+            #
+            # scores_alone separates the cases: "I'm sending you one dollar" carries the
+            # intent by itself (base money 0.764 over a 0.606 threshold) and stays
+            # self-initiated. "Oh I got it now" carries nothing (0.017 / 0.040) and is
+            # only meaningful as an answer, so it needs an open request from someone
+            # else to be answering.
+            if not scores_alone and not request_meta.has_open(room_id, intent, sender):
+                continue
             if (request_meta.recently_fired(room_id, intent, _payer)
                     and not request_meta.has_open(room_id, intent, sender)
                     and not (scores_alone and adds_new)):
