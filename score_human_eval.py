@@ -72,8 +72,7 @@ def main():
                     # on one exact turn scored correct fires as both a miss AND a false
                     # prompt. That was a scoring bug, not model behaviour.
                     noise_turns += 1
-                    if len(noise) < 40:
-                        noise.append((c["scenario"], got, t["text"][:58]))
+                    noise.append((c["scenario"], got, t["text"][:58]))
 
         if not c["expects_fire"]:
             quiet_turns += len(c["turns"])
@@ -81,7 +80,7 @@ def main():
             fire_n += 1
             ok = fired_right
             fire_ok += ok
-            if not ok and len(misses) < 30:
+            if not ok:
                 misses.append((c["scenario"], want_intent,
                                c["turns"][-1]["text"][:58]))
         else:
