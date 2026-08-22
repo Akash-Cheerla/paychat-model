@@ -243,6 +243,49 @@ component behaved correctly.
 No rule here yet — recording it because it is the third instance and the team is
 currently the whole user base.
 
+## 3d. A greeting is not an acceptance - added 2026-08-21
+
+From the dogfood log, real team traffic:
+
+    26: Can you send me 10$
+    53: Hi                    <- money 0.997, payment sheet opened
+    26: ?
+
+| message | fires? |
+|---|---|
+| `hi` / `hey` / `yo` / `hello` / `good morning` / `sup` | no, whatever came before |
+| `hey can you send me 20` | yes - a request, not a greeting |
+| `yo im sending now` | yes - the commitment carries it |
+
+Whole-message match only. A greeting with anything else attached is ordinary text and is
+read normally.
+
+**This is not the acknowledgement guard and could not be.** In §3a the speaker was
+answering himself, so there was nothing to accept. Here the request is genuine, it came
+from the other person, and the reply really is a reply to it. What is wrong is the reply.
+
+Worth recording how it behaves, because it explains why nobody caught it: `hi` scores
+**0.033** when the window is short and **0.997** once the window holds a few greetings.
+The model is not reading the word, it is reading "short reply after a request" as an
+acknowledgement. `yo` fires at 0.995 in any context. So this is a model failure held shut
+by a rule, and it should be revisited when the training data covers greetings as
+non-acceptances.
+
+### Still open on the same battery
+
+Against a live request, these SHOULD fire and do not:
+
+| message | score | threshold |
+|---|---|---|
+| `okay` | 0.076 | 0.97 |
+| `yeah` | 0.356 | 0.97 |
+| 👍 | 0.034 | 0.97 |
+
+`ok` fires at 0.994 and `okay` scores 0.076, which is not a distinction any rule should be
+asked to defend. The thumbs up matters most - it was named explicitly as a confirmation on
+2026-08-20 and the model has almost certainly never seen one in training. All three are
+recall and belong in the next round, not in a regex.
+
 ## 4. Ride means ride-hailing ONLY
 
 | message | fires ride? |

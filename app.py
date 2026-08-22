@@ -630,6 +630,20 @@ _RIDE_ACT = r"(?:book|get|order|grab|call|arrange)"
 # "let me get the door" resolves as a ride offer.
 _RIDE_NOUN = r"(?:cab|uber|ola|lyft|taxi|auto|ride|rideshare)"
 
+# A message that is nothing but a greeting cannot accept anything. Exact match on
+# the whole message, so "hey can you send me 20" is untouched - only a bare "hey".
+# Trailing punctuation and repeated letters ("hiii", "yooo") are normal in chat.
+_GREETING_ONLY = re.compile(
+    r"^(?:h+i+|h+e+y+|h+e+l+o+|hello+|y+o+|hiya|heya|howdy|sup|wa+s+up"
+    r"|what\s*s\s*up|g\s*day|good\s+(?:morning|afternoon|evening|day)|gm|gn"
+    r"|namaste|hola|greetings)[\s!.,?\u2026]*$", re.IGNORECASE)
+
+
+def _norm_greet(s: str) -> str:
+    """Curly apostrophes are 9.6% of real turns and broke every regex that met one."""
+    return (s or "").replace("’", "'").replace("‘", "'").strip()
+
+
 # The SPEAKER of this message is the one who will act (offer).
 _OFFER_BY_SPEAKER = [
     re.compile(rf"\b(?:shall|should|can|may)\s+i\s+(?:just\s+)?{_PAY_APP}\s+(?:you|u)\b", re.IGNORECASE),
@@ -2992,6 +3006,17 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             # self-initiated. "Oh I got it now" carries nothing (0.017 / 0.040) and is
             # only meaningful as an answer, so it needs an open request from someone
             # else to be answering.
+            # A greeting is not an acceptance. Reported from the dogfood log on
+            # 2026-08-21: "Can you send me 10$" / "Hi" opened a payment sheet at
+            # 0.997. The same "hi" scores 0.033 with a shorter window, so the model
+            # is reading a short reply after a request as an acknowledgement rather
+            # than reading the word. "yo" fires at 0.995 in every context.
+            #
+            # The self-acknowledgement guard below cannot help and should not: the
+            # request is genuine and comes from the other person. What is wrong is
+            # the reply, not the pairing.
+            if not scores_alone and _GREETING_ONLY.match(_norm_greet(text)):
+                continue
             if not scores_alone and not request_meta.has_open(room_id, intent, sender):
                 continue
             if (request_meta.recently_fired(room_id, intent, _payer)
