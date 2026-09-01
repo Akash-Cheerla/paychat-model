@@ -1,0 +1,1478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#5E5CE6" />
+<title>Rooms</title>
+<style>
+  :root {
+    --bg:        #0a0a0c;
+    --card:     #16161a;
+    --card-2:   #1d1d22;
+    --line:     #26262d;
+    --text:     #f4f4f6;
+    --muted:    #8a8a92;
+    --accent:   #5E5CE6;     /* accent */
+    --accent-2: #7d7bff;
+    --green:    #22c55e;
+    --amber:    #f59e0b;
+    --red:      #ef4444;
+    --bubble-me:    #5E5CE6;
+    --bubble-them:  #2a2a32;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- JOIN SCREEN ---------- */
+  #join {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 20px;
+  }
+  .join-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 22px;
+    margin-bottom: 4px;
+    letter-spacing: -0.4px;
+  }
+  .brand-dot {
+    width: 28px; height: 28px;
+    border-radius: 9px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px;
+    color: white;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    margin: 14px 0 6px;
+  }
+  input[type=text] {
+    width: 100%;
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  .join-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 18px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .join-btn:hover { background: var(--accent-2); }
+  .join-btn:active { transform: translateY(1px); }
+  .join-meta {
+    color: var(--muted);
+    font-size: 11.5px;
+    margin-top: 16px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .join-meta b { color: var(--text); font-weight: 600; }
+  .join-meta .notice {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    background: rgba(180, 105, 14, .12);
+    border: 1px solid rgba(180, 105, 14, .34);
+    color: var(--text);
+    text-align: left;
+  }
+
+  /* ---------- CHAT SCREEN ---------- */
+  #chat {
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    flex-shrink: 0;
+  }
+  .topbar .brand-dot { width: 26px; height: 26px; font-size: 13px; border-radius: 8px; }
+  .topbar .room-meta {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar .room-name { font-weight: 600; font-size: 14px; }
+  .topbar .room-sub  { color: var(--muted); font-size: 11.5px; }
+  .topbar .pres {
+    display: flex; gap: 4px; align-items: center;
+    color: var(--muted); font-size: 11px;
+  }
+  .pres-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .pres-dot.off { background: var(--muted); }
+  .pres-dot.warn { background: var(--amber); }
+  .icon-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(94,92,230,0.1); }
+
+  /* Summary panel */
+  .summary-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0;
+    width: 340px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--card);
+    border-left: 1px solid var(--line);
+    z-index: 100;
+    flex-direction: column;
+    animation: slideIn 0.2s ease-out;
+  }
+  .summary-panel.open { display: flex; }
+  @keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .summary-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 18px; cursor: pointer; padding: 4px 8px;
+  }
+  .summary-close:hover { color: var(--text); }
+  .summary-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+  }
+  .summary-user-tab {
+    display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .summary-user-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .summary-user-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .summary-intent {
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .summary-intent-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+  }
+  .summary-intent-head .ico { font-size: 16px; }
+  .summary-intent-meta {
+    font-size: 12px; color: var(--muted); margin-bottom: 4px;
+  }
+  .summary-intent-slots {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 2px 10px; font-size: 12px; margin-top: 6px;
+  }
+  .summary-intent-slots dt { color: var(--muted); }
+  .summary-intent-slots dd { margin: 0; color: var(--text); }
+  .summary-intent-msgs {
+    margin-top: 8px; padding-top: 6px;
+    border-top: 1px solid var(--line);
+  }
+  .summary-intent-msgs .msg-preview {
+    font-size: 12px; color: var(--muted);
+    padding: 2px 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .summary-empty {
+    color: var(--muted); text-align: center;
+    padding: 40px 16px; font-size: 13px;
+  }
+  .summary-stats {
+    display: flex; gap: 12px; margin-bottom: 14px;
+    padding: 10px 12px;
+    background: var(--card-2);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .summary-stat {
+    text-align: center; flex: 1;
+  }
+  .summary-stat .num {
+    font-size: 20px; font-weight: 700; color: var(--accent-2);
+  }
+  .summary-stat .lbl {
+    font-size: 11px; color: var(--muted); margin-top: 2px;
+  }
+
+  /* messages */
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .msg-row {
+    display: flex;
+    flex-direction: column;
+    max-width: 78%;
+  }
+  .msg-row.me { align-self: flex-end; align-items: flex-end; }
+  .msg-row.them { align-self: flex-start; align-items: flex-start; }
+  .sender {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 6px 4px 2px;
+  }
+  .bubble {
+    padding: 9px 13px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  .me .bubble {
+    background: var(--bubble-me);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .them .bubble {
+    background: var(--bubble-them);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+
+  /* model annotation card under each bubble */
+  .anno {
+    margin-top: 4px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text);
+    width: 100%;
+  }
+  /* With the workings hidden there is nothing in the panel but the action card,
+     so drop the frame and let the card stand on its own. */
+  .anno.anno-quiet {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .me .anno { border-color: rgba(94,92,230,0.35); }
+  .anno-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+  .anno-head .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    background: rgba(94,92,230,0.16);
+    color: var(--accent-2);
+    border: 1px solid rgba(94,92,230,0.3);
+  }
+  .chip.amber {
+    background: rgba(245,158,11,0.14);
+    color: var(--amber);
+    border-color: rgba(245,158,11,0.35);
+  }
+  .chip.muted {
+    background: var(--card-2);
+    color: var(--muted);
+    border-color: var(--line);
+  }
+  .chip .pct { color: var(--muted); font-weight: 400; font-size: 10.5px; }
+
+  .slots {
+    margin-top: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 11.5px;
+  }
+  .slots dt { color: var(--muted); }
+  .slots dd { margin: 0; color: var(--text); }
+  .slots dd.miss { color: var(--amber); font-style: italic; }
+
+  /* Report issue button & modal */
+  .report-btn {
+    margin-top: 6px;
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .report-btn:hover { color: var(--red); border-color: var(--red); }
+  .report-btn.reported { color: var(--red); border-color: var(--red); background: rgba(239,68,68,0.1); pointer-events: none; }
+
+  .report-modal-bg {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .report-modal-bg.open { display: flex; }
+  .report-modal {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    width: 340px;
+    max-width: 90vw;
+    padding: 20px;
+    animation: slideIn 0.2s ease-out;
+  }
+  .report-modal h3 {
+    margin: 0 0 4px; font-size: 16px; font-weight: 600;
+  }
+  .report-modal .msg-quote {
+    background: var(--card-2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 10px 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .report-modal .fired-info {
+    font-size: 12px; color: var(--muted); margin-bottom: 12px;
+  }
+  .report-type-btns {
+    display: flex; gap: 8px; margin-bottom: 12px;
+  }
+  .report-type-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .report-type-btn:hover { border-color: var(--accent); }
+  .report-type-btn.selected { border-color: var(--accent); background: rgba(94,92,230,0.15); color: var(--accent-2); }
+  .report-type-btn .type-label { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+  .report-note {
+    width: 100%;
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 50px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .report-note:focus { border-color: var(--accent); }
+  .report-note::placeholder { color: var(--muted); }
+  .report-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .report-actions button {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--text);
+  }
+  .report-actions .submit-report {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+  }
+  .report-actions .submit-report:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Export bar */
+  .report-export-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(239,68,68,0.08);
+    border-bottom: 1px solid rgba(239,68,68,0.2);
+    font-size: 12px;
+    color: var(--red);
+    flex-shrink: 0;
+  }
+  .report-export-bar.visible { display: flex; }
+  .report-export-bar .count { font-weight: 600; }
+  .report-export-bar button {
+    margin-left: auto;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .action-card {
+    margin-top: 6px;
+    background: linear-gradient(135deg, rgba(94,92,230,0.18), rgba(125,123,255,0.08));
+    border: 1px solid rgba(94,92,230,0.4);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+  .action-card .ico {
+    font-size: 16px;
+    width: 22px; text-align: center;
+  }
+  .action-card .label { flex: 1; }
+  .action-card .hint  { color: var(--muted); font-size: 10.5px; }
+
+  .clarify {
+    margin-top: 6px;
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 10px;
+    padding: 7px 10px;
+    color: var(--amber);
+    font-size: 12px;
+  }
+
+  /* PIR residual context indicator */
+  .pir-badge {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    animation: pirPulse 0.6s ease-out;
+  }
+  .pir-badge.context-used {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    color: var(--green);
+  }
+  .pir-badge.pir-change {
+    background: rgba(94, 92, 230, 0.12);
+    border: 1px solid rgba(94, 92, 230, 0.3);
+    color: var(--accent-2);
+  }
+  .pir-badge .pir-icon { font-size: 13px; }
+  @keyframes pirPulse {
+    0% { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* composer */
+  .composer {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom)) 12px;
+    border-top: 1px solid var(--line);
+    background: var(--card);
+    flex-shrink: 0;
+  }
+  .composer textarea {
+    flex: 1;
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    resize: none;
+    max-height: 100px;
+    outline: none;
+  }
+  .composer textarea:focus { border-color: var(--accent); }
+  .composer .send {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 38px; height: 38px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .composer .send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 13px;
+  }
+  .empty b { color: var(--text); }
+
+  .sys {
+    align-self: center;
+    color: var(--muted);
+    font-size: 11px;
+    margin: 6px 0;
+  }
+
+  /* mobile tweaks */
+  @media (max-width: 480px) {
+    .msg-row { max-width: 88%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== JOIN SCREEN ============== -->
+<div id="join">
+  <div class="join-card">
+    <div class="brand"><span class="brand-dot">R</span>Rooms</div>
+    <div class="sub">A simple group chat. Pick a name and a room, and share the room with whoever you want to talk to.</div>
+
+    <label for="name">name</label>
+    <input id="name" type="text" placeholder="Akash" autocomplete="off" />
+
+    <label for="room">room</label>
+    <input id="room" type="text" placeholder="demo" autocomplete="off" />
+
+    <button class="join-btn" id="join-btn">join</button>
+
+    <div class="join-meta">
+      Anyone with the room name can join and see the conversation.<br>
+      <span class="notice">Messages in this room are recorded while we test the app. Please don't share anything private.</span><br><br>
+    </div>
+  </div>
+</div>
+
+<!-- ============== CHAT SCREEN ============== -->
+<div id="chat">
+  <div class="topbar">
+    <span class="brand-dot">R</span>
+    <div class="room-meta">
+      <div class="room-name" id="t-room">room</div>
+      <div class="room-sub"  id="t-sub">connecting…</div>
+    </div>
+    <div class="pres"><span class="pres-dot off" id="conn-dot"></span><span id="presence-list">…</span></div>
+    <button class="icon-btn" hidden id="btn-summary">Summary</button>
+    <button class="icon-btn" id="btn-share">Share</button>
+    <button class="icon-btn" id="btn-leave">Leave</button>
+  </div>
+
+  <div class="report-export-bar" id="report-bar">
+    <span>Issues logged: <span class="count" id="report-count">0</span></span>
+    <button id="btn-export-reports">Export Report</button>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <!-- Report modal -->
+  <div class="report-modal-bg" id="report-modal-bg">
+    <div class="report-modal">
+      <h3>Report Issue</h3>
+      <div class="msg-quote" id="report-quote"></div>
+      <div class="fired-info" id="report-fired-info"></div>
+      <div class="report-type-btns">
+        <button class="report-type-btn" data-type="FP" id="rtype-fp">
+          FP<span class="type-label">Fired but shouldn't</span>
+        </button>
+        <button class="report-type-btn" data-type="FN" id="rtype-fn">
+          FN<span class="type-label">Didn't fire but should</span>
+        </button>
+        <button class="report-type-btn" data-type="WRONG" id="rtype-wrong">
+          Wrong<span class="type-label">Wrong intent/slot</span>
+        </button>
+      </div>
+      <textarea class="report-note" id="report-note" placeholder="What did you expect? (optional)"></textarea>
+      <div class="report-actions">
+        <button id="report-cancel">Cancel</button>
+        <button class="submit-report" id="report-submit" disabled>Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary side panel -->
+  <div class="summary-panel" id="summary-panel">
+    <div class="summary-header">
+      <span>Intent Summary</span>
+      <button class="summary-close" id="summary-close">&times;</button>
+    </div>
+    <div class="summary-user-tab" id="summary-tabs"></div>
+    <div class="summary-body" id="summary-body"></div>
+  </div>
+
+  <div class="composer">
+    <textarea id="msg-in" rows="1" placeholder="Message…"></textarea>
+    <button class="send" id="btn-send" title="Send (Enter)">↑</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────
+// Config: how each intent renders as an action chip
+// (matches the iOS mockups in /ui_mockups/)
+// ─────────────────────────────────────────────
+// Only these two are surfaced. The server filters as well, through ACTIVE_INTENTS,
+// but that is a default someone can widen - and a link handed to strangers is the
+// wrong place to discover a food or flight chip. Anything else sent is ignored here.
+// Blind by default. A tester who can see what the model picked up starts writing
+// for it, and we get textbook messages instead of how people actually talk. The
+// server logs every message either way, so nothing is lost by not drawing it.
+// Add ?debug=1 to the URL for the annotations, flag buttons and summary panel.
+const DEBUG = new URLSearchParams(location.search).has("debug");
+
+const SHOWN = new Set(["money", "ride"]);
+
+const INTENT_INFO = {
+  money:       { ico: "💸", label: "Pay",        verb: "Send money" },
+  alarm:       { ico: "⏰", label: "Reminder",   verb: "Set reminder" },
+  contact:     { ico: "📞", label: "Contact",    verb: "Open contact" },
+  calendar:    { ico: "📅", label: "Calendar",   verb: "Add to calendar" },
+  maps:        { ico: "📍", label: "Maps",       verb: "Open in maps" },
+  ride:        { ico: "🚗", label: "Ride",       verb: "Book a ride" },
+  food_order:  { ico: "🍔", label: "Order food", verb: "Order delivery" },
+  travel:      { ico: "✈️", label: "Travel",     verb: "Search flights" },
+  shopping:    { ico: "🛒", label: "Shop",       verb: "Add to cart" },
+  music:       { ico: "🎵", label: "Music",      verb: "Play music" },
+  video:       { ico: "🎬", label: "Watch",      verb: "Open show" },
+  tickets:     { ico: "🎟️", label: "Tickets",    verb: "Buy tickets" },
+  reservation: { ico: "🍽️", label: "Reserve",    verb: "Book a table" },
+  task:        { ico: "✅", label: "Task",       verb: "Add to to-do" },
+  note:        { ico: "📝", label: "Note",       verb: "Save note" },
+  bills:       { ico: "🧾", label: "Bill",       verb: "Pay bill" },
+  health:      { ico: "🏥", label: "Health",     verb: "Schedule visit" },
+  weather:     { ico: "☁️", label: "Weather",    verb: "Check forecast" },
+};
+
+const ASK_VERB = {
+  name: "who?", recipient: "to whom?", amount: "how much?",
+  datetime: "when?", destination: "where to?", title: "what for?",
+  item: "what?", event: "which event?", action: "what to do?",
+  place: "where?", body: "the note text?", bill_kind: "which bill?",
+};
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+const state = {
+  ws: null,
+  you: null,
+  room: null,
+  presence: [],
+  reconnectAttempt: 0,
+};
+
+// ─────────────────────────────────────────────
+// Boot — preload model meta on join screen
+// ─────────────────────────────────────────────
+(async () => {
+  // The join card printed the model name, an intent count and an IID accuracy from
+  // /meta. It said "9 intents" when seven are switched off, and quoted a base-model
+  // test figure that has nothing to do with what a tester sees. Removed rather than
+  // corrected - none of it is the tester's business.
+
+  // pre-fill from URL hash (so the share link puts you straight in the right room)
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.get("room"))  document.getElementById("room").value = hash.get("room");
+  if (hash.get("name"))  document.getElementById("name").value = hash.get("name");
+
+  // restore your last name from localStorage if present
+  const remembered = localStorage.getItem("fyoe-name");
+  if (remembered && !document.getElementById("name").value) {
+    document.getElementById("name").value = remembered;
+  }
+  document.getElementById("name").focus();
+})();
+
+document.getElementById("join-btn").addEventListener("click", join);
+document.getElementById("name").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("room").focus(); });
+document.getElementById("room").addEventListener("keydown", e => { if (e.key === "Enter") join(); });
+
+function join() {
+  const name = (document.getElementById("name").value || "").trim();
+  const room = (document.getElementById("room").value || "demo").trim();
+  if (!name) {
+    document.getElementById("name").focus();
+    return;
+  }
+  if (!/^[\w\-. ]{1,30}$/.test(name)) {
+    alert("Use letters, numbers, spaces, dot or dash in your name.");
+    return;
+  }
+  state.you = name;
+  state.room = room;
+  localStorage.setItem("fyoe-name", name);
+  history.replaceState(null, "", "#room=" + encodeURIComponent(room));
+  connect();
+  document.getElementById("join").style.display = "none";
+  document.getElementById("chat").style.display = "flex";
+  document.getElementById("t-room").textContent = "room: " + room;
+  document.getElementById("msg-in").focus();
+}
+
+// ─────────────────────────────────────────────
+// WebSocket
+// ─────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const url = `${proto}://${location.host}/ws/${encodeURIComponent(state.room)}/${encodeURIComponent(state.you)}`;
+  setStatus("connecting…", "warn");
+  const ws = new WebSocket(url);
+  state.ws = ws;
+
+  ws.onopen = () => {
+    setStatus("connected", "on");
+    state.reconnectAttempt = 0;
+  };
+  ws.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      handleFrame(data);
+    } catch (err) {
+      console.error("bad frame", err, e.data);
+    }
+  };
+  ws.onclose = () => {
+    setStatus("disconnected — retrying", "off");
+    state.ws = null;
+    const delay = Math.min(1000 * Math.pow(1.5, state.reconnectAttempt++), 8000);
+    setTimeout(() => { if (state.you) connect(); }, delay);
+  };
+  ws.onerror = () => { /* close handler will retry */ };
+}
+
+function setStatus(text, level) {
+  document.getElementById("t-sub").textContent = text;
+  const dot = document.getElementById("conn-dot");
+  dot.className = "pres-dot " + (level === "on" ? "" : level === "warn" ? "warn" : "off");
+}
+
+function handleFrame(d) {
+  if (d.type === "history") {
+    document.getElementById("feed").innerHTML = "";
+    if (!d.messages.length) {
+      const div = document.createElement("div");
+      div.className = "empty";
+      div.innerHTML = `<b>You're in.</b><br>Say hi and start chatting.`;
+      document.getElementById("feed").appendChild(div);
+    }
+    for (const m of d.messages) renderMsg(m);
+    return;
+  }
+  if (d.type === "presence") {
+    state.presence = d.users || [];
+    renderPresence();
+    if (d.joined && d.joined !== state.you) sysLine(`${d.joined} joined`);
+    if (d.left   && d.left   !== state.you) sysLine(`${d.left} left`);
+    return;
+  }
+  if (d.type === "msg") {
+    // remove the empty-state placeholder
+    const empty = document.querySelector("#feed .empty");
+    if (empty) empty.remove();
+    renderMsg(d);
+    return;
+  }
+  if (d.type === "error") {
+    sysLine("error: " + d.reason);
+  }
+}
+
+function renderPresence() {
+  const others = state.presence.filter(u => u !== state.you);
+  let txt;
+  if (state.presence.length <= 1) {
+    txt = "just you — share the URL";
+  } else if (others.length === 1) {
+    txt = "with " + others[0];
+  } else {
+    txt = "with " + others.join(", ");
+  }
+  document.getElementById("presence-list").textContent = txt;
+}
+
+function sysLine(text) {
+  const el = document.createElement("div");
+  el.className = "sys";
+  el.textContent = text;
+  const feed = document.getElementById("feed");
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ─────────────────────────────────────────────
+// Compose / send
+// ─────────────────────────────────────────────
+const inputEl = document.getElementById("msg-in");
+inputEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendCurrent();
+  }
+});
+inputEl.addEventListener("input", () => {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + "px";
+});
+document.getElementById("btn-send").addEventListener("click", sendCurrent);
+
+function sendCurrent() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  if (!state.ws || state.ws.readyState !== 1) {
+    sysLine("not connected yet — press send again in a moment");
+    return;
+  }
+  state.ws.send(JSON.stringify({ type: "msg", text }));
+  inputEl.value = "";
+  inputEl.style.height = "auto";
+}
+
+// ─────────────────────────────────────────────
+// Render a chat bubble + model annotation
+// ─────────────────────────────────────────────
+function renderMsg(m) {
+  const feed = document.getElementById("feed");
+  const row = document.createElement("div");
+  row.className = "msg-row " + (m.sender === state.you ? "me" : "them");
+
+  if (m.sender !== state.you) {
+    const s = document.createElement("div");
+    s.className = "sender";
+    s.textContent = m.sender;
+    row.appendChild(s);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = m.text;
+  row.appendChild(bubble);
+
+  // ─── model annotation block ───
+  // Targeting: action cards only show to the right person
+  //   "sender"  → only the sender sees action card (self-directed: "remind me", "set alarm")
+  //   "others"  → everyone EXCEPT sender sees action card ("venmo me 20" → other person pays)
+  //   "group"   → everyone sees action card ("split the bill")
+  // Detection annotations (chips, slots, scores) always visible for debugging
+  const target = m.target || {};
+  const showTo = target.show_to || "sender";
+  const iAmSender = m.sender === state.you;
+  let showActionCard = true;
+  if (showTo === "sender") showActionCard = iAmSender;
+  else if (showTo === "others") showActionCard = !iAmSender;
+
+  const wasTriggered = m.triggered !== false;
+  if (wasTriggered && ((m.fired && m.fired.length) || (DEBUG && m.top_scores && m.top_scores.length))) {
+    const anno = document.createElement("div");
+    anno.className = DEBUG ? "anno" : "anno anno-quiet";
+
+    // The workings: how the model decided. Team only - a tester who sees
+    // scores and slot names starts writing for them.
+    if (DEBUG) {
+
+    const head = document.createElement("div");
+    head.className = "anno-head";
+    head.innerHTML = `<span class="pulse"></span>picked up`;
+    anno.appendChild(head);
+
+    // intent chips
+    const chipRow = document.createElement("div");
+    chipRow.className = "chips";
+    if (m.fired.length) {
+      const scoreMap = {};
+      for (const s of (m.top_scores || [])) scoreMap[s.intent] = s.prob;
+      for (const intent of m.fired.filter(i => SHOWN.has(i))) {
+        const info = INTENT_INFO[intent] || { ico: "•", label: intent };
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        const pct = scoreMap[intent] != null ? Math.round(scoreMap[intent] * 100) + "%" : "";
+        chip.innerHTML = `${info.ico} ${info.label}${pct ? ` <span class="pct">${pct}</span>` : ""}`;
+        chipRow.appendChild(chip);
+      }
+    } else {
+      const chip = document.createElement("span");
+      chip.className = "chip muted";
+      chip.textContent = "no action";
+      chipRow.appendChild(chip);
+    }
+    anno.appendChild(chipRow);
+
+    // targeting badge
+    if (m.fired.length && target.show_to) {
+      const tBadge = document.createElement("div");
+      tBadge.style.cssText = "font-size:11px;color:var(--muted);margin:2px 0 4px;";
+      const arrow = showTo === "sender" ? "→ sender" : showTo === "others" ? "→ other person" : "→ everyone";
+      tBadge.textContent = `target: ${arrow}`;
+      anno.appendChild(tBadge);
+    }
+
+    // slots
+    if (m.fired.length && m.slots) {
+      const slotsList = renderSlots(m.fired, m.slots);
+      if (slotsList) anno.appendChild(slotsList);
+    }
+
+    // clarification chips ("who?", "when?")
+    if (m.needs_clarification && m.needs_clarification.length) {
+      const cBox = document.createElement("div");
+      cBox.className = "clarify";
+      const items = m.needs_clarification.map(c =>
+        `<b>${(INTENT_INFO[c.intent] || {label: c.intent}).label || c.intent}</b> ${ASK_VERB[c.missing] || c.missing + "?"}`
+      );
+      cBox.innerHTML = "❓ would ask: " + items.join(" · ");
+      anno.appendChild(cBox);
+    }
+
+    }   // end of the debug-only workings
+
+    // The prompt itself - what a real user sees. Shown to whoever the action is for.
+    if (showActionCard && m.fired && m.fired.length) {
+      // Not gated on every slot being filled: a bare "sure" fires but carries no
+      // amount, and the tester would see nothing on a message that did fire.
+      const ready = m.fired.filter(f => SHOWN.has(f));
+      for (const intent of ready) {
+        const info = INTENT_INFO[intent] || { ico: "•", verb: intent };
+        const summary = (m.slots && m.slots[intent]) ? summarizeForAction(intent, m.slots[intent]) : "";
+        const card = document.createElement("div");
+        card.className = "action-card";
+        card.innerHTML =
+          `<span class="ico">${info.ico}</span>` +
+          `<span class="label"><b>${info.verb}</b>${summary ? `<br><span class="hint">${summary}</span>` : ""}</span>`;
+        anno.appendChild(card);
+      }
+    }
+
+    // Memory badge is workings as well.
+    if (DEBUG && m.pir_context_used) {
+      const pir = document.createElement("div");
+      pir.className = "pir-badge context-used";
+      pir.innerHTML = `<span class="pir-icon">🧠</span> residual context used — model remembered prior intent`;
+      anno.appendChild(pir);
+    }
+
+    row.appendChild(anno);
+  }
+
+  // Flag button is a team tool - hidden from testers, who are just chatting.
+  if (DEBUG) {
+    const reportBtn = document.createElement("button");
+    reportBtn.className = "report-btn";
+    reportBtn.textContent = "Flag issue";
+    reportBtn.addEventListener("click", () => openReportModal(m, reportBtn));
+    row.appendChild(reportBtn);
+  }
+
+  // PIR lifecycle changes — visible to ALL users (room-level event)
+  const changes = m.pir_changes || {};
+  const allChanges = [
+    ...(changes.activated || []).map(i => `⚡ ${i} in progress`),
+    ...(changes.acknowledged || []).map(i => `✓ ${i} acknowledged`),
+    ...(changes.completed || []).map(i => `✅ ${i} completed`),
+    ...(changes.cancelled || []).map(i => `✗ ${i} cancelled`),
+  ];
+  if (allChanges.length) {
+    const pir = document.createElement("div");
+    pir.className = "pir-badge pir-change";
+    pir.innerHTML = `<span class="pir-icon">🔄</span> ${allChanges.join(" · ")}`;
+    row.appendChild(pir);
+  }
+
+  // strip the empty-state if this is the first real message
+  const empty = feed.querySelector(".empty");
+  if (empty) empty.remove();
+
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function renderSlots(fired, slotsByIntent) {
+  const dl = document.createElement("dl");
+  dl.className = "slots";
+  let any = false;
+  for (const intent of fired) {
+    const s = slotsByIntent[intent];
+    if (!s) continue;
+    for (const [k, v] of Object.entries(s)) {
+      if (k.startsWith("_")) continue;
+      if (v == null || v === "") continue;
+      any = true;
+      const dt = document.createElement("dt");
+      dt.textContent = `${intent}.${k}`;
+      const dd = document.createElement("dd");
+      if (v === "__pronoun__") {
+        dd.className = "miss";
+        dd.textContent = "(pronoun)";
+      } else {
+        dd.textContent = formatSlotValue(k, v);
+      }
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    }
+  }
+  return any ? dl : null;
+}
+
+function formatSlotValue(slotName, v) {
+  // datetime → friendly form
+  if (slotName === "datetime" || slotName === "when" || slotName === "due") {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const day = new Date(d); day.setHours(0,0,0,0);
+      const diffDays = Math.round((day - today) / 86400000);
+      const tStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const dStr = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+      let prefix = dStr;
+      if (diffDays === 0) prefix = "today";
+      else if (diffDays === 1) prefix = "tomorrow";
+      else if (diffDays === -1) prefix = "yesterday";
+      // omit time if it's exactly 00:00 (date-only)
+      const noTime = d.getHours() === 0 && d.getMinutes() === 0;
+      return noTime ? prefix : `${prefix}, ${tStr}`;
+    }
+  }
+  return String(v);
+}
+
+// The amount slot already carries its currency symbol, so prefixing another one
+// printed "$$500" on the prompt a tester sees.
+function fmtAmount(a) {
+  const s = String(a).trim();
+  return /^[$₹£€]/.test(s) ? s : "$" + s;
+}
+
+function summarizeForAction(intent, slots) {
+  switch (intent) {
+    case "money":
+      return [
+        slots.amount ? fmtAmount(slots.amount) : "",
+        slots.recipient ? `→ ${slots.recipient}` : "",
+        slots.method ? `via ${slots.method}` : "",
+        slots.note ? `for ${slots.note}` : "",
+      ].filter(Boolean).join(" ");
+    case "alarm":
+      return [
+        slots.time ? "@ " + formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time) : "",
+      ].filter(Boolean).join(" ");
+    case "contact":
+      return [slots.recipient, slots.phone ? `· ${slots.phone}` : ""].filter(Boolean).join(" ");
+    case "calendar":
+      return [
+        slots.event,
+        slots.time ? `· ${formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time)}` : "",
+      ].filter(Boolean).join(" ");
+    case "ride":
+      return [slots.pickup ? `${slots.pickup} →` : "", slots.destination || "", slots.time ? `· ${formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time)}` : ""].filter(Boolean).join(" ");
+    case "food_order": {
+      const food = slots.food || {};
+      return [food.food_item || food.restaurant || "", slots.time ? `· ${formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time)}` : ""].filter(Boolean).join(" ");
+    }
+    case "travel":
+      return [slots.pickup ? `${slots.pickup} →` : "", slots.destination || "", slots.time ? `· ${formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time)}` : ""].filter(Boolean).join(" ");
+    case "bills":
+      return [slots.bill_name, slots.amount ? "· " + fmtAmount(slots.amount) : ""].filter(Boolean).join(" ");
+    case "reminder":
+      return [slots.task, slots.time ? `· ${formatSlotValue("time", typeof slots.time === "object" ? slots.time.value : slots.time)}` : ""].filter(Boolean).join(" ");
+  }
+  return "";
+}
+
+// ─────────────────────────────────────────────
+// Top-bar buttons
+// ─────────────────────────────────────────────
+document.getElementById("btn-share").addEventListener("click", async () => {
+  const url = location.origin + "/chat#room=" + encodeURIComponent(state.room);
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Rooms", text: `join my chat room "${state.room}"`, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      sysLine("link copied: " + url);
+    }
+  } catch {
+    prompt("Copy this URL:", url);
+  }
+});
+document.getElementById("btn-leave").addEventListener("click", () => {
+  if (state.ws) { state.ws.close(); state.ws = null; }
+  state.you = null;
+  document.getElementById("chat").style.display = "none";
+  document.getElementById("join").style.display = "flex";
+  document.getElementById("feed").innerHTML = "";
+});
+
+// keep socket alive on mobile screens (some browsers idle-kill ws after ~30s)
+setInterval(() => {
+  if (state.ws && state.ws.readyState === 1) {
+    try { state.ws.send(JSON.stringify({ type: "ping" })); } catch {}
+  }
+}, 25000);
+
+// ─────────────────────────────────────────────
+// Report / Flag issues
+// ─────────────────────────────────────────────
+const reports = [];
+let reportTarget = null;
+let reportBtnRef = null;
+let reportSelectedType = null;
+
+function openReportModal(msg, btn) {
+  reportTarget = msg;
+  reportBtnRef = btn;
+  reportSelectedType = null;
+  document.getElementById("report-quote").textContent = `"${msg.text}"`;
+  const fired = (msg.fired && msg.fired.length) ? msg.fired.join(", ") : "(none)";
+  document.getElementById("report-fired-info").textContent = `Fired: ${fired}`;
+  document.getElementById("report-note").value = "";
+  document.getElementById("report-submit").disabled = true;
+  document.querySelectorAll(".report-type-btn").forEach(b => b.classList.remove("selected"));
+  document.getElementById("report-modal-bg").classList.add("open");
+}
+
+document.querySelectorAll(".report-type-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".report-type-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    reportSelectedType = btn.dataset.type;
+    document.getElementById("report-submit").disabled = false;
+  });
+});
+
+document.getElementById("report-cancel").addEventListener("click", () => {
+  document.getElementById("report-modal-bg").classList.remove("open");
+});
+
+document.getElementById("report-modal-bg").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) document.getElementById("report-modal-bg").classList.remove("open");
+});
+
+document.getElementById("report-submit").addEventListener("click", () => {
+  if (!reportTarget || !reportSelectedType) return;
+  const report = {
+    text: reportTarget.text,
+    sender: reportTarget.sender,
+    fired: reportTarget.fired || [],
+    slots: reportTarget.slots || {},
+    top_scores: reportTarget.top_scores || [],
+    type: reportSelectedType,
+    expected: document.getElementById("report-note").value.trim(),
+    room: state.room,
+    reported_by: state.you,
+    ts: new Date().toISOString(),
+  };
+  reports.push(report);
+  if (reportBtnRef) {
+    reportBtnRef.classList.add("reported");
+    reportBtnRef.textContent = reportSelectedType + " flagged";
+  }
+  document.getElementById("report-modal-bg").classList.remove("open");
+  updateReportBar();
+});
+
+function updateReportBar() {
+  const bar = document.getElementById("report-bar");
+  const count = document.getElementById("report-count");
+  count.textContent = reports.length;
+  if (reports.length > 0) {
+    bar.classList.add("visible");
+  } else {
+    bar.classList.remove("visible");
+  }
+}
+
+document.getElementById("btn-export-reports").addEventListener("click", () => {
+  if (!reports.length) return;
+
+  // Build CSV
+  const header = "Type,Message,Fired,Expected,Sender,Room,Scores,Timestamp";
+  const rows = reports.map(r => {
+    const scores = (r.top_scores || []).map(s => `${s.intent}:${Math.round(s.prob*100)}%`).join(" ");
+    return [
+      r.type,
+      `"${r.text.replace(/"/g, '""')}"`,
+      `"${r.fired.join(", ")}"`,
+      `"${(r.expected || "").replace(/"/g, '""')}"`,
+      r.sender,
+      r.room,
+      `"${scores}"`,
+      r.ts,
+    ].join(",");
+  });
+  const csv = header + "\n" + rows.join("\n");
+
+  // Download
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `intent_issues_${state.room}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ─────────────────────────────────────────────
+// Summary panel
+// ─────────────────────────────────────────────
+// Only the team gets the summary panel; ?debug=1 reveals its button.
+if (DEBUG) document.getElementById("btn-summary").hidden = false;
+const summaryPanel = document.getElementById("summary-panel");
+const summaryBody = document.getElementById("summary-body");
+const summaryTabs = document.getElementById("summary-tabs");
+let summarySelectedUser = null;
+
+document.getElementById("btn-summary").addEventListener("click", () => {
+  const isOpen = summaryPanel.classList.contains("open");
+  if (isOpen) {
+    summaryPanel.classList.remove("open");
+    document.getElementById("btn-summary").classList.remove("active");
+  } else {
+    summaryPanel.classList.add("open");
+    document.getElementById("btn-summary").classList.add("active");
+    loadSummaryTabs();
+  }
+});
+
+document.getElementById("summary-close").addEventListener("click", () => {
+  summaryPanel.classList.remove("open");
+  document.getElementById("btn-summary").classList.remove("active");
+});
+
+function loadSummaryTabs() {
+  summaryTabs.innerHTML = "";
+  const users = [...new Set(state.presence)];
+  if (!users.length) {
+    summaryBody.innerHTML = `<div class="summary-empty">No users in room yet.</div>`;
+    return;
+  }
+  summarySelectedUser = summarySelectedUser || state.you || users[0];
+  for (const u of users) {
+    const btn = document.createElement("button");
+    btn.className = "summary-user-btn" + (u === summarySelectedUser ? " active" : "");
+    btn.textContent = u;
+    btn.addEventListener("click", () => {
+      summarySelectedUser = u;
+      loadSummaryTabs();
+    });
+    summaryTabs.appendChild(btn);
+  }
+  fetchSummary(summarySelectedUser);
+}
+
+async function fetchSummary(userName) {
+  summaryBody.innerHTML = `<div class="summary-empty">Loading...</div>`;
+  try {
+    const r = await fetch(`/summary/${encodeURIComponent(state.room)}/${encodeURIComponent(userName)}`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    renderSummary(data);
+  } catch (err) {
+    summaryBody.innerHTML = `<div class="summary-empty">Failed to load summary.<br>${err.message}</div>`;
+  }
+}
+
+function renderSummary(data) {
+  summaryBody.innerHTML = "";
+
+  const stats = document.createElement("div");
+  stats.className = "summary-stats";
+  stats.innerHTML = `
+    <div class="summary-stat">
+      <div class="num">${data.total_messages || 0}</div>
+      <div class="lbl">Messages</div>
+    </div>
+    <div class="summary-stat">
+      <div class="num">${(data.intents || []).length}</div>
+      <div class="lbl">Intents</div>
+    </div>
+    <div class="summary-stat">
+      <div class="num">${(data.intents || []).filter(i => i.status === "active").length}</div>
+      <div class="lbl">Active</div>
+    </div>
+  `;
+  summaryBody.appendChild(stats);
+
+  if (!data.intents || !data.intents.length) {
+    const empty = document.createElement("div");
+    empty.className = "summary-empty";
+    empty.textContent = "No intents detected for this user yet.";
+    summaryBody.appendChild(empty);
+    return;
+  }
+
+  for (const intent of data.intents.filter(x => SHOWN.has(x.intent))) {
+    const info = INTENT_INFO[intent.intent] || { ico: "•", label: intent.intent };
+    const card = document.createElement("div");
+    card.className = "summary-intent";
+
+    let statusColor = "var(--green)";
+    let statusLabel = intent.status || "active";
+    if (statusLabel === "cancelled") statusColor = "var(--red)";
+    else if (statusLabel === "completed") statusColor = "var(--accent)";
+
+    card.innerHTML = `
+      <div class="summary-intent-head">
+        <span class="ico">${info.ico}</span>
+        ${info.label}
+        <span style="margin-left:auto;font-size:11px;color:${statusColor};font-weight:500;">${statusLabel}</span>
+      </div>
+      <div class="summary-intent-meta">
+        Fired ${intent.count || 1}x &middot; confidence ${Math.round((intent.confidence || 0) * 100)}%
+      </div>
+    `;
+
+    if (intent.slots && Object.keys(intent.slots).length) {
+      const dl = document.createElement("dl");
+      dl.className = "summary-intent-slots";
+      for (const [k, v] of Object.entries(intent.slots)) {
+        if (k.startsWith("_") || v == null) continue;
+        const dt = document.createElement("dt");
+        dt.textContent = k;
+        const dd = document.createElement("dd");
+        dd.textContent = typeof v === "object" ? JSON.stringify(v) : String(v);
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      }
+      card.appendChild(dl);
+    }
+
+    if (intent.messages && intent.messages.length) {
+      const msgsDiv = document.createElement("div");
+      msgsDiv.className = "summary-intent-msgs";
+      for (const msg of intent.messages.slice(-3)) {
+        const p = document.createElement("div");
+        p.className = "msg-preview";
+        p.textContent = `"${msg}"`;
+        msgsDiv.appendChild(p);
+      }
+      if (intent.messages.length > 3) {
+        const more = document.createElement("div");
+        more.className = "msg-preview";
+        more.style.color = "var(--accent-2)";
+        more.textContent = `+${intent.messages.length - 3} more`;
+        msgsDiv.appendChild(more);
+      }
+      card.appendChild(msgsDiv);
+    }
+
+    summaryBody.appendChild(card);
+  }
+}
+
+// Strip the team's tooling out of the document for testers. CSS-hiding was not
+// enough: the report dialog's own labels say what we grade, and Ctrl+F finds them
+// through display:none. Runs last so the listeners above are removed along with
+// the nodes they were bound to.
+if (!DEBUG) {
+  for (const id of ["report-modal-bg", "report-bar", "summary-panel", "btn-summary"]) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+}
+</script>
+</body>
+</html>

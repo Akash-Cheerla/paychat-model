@@ -42,6 +42,7 @@ def main():
     fire_ok = fire_n = quiet_ok = quiet_n = 0
     noise_turns = noise_total = quiet_turns = 0
     misses, noise = [], []
+    decisions = []
 
     for ci, c in enumerate(convs):
         room = f"he_{tag}_{ci}"
@@ -87,6 +88,20 @@ def main():
             quiet_n += 1
             ok = not fired_any
             quiet_ok += ok
+        # Every conversation, pass or fail. Diffing two models needs the passes too:
+        # a conversation both models miss is a data problem, one only v11 misses is a
+        # regression, and the saved file could not tell them apart.
+        decisions.append({
+            "i": ci,
+            "scenario": c["scenario"],
+            "expects_fire": bool(c["expects_fire"]),
+            "want": want_expected,
+            "fired": bool(fired_any),
+            "correct": bool(ok),
+            "n_turns": len(c["turns"]),
+            "fire_text": next((t["text"] for t in c["turns"] if t.get("fire")), None),
+            "last_text": c["turns"][-1]["text"],
+        })
         by_scen[c["scenario"]][0] += ok
         by_scen[c["scenario"]][1] += 1
 
@@ -116,7 +131,7 @@ def main():
         (ROOT / "data/eval" / a.save).write_text(json.dumps(
             {"label": a.label, "fire": [fire_ok, fire_n], "quiet": [quiet_ok, quiet_n],
              "by_scenario": {k: v for k, v in by_scen.items()},
-             "noise": noise, "misses": misses}, indent=1, ensure_ascii=False),
+             "noise": noise, "misses": misses, "decisions": decisions}, indent=1, ensure_ascii=False),
             encoding="utf-8")
     return 0
 
