@@ -1,0 +1,15 @@
+# The build context is sent to the Docker daemon in full. Without this it carries
+# ~90MB of eval sets and the dogfood logs - real team messages that must not travel.
+# Only exclude things no COPY line in the Dockerfile names.
+.git
+.gitignore
+.gitattributes
+tests/
+tools/
+data/
+*.jsonl
+*.md
+!CONV_CLASSIFIER_DEPLOY.md
+__pycache__/
+*.pyc
+.env

@@ -9,7 +9,7 @@
 # One server, nothing else running. A leftover scorer competing for the machine already
 # cost an hour today and made the timings meaningless.
 set -u
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 R="$PWD"
 SP="$1"
 PORT=8900
@@ -40,23 +40,23 @@ done
 
 echo
 echo "--- Andril's misfire report ---"
-python test_gowtham_ride_misfire.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -3
+python tests/test_gowtham_ride_misfire.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -3
 
 echo
 echo "--- the four real dogfood false fires ---"
-python test_dogfood_false_fires.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -6
+python tests/test_dogfood_false_fires.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -6
 
 echo
 echo "--- non-acceptance battery ---"
-python test_nonacceptance.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -3
+python tests/test_nonacceptance.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | tail -3
 
 echo
 echo "--- who gets the prompt ---"
-python test_who_gets_prompt.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | grep -E "FIRES|show_to" | head -6
+python tests/test_who_gets_prompt.py --url "http://127.0.0.1:$PORT/detect" 2>&1 | grep -E "FIRES|show_to" | head -6
 
 echo
 echo "--- full frozen set, 1315 conversations ---"
-python score_human_eval.py --url "http://127.0.0.1:$PORT/detect" --label preflight \
+python tests/score_human_eval.py --url "http://127.0.0.1:$PORT/detect" --label preflight \
   --save FULL_preflight.json 2>&1 | grep -E "FIRES|STAYS|overall|false prompts"
 
 P=$(netstat -ano | grep ":$PORT " | grep LISTENING | awk '{print $5}' | head -1)

@@ -2,8 +2,8 @@
 
 **Status: ON in production as of 2026-08-06.**
 
-The code default is still off (`Dockerfile` ships `PAYCHAT_CONV_CLASSIFIER=0`), but the
-running deployment sets it to `1`, so the classifier — not `conversation.py` — is what
+The `Dockerfile` now ships `PAYCHAT_CONV_CLASSIFIER=1`, matching the running
+deployment, so the classifier — not `conversation.py` — is what
 decides money and ride for real users today. Verified from the dogfood logs: group rooms
 fire without `reply_to`, which the rule layer cannot do.
 
@@ -42,13 +42,13 @@ destination to retype. Off is the pre-2026-08-11 behaviour, kept as a rollback t
 needs no redeploy. Money is unaffected either way — it is divisible only when the
 wording says so ("1000 each").
 
-## ⚠ The Dockerfile default disagrees with production
+## The Dockerfile default (fixed 2026-08-31)
 
-`Dockerfile` ships `PAYCHAT_CONV_CLASSIFIER=0`; production runs `1`. A clean rebuild
-that does not set the variable in its own environment will come up on the **rule layer**
-— a materially different product, and none of the measurements in this repo describe it.
-If you are deploying fresh, set it explicitly. This mismatch should be fixed at the
-source; it is recorded here because it has already caused one round of confusion.
+`Dockerfile` used to ship `PAYCHAT_CONV_CLASSIFIER=0` while production ran `1`, so a
+clean rebuild that did not set the variable came up on the **rule layer** — a
+materially different product that none of the measurements in this repo describe.
+The image default is now `1`. Set it to `0` explicitly if you deliberately want the
+rule path. Recorded because the mismatch already caused one round of confusion.
 
 ## What it needs
 

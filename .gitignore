@@ -46,3 +46,10 @@ data/eval/labelled_real*.json
 dogfood.jsonl
 *.jsonl
 !data/conversations/*.jsonl
+
+# Research and labelling tooling
+# Sweeps, LLM labelling, WhatsApp study and the exploratory runners. Kept locally,
+# not shared: they are working notes, and several are experiments that went nowhere.
+# The regression suite is deliberately NOT here - tests/ stays in git so anyone can
+# reproduce a reported number, and tests/run_preflight.sh is the entry point.
+tools/
