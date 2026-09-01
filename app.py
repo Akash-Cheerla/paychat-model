@@ -41,7 +41,7 @@ except ImportError:
     ort = None
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from transformers import AutoTokenizer, RobertaModel, RobertaConfig
@@ -73,6 +73,12 @@ CONTEXT_TIME_CAP = 300  # 5 minutes — ignore context messages older than this
 # Matches PENDING_TTL in conversation.py (4h), which was raised from 5 minutes for the
 # same reason on the rules path.
 CONV_CONTEXT_TIME_CAP = int(os.environ.get("PAYCHAT_CONV_CONTEXT_TTL", 4 * 3600))
+
+# How many messages after a prompt a restatement still counts as an echo. Measured
+# on the 2026-08-30 log: real echoes sat 1-4 messages behind the fire, genuinely new
+# commitments 9 or more. Beyond the classifier's own 10-message window it cannot see
+# the earlier fire at all, so calling anything past that an echo is guesswork.
+_ECHO_WINDOW_MSGS = 6
 
 # A ride request stays answerable by everyone who offers, instead of being consumed by
 # the first person to commit — see the record() call. On by default; set to 0 to A/B it
@@ -639,6 +645,50 @@ _GREETING_ONLY = re.compile(
     r"|namaste|hola|greetings)[\s!.,?\u2026]*$", re.IGNORECASE)
 
 
+# A message that names the action itself needs nothing else to make sense, so it is
+# self-initiated under FIRING_RULE 3 whatever the base model scored. Kept to a
+# payment or ride verb, about the speaker, stated as happening or committed to.
+#
+# Deliberately excludes agreement words. "sure", "ok", "got it", "yes" only mean
+# something as an answer to somebody, which is the whole point of the guard below.
+# Money verbs describe nothing else people do in a chat, so naming the verb is enough.
+_PAY_ACT = (r"(?:send(?:ing)?|transfer(?:ring)?|pay(?:ing)?|venmo(?:ing)?|"
+            r"gpay|upi|paytm|phonepe|zelle|cashapp)")
+# Ride verbs do not: you book a table, order a takeaway, grab a coffee. Sharing one
+# list across both intents put 75 extra false prompts on the frozen set, 67 of them
+# food. So the ride half has to name what is being booked.
+_RIDE_ACT2 = r"(?:book(?:ing)?|get(?:ting)?|order(?:ing)?|grab(?:bing)?|call(?:ing)?|arrang(?:e|ing))"
+
+_STATES_ACTION_MONEY = re.compile(
+    rf"\b{_PAY_ACT}\b(?:\s+\w+){{0,3}}\s+(?:now|right now|rn)\b"
+    rf"|\b(?:i\s?a?m|i\'?m)\s+{_PAY_ACT}\b"
+    rf"|\b(?:i\s?will|i\'?ll|ill)\s+(?:just\s+|also\s+)?{_PAY_ACT}\b",
+    re.IGNORECASE)
+
+_STATES_ACTION_RIDE = re.compile(
+    # In progress: "booking a cab now", "grabbing us an uber". The -ing form is
+    # what makes it an action rather than a proposal - a bare "book a cab" also
+    # appears inside "let me book a cab", which rule 3c says waits for the other
+    # person and must not count as self-sufficient.
+    rf"\b(?:booking|getting|ordering|grabbing|calling|arranging)"
+    rf"(?:\s+\w+){{0,3}}\s+{_RIDE_NOUN}\b"
+    # Or committed in the first person: "im booking an uber", "i'll book a cab".
+    rf"|\b(?:i\s?a?m|i\'?m|i\s?will|i\'?ll|ill)\s+(?:just\s+)?{_RIDE_ACT2}"
+    rf"(?:\s+\w+){{0,3}}\s+{_RIDE_NOUN}\b",
+    re.IGNORECASE)
+
+# A stated action with a future marker on it is a promise, not an action - rule 3
+# lists "ill pay you back tomorrow" as never firing, and "i'll transfer you tonight"
+# fits the shape above exactly.
+_ACT_FUTURE = re.compile(
+    r"\b(?:tomorrow|tmrw|tmr|tonight|later|soon|next\s+(?:week|month|day)"
+    r"|this\s+(?:week|weekend|evening)|by\s+(?:mid|early|end|friday|monday|tuesday"
+    r"|wednesday|thursday|saturday|sunday|then)|on\s+the\s+\d+(?:st|nd|rd|th)?"
+    r"|after\s+(?:i|we|you)"
+    r"|once\s+(?:i|we|you)|when\s+(?:i|we|you)|salary|month\s+end)\b",
+    re.IGNORECASE)
+
+
 def _norm_greet(s: str) -> str:
     """Curly apostrophes are 9.6% of real turns and broke every regex that met one."""
     return (s or "").replace("’", "'").replace("‘", "'").strip()
@@ -682,6 +732,17 @@ _REQUEST_OF_OTHER = [
     re.compile(rf"\b{_PAY_APP}\s+me\b", re.IGNORECASE),
     re.compile(rf"\bcan\s+(?:you|u)\s+(?:please\s+)?{_PAY_APP}\b", re.IGNORECASE),
     re.compile(rf"\b{_RIDE_ACT}\s+me\b", re.IGNORECASE),
+    # How people actually ask. The pattern above needs the words adjacent, so
+    # "book me a cab" matched and "can you book a cab for me" did not - which is
+    # the commonest phrasing in the dogfood log. Money already had the
+    # "can you <verb>" form; ride never got one, so a cab request fell through and
+    # resolved the payer to the sender, pointing the prompt at the wrong person.
+    re.compile(rf"\bcan\s+(?:you|u)\s+(?:pls\s+|please\s+)?{_RIDE_ACT}\b",
+               re.IGNORECASE),
+    re.compile(rf"\b{_RIDE_ACT}\s+(?:\w+\s+){{0,3}}for\s+(?:me|us)\b", re.IGNORECASE),
+    # Bare imperative: "Book a cab from my location to marathalli".
+    re.compile(rf"^\s*(?:pls\s+|please\s+)?{_RIDE_ACT}\s+(?:a\s+|an\s+)?{_RIDE_NOUN}\b",
+               re.IGNORECASE),
     re.compile(r"\byou\s+(?:still\s+)?owe\s+me\b", re.IGNORECASE),
 ]
 
@@ -989,6 +1050,10 @@ class RequestMeta:
         # is ordinary; one person restating their own commitment is the thing to
         # suppress, and that is a per-speaker question.
         self.last_fire: dict[str, dict] = defaultdict(dict)
+        # Messages seen per room, and the count at each fire. The echo test is a
+        # question about conversational distance, not wall-clock time.
+        self.msg_no: dict[str, int] = defaultdict(int)
+        self.fire_msg_no: dict[str, dict] = defaultdict(dict)
         # Same timestamps, but NEVER cleared. This is the "everything before here is
         # settled" line used to scope slot recovery. It has to survive clear_fired():
         # a new request is exactly when the boundary matters most, and wiping it let a
@@ -1018,6 +1083,7 @@ class RequestMeta:
         if room_id:
             self.new_request_since[room_id][intent] = False
             self.last_fire[room_id][(intent, sender)] = time.time()
+            self.fire_msg_no[room_id][(intent, sender)] = self.msg_no[room_id]
 
     def mark_settled(self, room_id, intent):
         """Close off a negotiation — only call when a real request was answered.
@@ -1034,9 +1100,23 @@ class RequestMeta:
             # a property of the conversation.
             self.settled_at[room_id][intent] = time.time()
 
+    def tick(self, room_id):
+        """Count one message in this room. Called once per message, before dedup."""
+        if room_id:
+            self.msg_no[room_id] += 1
+
     def recently_fired(self, room_id, intent, sender):
         ts = self.last_fire.get(room_id, {}).get((intent, sender))
-        return ts is not None and (time.time() - ts) <= CONV_CONTEXT_TIME_CAP
+        if ts is None:
+            return False
+        # Both have to hold. Distance alone would call a repeat the next morning an
+        # echo; time alone is what dropped seven real commitments in one day's log.
+        if (time.time() - ts) > CONV_CONTEXT_TIME_CAP:
+            return False
+        seen = self.fire_msg_no.get(room_id, {}).get((intent, sender))
+        if seen is None:                      # fired before counting existed
+            return True
+        return (self.msg_no.get(room_id, 0) - seen) <= _ECHO_WINDOW_MSGS
 
     def clear_fired(self, room_id, intent):
         """A new request reopens the intent for everyone in the room."""
@@ -1766,6 +1846,22 @@ _COUNT_NOUNS = (r"things?|times?|people|persons?|guys|kids|days?|weeks?|months?|
 
 
 def _extract_amount(text: str) -> Optional[str]:
+    # Currency written BEFORE the number - "rs 500", "rs.500", "₹ 500", "inr 2000".
+    # Every pattern below matches number-then-unit, so these fell through to the bare
+    # number fallback and came back as dollars: the user said rupees, the payment
+    # sheet said $. Checked first, and normalised to a symbol so the client has one
+    # shape to render - the number-words branch below already does the same.
+    _lead = re.search(
+        r'(?:^|[^\w])(?:(₹)|(\$)|(rs\.?|inr|rupees?)|(rm|myr|ringgit))\s*'
+        r'(\d[\d,]*(?:\.\d{1,2})?)\b', text, re.IGNORECASE)
+    if _lead:
+        _num = _lead.group(5).replace(',', '')
+        if _lead.group(1) or _lead.group(3):
+            return '₹' + _num
+        if _lead.group(4):
+            return 'RM' + _num
+        return '$' + _num
+
     patterns = [
         r'(\$[\d,]+(?:\.\d{1,2})?)',
         r'(₹[\d,]+(?:\.\d{1,2})?)',
@@ -2944,6 +3040,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         hist = conversation_ctx.get_window(room_id, size=w)
         fired, conv_scores = conv_classifier.predict(
             build_window(hist, {"sender": sender, "text": text}, size=w))
+        # One message counted per call, before any dedup decision reads the count.
+        request_meta.tick(room_id)
         # Drop an echo of a fire that already happened.
         #
         # The classifier re-reads the window every message and has no memory, so a
@@ -3017,7 +3115,15 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             # the reply, not the pairing.
             if not scores_alone and _GREETING_ONLY.match(_norm_greet(text)):
                 continue
-            if not scores_alone and not request_meta.has_open(room_id, intent, sender):
+            # A stated action is self-sufficient even when the base model is weak on
+            # the phrasing - "booking now" scores 0.171 there and 0.997 on the
+            # conversation model, and used to be dropped for having nothing to answer.
+            _act_pat = (_STATES_ACTION_MONEY if intent == "money"
+                        else _STATES_ACTION_RIDE)
+            _self_act = (bool(_act_pat.search(text))
+                         and not _ACT_FUTURE.search(text))
+            if (not scores_alone and not _self_act
+                    and not request_meta.has_open(room_id, intent, sender)):
                 continue
             if (request_meta.recently_fired(room_id, intent, _payer)
                     and not request_meta.has_open(room_id, intent, sender)
@@ -3410,6 +3516,8 @@ _LOG_ROOMS = {r.strip() for r in os.environ.get("PAYCHAT_LOG_ROOMS", "").split("
               if r.strip()}
 _LOG_ALL = os.environ.get("PAYCHAT_LOG_ALL", "").strip() in ("1", "true", "yes")
 _LOG_UNTIL = os.environ.get("PAYCHAT_LOG_UNTIL", "")      # YYYY-MM-DD, required
+_LOG_STATE = {"written": 0, "expired_warned": False, "fail_warned": False,
+              "last_error": None}
 _LOG_PATH = Path(os.environ.get("PAYCHAT_LOG_PATH",
                                 str(Path(__file__).resolve().parent / "dogfood.jsonl")))
 
@@ -3430,6 +3538,12 @@ def _log_message(room_id, sender, text, result):
     if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
         return
     if datetime.utcnow().strftime("%Y-%m-%d") > _LOG_UNTIL:
+        if not _LOG_STATE["expired_warned"]:
+            _LOG_STATE["expired_warned"] = True
+            logger.warning(
+                f"DOGFOOD LOGGING HAS STOPPED - PAYCHAT_LOG_UNTIL was {_LOG_UNTIL} "
+                f"and that date has passed. Nothing is being recorded. Raise the "
+                f"date deliberately if collection is still running.")
         return
     try:
         row = {
@@ -3445,9 +3559,32 @@ def _log_message(room_id, sender, text, result):
         }
         with open(_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        _LOG_STATE["written"] += 1
     except Exception as e:
         # Logging must never break detection.
-        logger.warning(f"dogfood log failed: {e}")
+        _LOG_STATE["last_error"] = repr(e)
+        if not _LOG_STATE["fail_warned"]:
+            _LOG_STATE["fail_warned"] = True
+            logger.error(f"DOGFOOD LOG WRITE FAILED - nothing is being recorded to "
+                         f"{_LOG_PATH}: {e}")
+
+
+@app.get("/log-status")
+async def log_status():
+    """Is collection actually running? Cheap to check mid-batch."""
+    from datetime import datetime as _dt
+    today = _dt.utcnow().strftime("%Y-%m-%d")
+    on = bool(_LOG_ALL or _LOG_ROOMS)
+    return {
+        "logging": on and today <= _LOG_UNTIL,
+        "reason": ("off - no PAYCHAT_LOG_ALL or PAYCHAT_LOG_ROOMS" if not on
+                   else "expired" if today > _LOG_UNTIL else "collecting"),
+        "until": _LOG_UNTIL,
+        "today": today,
+        "path": str(_LOG_PATH),
+        "messages_written_since_start": _LOG_STATE["written"],
+        "last_error": _LOG_STATE["last_error"],
+    }
 
 
 # ── Request/Response schemas ──
@@ -4068,7 +4205,10 @@ async def user_summary(room_id: str, user_name: str):
 
 
 # ── Demo UI ──
-DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent.parent / "demo")))
+# app.py sits at the repo root, so the demo folder is a sibling of this file, not of
+# the repo. With .parent.parent this resolved to Downloads/demo, which does not exist,
+# and /chat and /test both 404ed unless DEMO_DIR was set by hand.
+DEMO_DIR = Path(os.getenv("DEMO_DIR", str(Path(__file__).resolve().parent / "demo")))
 DEMO_HTML = DEMO_DIR / "paychat_demo.html"
 
 
@@ -4090,7 +4230,15 @@ async def serve_test():
     raise HTTPException(status_code=404, detail="test.html not found in demo/")
 
 
+# The tester link is /chat. Anyone who drops the path - a truncated paste, a
+# forwarded message - used to land on paychat_demo.html, which has no join screen,
+# so they simply could not get in. Send them where they meant to go.
 @app.get("/")
+async def _root_to_chat():
+    return RedirectResponse(url="/chat")
+
+
+@app.get("/demo")
 async def serve_demo():
     """Serve the PayChat demo UI."""
     if DEMO_HTML.exists():

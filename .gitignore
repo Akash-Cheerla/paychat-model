@@ -32,3 +32,17 @@ conv_model_v*_local/
 data/eval/dogfood_*.jsonl
 data/eval/sender_missing_evidence.jsonl
 data/private_wa/
+
+# Teacher-labelled REAL conversations. Derived from dogfood logs and WhatsApp
+# exports, so they carry the same restriction as their sources: measurement only,
+# never committed, never pasted into training data verbatim.
+data/eval/real_*.json
+data/eval/REAL_*.json
+data/eval/REAL_*.md
+data/eval/labelled_real*.json
+
+# The DEFAULT log path. Running with PAYCHAT_LOG_ALL and no PAYCHAT_LOG_PATH
+# drops real conversations here, one JSON line per message. Never commit it.
+dogfood.jsonl
+*.jsonl
+!data/conversations/*.jsonl
