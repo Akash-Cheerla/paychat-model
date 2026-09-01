@@ -33,8 +33,18 @@ ENV PORT=8000
 # layer unless the deploy config remembered to override it.
 ENV PAYCHAT_CONV_CLASSIFIER=1
 
+# The dogfood log goes in its own directory so it can be mounted. A single file
+# cannot be bind-mounted before it exists, and writing it into /app means a rebuild
+# replaces the container and takes the log with it.
+#
+# NOTE: this VOLUME line alone does NOT preserve anything across a rebuild - Docker
+# gives each new container a fresh ANONYMOUS volume. The deploy must mount a named
+# volume or a host path over it:  -v paychat_logs:/app/logs
+ENV PAYCHAT_LOG_PATH=/app/logs/dogfood.jsonl
+VOLUME /app/logs
+
 # Non-root user
-RUN useradd -m appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/logs && useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

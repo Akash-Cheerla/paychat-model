@@ -202,3 +202,33 @@ export PAYCHAT_LOG_UNTIL=2026-08-10   # required
 Appends one JSONL line per message — text, sender, room, what fired, and the model's
 scores. `PAYCHAT_LOG_ALL` is appropriate only while the product is used solely by people
 who have agreed to it; switch to the room list the moment anyone else has an account.
+
+### Where it is written, and keeping it
+
+The log goes to `/app/logs/dogfood.jsonl` (override with `PAYCHAT_LOG_PATH`). It is a
+directory rather than a bare file because a file cannot be bind-mounted before it
+exists.
+
+**The `VOLUME /app/logs` line in the Dockerfile does not preserve the log by itself.**
+Docker gives each new container a fresh anonymous volume, so a rebuild still starts
+empty and the previous data is left behind in an orphaned volume. The deploy has to
+mount something over it:
+
+```bash
+docker run -v paychat_logs:/app/logs ...        # named volume, survives rebuilds
+docker run -v /srv/paychat/logs:/app/logs ...   # or a host path
+```
+
+With a host path the directory must be writable by the container user (`appuser`), or
+every write fails. It fails quietly - detection keeps working and a single error line
+is logged - so confirm it is recording rather than assuming:
+
+```bash
+curl localhost:8000/log-status
+```
+
+That returns whether collection is on, the expiry date, the path in use, how many
+messages have been written since start, and the last write error if there was one.
+
+Collection stops silently the day after `PAYCHAT_LOG_UNTIL`. That is deliberate, but an
+expired date looks exactly like a working deployment from the outside.
