@@ -20,17 +20,5 @@
   "context_format": "prev1 </s> prev2 </s> prev3 </s> current",
   "max_context_messages": 3,
   "max_length": 256,
-  "context_time_cap_seconds": 300,
-  "has_response_head": true,
-  "response_classes": [
-    "ack",
-    "reject",
-    "future_promise",
-    "question",
-    "already_done",
-    "neutral"
-  ],
-  "response_head_test_acc": 0.927,
-  "response_head_trained_at": "2026-07-20T00:45:06.447711",
-  "response_head_train_samples": 15200
+  "context_time_cap_seconds": 300
 }

@@ -1,33 +1,33 @@
 {
-  "model": "v25",
-  "trained_at": "2026-07-18T01:02:28.686013",
+  "model": "v26",
+  "trained_at": "2026-09-02T02:17:40.769045",
   "architecture": "DualHeadRoberta",
-  "method": "full retrain from scratch on merged_v17",
+  "method": "full retrain from scratch on merged_v26",
   "base_model": "roberta-base",
-  "dataset": "merged_v17 (label-fixed v16 373K + round21 20K + round22 12K, no upsampling)",
-  "dataset_size": 404547,
+  "dataset": "merged_v26 (v25 base 298,824 after dropping 38 non-English rows, +48 travel-statement relabels, +2,950 contrastive pairs, +1,175 typos)",
+  "dataset_size": 302949,
   "training_lr": 2e-05,
   "training_epochs": 5,
   "frozen_layers": "none (full retrain)",
-  "train_size": 323637,
-  "val_size": 40455,
-  "test_size": 40455,
+  "train_size": 302949,
+  "val_size": 37358,
+  "test_size": 37358,
   "epochs": 5,
   "best_epoch": 5,
-  "best_val_f1": 0.9586,
-  "test_exact_match": 0.968,
-  "test_hamming": 0.996171,
+  "best_val_f1": 0.9594,
+  "test_exact_match": 0.9689,
+  "test_hamming": 0.996261,
   "thresholds": {
-    "money": 0.6064,
-    "ride": 0.6938,
-    "food_order": 0.5122,
-    "contact": 0.6348,
-    "alarm": 0.5234,
-    "reminder": 0.5044,
-    "calendar": 0.583,
-    "bills": 0.7144,
-    "travel": 0.5601,
-    "_action": 0.57
+    "money": 0.7896,
+    "ride": 0.7217,
+    "food_order": 0.668,
+    "contact": 0.5068,
+    "alarm": 0.4504,
+    "reminder": 0.5537,
+    "calendar": 0.7593,
+    "bills": 0.769,
+    "travel": 0.6235,
+    "_action": 0.6
   },
   "intents": [
     "money",
@@ -43,33 +43,33 @@
   "training_history": [
     {
       "epoch": 1,
-      "loss": 1.7106,
-      "val_f1": 0.8997,
-      "em": 0.9279
+      "loss": 1.6821,
+      "val_f1": 0.912,
+      "em": 0.9337
     },
     {
       "epoch": 2,
-      "loss": 1.1181,
-      "val_f1": 0.9382,
-      "em": 0.9522
+      "loss": 1.0864,
+      "val_f1": 0.9361,
+      "em": 0.9507
     },
     {
       "epoch": 3,
-      "loss": 0.9885,
-      "val_f1": 0.9481,
-      "em": 0.9614
+      "loss": 0.9598,
+      "val_f1": 0.9502,
+      "em": 0.9629
     },
     {
       "epoch": 4,
-      "loss": 0.9083,
-      "val_f1": 0.9568,
-      "em": 0.9667
+      "loss": 0.8819,
+      "val_f1": 0.9573,
+      "em": 0.9674
     },
     {
       "epoch": 5,
-      "loss": 0.85,
-      "val_f1": 0.9586,
-      "em": 0.9686
+      "loss": 0.8278,
+      "val_f1": 0.9594,
+      "em": 0.9698
     }
   ],
   "changes_from_v24": [
@@ -85,20 +85,6 @@
     "NO upsampling \u2014 all real diverse data",
     "Debt statements (you owe me 30) remain money=1 (immediate P2P)",
     "Self-initiated ride-hailing (ill uber there) remain ride=1",
-    "Bare acks after money/ride request still fire intent (TP)",
-    "Added response_head MLP for ML-based response classification"
-  ],
-  "has_response_head": true,
-  "response_classes": [
-    "ack",
-    "reject",
-    "future_promise",
-    "question",
-    "already_done",
-    "neutral"
-  ],
-  "response_head_val_accuracy": 0.9303,
-  "response_head_training_pairs": 15200,
-  "response_head_test_accuracy": 0.927,
-  "response_head_trained_at": "2026-07-20T00:45:06.448642"
+    "Bare acks after money/ride request still fire intent (TP)"
+  ]
 }
