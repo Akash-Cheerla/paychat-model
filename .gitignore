@@ -53,3 +53,10 @@ dogfood.jsonl
 # The regression suite is deliberately NOT here - tests/ stays in git so anyone can
 # reproduce a reported number, and tests/run_preflight.sh is the entry point.
 tools/
+
+# Generated training sets
+# Built by data_gen/build_base_v26*.py and gated by gate_base_v26.py. train_v26.json
+# alone is 57MB, and training data has never belonged in this repo. The scripts that
+# build it are reproducible from the specs; the output is not worth versioning.
+data_gen/base_v26/
+data_gen/conv_v12/
