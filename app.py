@@ -1547,6 +1547,13 @@ def _plausible_place(cand: Optional[str]) -> Optional[str]:
     words = cand.split()
     if not words or _TIMEY.search(cand):
         return None
+    # "where i am" / "where im standing" / "here" are made ENTIRELY of filler words, so
+    # the check below threw them away and the pickup came back None - which meant the
+    # location hint could never fire for them even though _GPS_PLACES already lists them.
+    # They are not place names, but they are exactly the phrases that need a device
+    # location, so they have to survive extraction to reach the hint.
+    if _LOC_STRIP.sub("", cand.strip().lower()).strip() in _GPS_PLACES:
+        return cand
     # Any filler word in the phrase means it is not a place name.
     if any(w.lower().strip(".,!?") in _NOT_A_PLACE for w in words):
         return None
@@ -1633,6 +1640,14 @@ def _location_hint(slots: dict, speaker) -> Optional[dict]:
         if saved:
             fields.append({"slot": key, "phrase": raw,
                            "resolve": "saved_place", "place": saved})
+            continue
+        # Self-referential and not one of the two saved places - "my hostel", "my pg",
+        # "my hotel". Ruled 2026-09-02: we are NOT adding place types beyond home and
+        # office. But without a hint the client renders "My Hostel" as though it were an
+        # address, which is the bug Andril reported for "My Location". So say so
+        # explicitly: the phrase is unresolvable and the user has to pick an address.
+        if norm.startswith("my ") and len(norm.split()) <= 3:
+            fields.append({"slot": key, "phrase": raw, "resolve": "ask", "place": None})
     if not fields:
         return None
     return {"user_id": str(speaker) if speaker is not None else None, "fields": fields}

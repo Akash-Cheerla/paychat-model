@@ -6,7 +6,8 @@ asking for GPS on rides that never needed it.
 import json, sys, time
 import requests
 
-BASE = "http://127.0.0.1:8000"
+import os
+BASE = os.environ.get("PAYCHAT_URL", "http://127.0.0.1:8000")
 R = int(time.time()) % 100000
 
 
@@ -58,8 +59,16 @@ case("my current spot", [(30, "book me a cab from my current spot to hsr")],
 case("my current position", [(30, "cab from my current position to hsr")],
      {"user_id": "30", "fields": [GPS("pickup")]})
 # Accommodation is deliberately NOT gps — the rider may not be there.
-case("my pg stays unreported", [(30, "book a cab from my pg to hsr")], None)
-case("my hostel stays unreported", [(30, "book a cab from my hostel to hsr")], None)
+# Ruled 2026-09-02: home and office stay the ONLY saved place types. But silence was
+# the wrong answer for the others - with no hint the client renders "My Pg" as though it
+# were an address, which is the same bug Andril reported for "My Location". So these now
+# report resolve="ask": unresolvable, the user has to pick an address.
+case("my pg asks the user", [(30, "book a cab from my pg to hsr")],
+     {"user_id": "30", "fields": [
+         {"slot": "pickup", "phrase": "My Pg", "resolve": "ask", "place": None}]})
+case("my hostel asks the user", [(30, "book a cab from my hostel to hsr")],
+     {"user_id": "30", "fields": [
+         {"slot": "pickup", "phrase": "My Hostel", "resolve": "ask", "place": None}]})
 
 # --- saved places -------------------------------------------------------------
 case("home pickup", [(30, "book a cab from my home to indiranagar"), (31, "on it")],
