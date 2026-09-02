@@ -145,12 +145,48 @@ CASES = [
 ]
 
 
+# Neutral conversation placed in front of every case.
+#
+# The classifier reads a ten-message window. A two-turn room fills it with the request
+# and the reply and nothing else, which makes both look far more like the whole subject
+# of the conversation than they ever are in practice - real rooms run to a median of 25
+# messages. Measured on 2026-09-01: "can you send me the slides" / "sending now" scores
+# 0.997 in a two-turn room and 0.503 with four messages of ordinary chat in front of it.
+# One is a false fire and the other is correct behaviour, and only the padded one is real.
+#
+# Deliberately about nothing - no amounts, no travel, no plans - so it changes the window
+# length without adding signal. Asserted below to fire nothing on its own.
+PAD = [
+    ("A", "hey"),
+    ("B", "hey whats up"),
+    ("A", "not much just got back"),
+    ("B", "nice how was it"),
+    ("A", "pretty good tbh, long day though"),
+    ("B", "same here honestly"),
+]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="http://127.0.0.1:8900/detect")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--nopad", action="store_true",
+                    help="run without the neutral lead-in, to see which cases are "
+                         "context-sensitive. The padded run is the real one.")
     a = ap.parse_args()
     tag = int(time.time())
+    pad = [] if a.nopad else PAD
+
+    # the lead-in must not fire on its own, or every result below is contaminated
+    if pad:
+        room = f"padchk_{tag}"
+        for pi, (spk, txt) in enumerate(pad):
+            d = requests.post(a.url, timeout=60, json={
+                "text": txt, "room_id": room, "sender": spk,
+                "message_id": f"{tag}_pad_{pi}"}).json()
+            got = [x for x in (d.get("intents") or []) if x in ("money", "ride")]
+            assert not got, f"the neutral lead-in fired {got} on {txt!r}"
+        print(f"  lead-in: {len(pad)} neutral messages, fires nothing\n")
 
     bycat = defaultdict(lambda: [0, 0])
     fails = []
@@ -158,6 +194,10 @@ def main():
         room = f"basic_{tag}_{ci}"
         base_req = 0.0
         last = None
+        for pi, (spk, txt) in enumerate(pad):
+            requests.post(a.url, timeout=60, json={
+                "text": txt, "room_id": room, "sender": spk,
+                "message_id": f"{tag}_{ci}_p{pi}"})
         for ti, (spk, txt) in enumerate(turns):
             try:
                 d = requests.post(a.url, timeout=60, json={
