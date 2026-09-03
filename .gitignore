@@ -60,3 +60,9 @@ tools/
 # build it are reproducible from the specs; the output is not worth versioning.
 data_gen/base_v26/
 data_gen/conv_v12/
+
+# Colab upload bundle for conv v12
+# 447MB of warm-start weights and 9.5MB of training windows. Reproducible from
+# data_gen/build_conv_v12.py and conv_model/; not worth versioning.
+colab_conv_v12/
+conv_windows_v12.zip
