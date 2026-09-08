@@ -1617,6 +1617,67 @@ _SAVED_PLACES = {
 }
 _LOC_STRIP = re.compile(r"[^a-z ]+")
 
+# "<Name>'s location" — someone else in the chat, not the speaker.
+#
+# Reported by Andril 2026-09-08: "can anyone book a ride from my current location to
+# Brahma's current location" put the literal string "Brahma's location" in the drop field.
+# The pickup resolved (it is in _GPS_PLACES) and the destination did not, because nothing
+# here recognised a person's name as a place.
+#
+# We do NOT resolve the name. /detect receives `participants` as an integer headcount and
+# has no roster, and the design above exists precisely so that whose-location-is-this
+# leaves the server as a hint rather than arriving as a coordinate. So the name is
+# reported and whoever holds the roster matches it. A name that matches nobody falls back
+# to `ask`, which also disposes of "the driver's location" and "mom's house" without this
+# having to tell people from things.
+#
+# Gowtham 2026-09-08, two rulings encoded here:
+#   "It should crack it for a full matching first name that's part of the conversation"
+#       -> exact first-name matching is the resolver's job; a candidate is emitted, not a
+#          decision. Nicknames are explicitly out of scope for now.
+#   "location should always make a request for current location, unless it says home
+#    location or residence or the like"
+#       -> place=None means ask that person for their current position. Only the
+#          home/office wordings resolve against their saved places.
+_PERSON_LOC = re.compile(
+    r"^\s*(?:from\s+|to\s+)?([a-z][a-z.\-]{1,19})\s*(?:'s|s)\s+"
+    r"(location|loc|current\s+location|place|position|spot|end|side|"
+    r"home|house|apartment|flat|residence|"
+    r"office|work|workplace)\s*$", re.I)
+
+# Words that take a possessive but are never a chat participant. Kept short on purpose:
+# the resolver's fallback already makes a wrong guess harmless, so the only entries that
+# earn their place are ones that would otherwise fire on every message.
+_NOT_A_NAME = {"my", "your", "his", "her", "their", "our", "its", "the", "a", "an",
+               "this", "that", "these", "those", "someone", "anyone", "everyone",
+               "nobody", "somebody", "everybody", "who", "whose", "it",
+               # Role nouns that take a possessive and read as a person but are never a
+               # chat participant. The slot extractor strips a leading article and
+               # title-cases, so "the driver's location" arrives as "Driver'S Location"
+               # and is indistinguishable from a name by shape alone.
+               "driver", "cab", "car", "uber", "ola", "rapido", "lyft", "taxi", "auto",
+               "hotel", "airport", "station", "restaurant", "hospital", "mall", "store",
+               "guy", "man", "lady", "friend", "brother", "sister"}
+
+# Which saved place a possessive wording points at. Anything not listed is the person's
+# CURRENT position, per the ruling above.
+_PERSON_PLACE = {
+    "home": "home", "house": "home", "apartment": "home", "flat": "home",
+    "residence": "home", "place": "home",
+    "office": "office", "work": "office", "workplace": "office",
+}
+
+
+def _person_location(raw: str):
+    """('Brahma', None) for a current-position phrase, ('Brahma', 'home') for a saved one."""
+    m = _PERSON_LOC.match(raw.strip())
+    if not m:
+        return None
+    name, word = m.group(1), m.group(2).lower()
+    if name.lower() in _NOT_A_NAME or len(name) < 2:
+        return None
+    return name, _PERSON_PLACE.get(re.sub(r"\s+", " ", word))
+
 
 def _location_hint(slots: dict, speaker) -> Optional[dict]:
     """Which ride slots the client has to resolve locally, and whose location they are.
@@ -1640,6 +1701,15 @@ def _location_hint(slots: dict, speaker) -> Optional[dict]:
         if saved:
             fields.append({"slot": key, "phrase": raw,
                            "resolve": "saved_place", "place": saved})
+            continue
+        # Someone else's location. Checked against the RAW phrase, not `norm` - _LOC_STRIP
+        # deletes the apostrophe, so "Brahma's location" and a hypothetical "brahmas
+        # location" both arrive as "brahmas location" and the possessive is gone.
+        person = _person_location(raw)
+        if person:
+            name, place = person
+            fields.append({"slot": key, "phrase": raw, "resolve": "participant",
+                           "name": name, "place": place})
             continue
         # Self-referential and not one of the two saved places - "my hostel", "my pg",
         # "my hotel". Ruled 2026-09-02: we are NOT adding place types beyond home and
