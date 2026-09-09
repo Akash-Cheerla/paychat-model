@@ -114,17 +114,31 @@ class ConversationClassifier:
         # no firing-decision change across the near-threshold probes in
         # export_conv_onnx.py. On a path that runs per message, on top of the main
         # model, that difference is the difference between shippable and not.
+        # INT8 first, then FP32 ONNX, then torch. The FP32 rung is new (2026-09-07) and
+        # exists because quantisation is not always free: on v14, replaying 2,280 real
+        # dogfood messages through int8 and through the safetensors gave 132 prompts vs
+        # 138. The eight it dropped included the §3c offer-confirmation fix v14 was built
+        # for - "let me book a cab too" / "Sure" - while it ADDED a fire on the unprompted
+        # offer itself, inverting exactly the behaviour the retrain corrected. FP32 ONNX
+        # matched torch on every probe and costs 24ms against int8's 12ms.
+        #
+        # Ordering is unchanged for any model that ships an int8, so this is a pure
+        # fallback: a directory with only conv_model.onnx used to fall through to the
+        # 53ms torch path.
         self.session = None
-        int8 = d / "conv_model_int8.onnx"
-        if int8.exists():
+        for cand in (d / "conv_model_int8.onnx", d / "conv_model.onnx"):
+            if not cand.exists():
+                continue
             try:
                 import onnxruntime as ort
                 self.session = ort.InferenceSession(
-                    str(int8), providers=["CPUExecutionProvider"])
-                logger.info(f"conversation classifier loaded from {int8.name} "
+                    str(cand), providers=["CPUExecutionProvider"])
+                logger.info(f"conversation classifier loaded from {cand.name} "
                             f"(thresholds {self.thresholds})")
+                break
             except ImportError:
                 logger.warning("onnxruntime unavailable — falling back to torch")
+                break
 
         if self.session is None:
             cfg = RobertaConfig.from_pretrained(str(d))

@@ -10,9 +10,20 @@ build/
 *.log
 .DS_Store
 
-# fp32 ONNX is only the intermediate that conv_model_int8.onnx is quantized from
-# (export_conv_onnx.py). Nothing loads it at runtime and it is 474MB.
-conv_model/conv_model.onnx
+# conv_model/conv_model.onnx is TRACKED as of 2026-09-07 - it is now the runtime
+# artifact, not an intermediate.
+#
+# It used to be ignored because "nothing loads it at runtime and it is 474MB", which was
+# true while conv_model_int8.onnx was what shipped. On v14 the quantisation stopped being
+# free: replaying 2,280 real dogfood messages through int8 and through the plain weights
+# gave 132 prompts against 138, and the eight int8 dropped included the offer-confirmation
+# fix the retrain was built for, while it ADDED a fire on the unprompted offer itself.
+# fp32 ONNX matches the weights exactly - 17/17 batteries and all 2,280 messages - at
+# 100ms median against int8's 62ms. conv_classifier.py loads int8 first, then this.
+#
+# Re-quantising with proper calibration is a v15 task; if that lands and verifies against
+# a real-traffic replay (not just the batteries - they scored int8 HIGHER while it was
+# inverting the fix), the int8 comes back and this can be ignored again.
 
 # Training data stays on disk, not in git — conversations_v5.json never was tracked
 # and conversations_v6 is 51MB. The generators in data_gen/ are the reproducible part.
