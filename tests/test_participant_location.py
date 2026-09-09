@@ -50,13 +50,13 @@ CASES = [
      [("A", "book me a cab from my location to Samyak's house"), ("B", "sure")],
      "destination", "participant", "Samyak", "home"),
 
-    # KNOWN RED, and not this change's doing: "to <Name>'s office" produces NO
-    # destination slot at all, so there is nothing for the hint to attach to. That is the
-    # destination extractor, a separate function from _location_hint. Left failing on
-    # purpose rather than deleted - it is the next thing to fix here.
-    ("KNOWN RED  a person's office needs the extractor to capture it first",
-     [("A", "get me a cab to Andril's office"), ("B", "yeah booking"),
-      ("A", "thanks")],
+    # This read as a broken extractor for an hour. It was a broken TEST: the third turn
+    # was "thanks", so the fire happened on turn 2 and the assertion was reading turn 3's
+    # response, which correctly carries no slots. The conversation now ends on the message
+    # that fires. Kept as a note because "the slots are null" and "the last message did not
+    # fire" look identical from outside and this will happen again.
+    ("a person's office is their saved office",
+     [("A", "get me a cab to Andril's office"), ("B", "yeah booking")],
      "destination", "participant", "Andril", "office"),
 
     # The slot extractor title-cases before the hint sees the phrase, so the name comes
