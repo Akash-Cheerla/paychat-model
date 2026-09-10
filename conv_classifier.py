@@ -131,8 +131,14 @@ class ConversationClassifier:
                 continue
             try:
                 import onnxruntime as ort
+                # The CPU arena pre-allocates far more than this model needs: measured
+                # 2026-09-09, the fp32 conv session costs 842MB with it and 478MB
+                # without. On a 2GB container that difference is the whole margin, and
+                # it is an allocator setting - it cannot change a prediction.
+                _so = ort.SessionOptions()
+                _so.enable_cpu_mem_arena = False
                 self.session = ort.InferenceSession(
-                    str(cand), providers=["CPUExecutionProvider"])
+                    str(cand), _so, providers=["CPUExecutionProvider"])
                 logger.info(f"conversation classifier loaded from {cand.name} "
                             f"(thresholds {self.thresholds})")
                 break

@@ -230,6 +230,9 @@ def load_model(model_dir: Path = MODEL_DIR):
         so = ort.SessionOptions()
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         so.intra_op_num_threads = 4
+        # See conv_classifier.py: the CPU arena roughly doubles a session's resident
+        # footprint, and both sessions live in the same 2GB container.
+        so.enable_cpu_mem_arena = False
         model_state["onnx_session"] = ort.InferenceSession(
             str(onnx_path), so, providers=["CPUExecutionProvider"]
         )
