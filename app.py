@@ -235,6 +235,21 @@ def load_model(model_dir: Path = MODEL_DIR):
         )
         variant = "INT8" if onnx_path == onnx_int8 else "FP32"
         logger.info(f"ONNX {variant} session loaded ({onnx_path.stat().st_size / 1024 / 1024:.0f} MB)")
+
+        # Free the torch weights. They were being held alongside the ONNX session and
+        # never read: classify() branches to ONNX whenever a session exists, and the only
+        # other reader is the response head, which v26 does not have (no response_head.*
+        # tensors in saved_model). That is ~500MB of a 2GB container held for nothing.
+        #
+        # Measured 2026-09-09: RSS 2,099MB with both, and Samyak's box is 2GB - it was
+        # swapping, which is what "sometimes becomes unresponsive" was.
+        #
+        # Kept when has_response_head, because then line ~3469 genuinely needs the module.
+        if not has_response_head:
+            model_state["model"] = None
+            del model
+            import gc; gc.collect()
+            logger.info("torch weights released - ONNX is the only backend in use")
     else:
         model_state["onnx_session"] = None
 
@@ -3743,7 +3758,9 @@ def detect(req: DetectRequest):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="text cannot be empty")
 
-    if model_state["model"] is None:
+    # model is None on purpose when ONNX is the backend and the torch weights were
+    # released, so readiness is "some backend exists", not "the torch module exists".
+    if model_state["model"] is None and model_state.get("onnx_session") is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     rid = req.room_id or req.chat_id
