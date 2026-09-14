@@ -206,6 +206,15 @@ rule applies only to an offer nobody asked for.
 An unprompted offer fires on the confirmation, not on a third message from the offerer:
 `let me send you 500` / `ok` fires on the `ok`. The offerer does not have to speak again.
 
+**Revised for RIDES by Gowtham, 2026-09-13 — NOT YET IMPLEMENTED.** "Booking prompts are
+not forced actions. You don't have to wait for confirmation handshake." An unprompted
+ride offer (`let me book a cab`, `shall I book a cab for you?`) should fire on the offer
+itself. `I can` answering a cab request fires — it already does. Money offers are
+unchanged: `let me send you 500` still waits for the other party. Until this is built the
+v14 model follows the old rule — it scores unprompted ride offers 0.03–0.08 — and
+`tests/test_let_me_book.py` still encodes it. Building it also has to stop the other
+person's `ok` producing a second booking prompt.
+
 **Who sees it.** The prompt goes to whoever performs the action — the person paying, or
 the person booking — never automatically to whoever typed the confirming message. On
 `let me send you 500` / `ok`, the prompt is A's, though B sent the message that fired it.
@@ -318,6 +327,9 @@ than the wrong figure:
 | `dinner was 3000, lets split it` + `participants: 3` | 1000 — headcount from the backend |
 | `dinner was 3000, lets split it`, no `participants` | **blank** |
 | `dinner was 5000, thats 1000 each` | 1000 — already per-person, never divided again |
+| `the trip cost was 700, everyone please send me the money` + `participants: 7` | 100 |
+| `the trip cost was 700, everyone please send me the money`, no `participants` | **blank** — Gowtham, 2026-09-13 |
+| any of the above, then the payer types `sending you 100 now` | 100 — a typed share is never divided or blanked |
 
 The blank case is the important one. A payment sheet pre-filled with 3000 for someone
 who owes 1000 invites sending triple; an empty field costs them one typed number. In a
@@ -337,6 +349,7 @@ a split — for a while it was not, and the full total went onto the sheet.
   acceptance.
 * **Two pendings, one reply**: the reply resolves the one it actually addresses. A
   single turn should not fire two intents unless the message genuinely does both.
+  See §6g for how the addressed request is chosen.
 
 ## 6a. Group chats — anyone present may accept
 
@@ -470,6 +483,26 @@ the ride.** Never to the person who asked.
 > Status: this is currently decided by separate targeting logic that has never been
 > tested against these cases. It needs its own verification pass — firing at the right
 > moment for the wrong person is still a broken feature.
+
+## 6g. Which request a prompt carries — added 2026-09-13
+
+Firing decides WHETHER a prompt appears; this decides WHAT it shows. Dogfood on
+2026-09-11 showed prompts carrying another request's route ("I can", answering "cab from
+Yash home to JP nagar", showed Shivaji Nagar) and a superseded amount ("$1000" after the
+requester corrected it to "$700"). With several requests open, the prompt answers:
+
+1. **the message the user swipe-replied to**, when they did;
+2. **the request whose amount the message types** — `sending the 25` answers the 25;
+3. for `the other one`, **the requester's other open ask, with the amount blank**
+   (Gowtham, 2026-09-13 — which figure is meant is a guess);
+4. **the request this person just answered**, when they are restating their own
+   commitment and nothing newer is open — never an older request behind it;
+5. otherwise **the most recent** open request.
+
+Figures agreed or changed during a negotiation (a counter-offer, a new destination)
+carry over only to a prompt for **the same** request. A money counter-offer counts as
+the same negotiation: `spot me 5000` / `how about 3000` / `yeah 3000 helps` / `sending`
+shows 3000. A different request never inherits another one's figures.
 
 ## 7. Cost balance
 

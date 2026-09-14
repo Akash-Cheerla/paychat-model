@@ -19,6 +19,7 @@ import asyncio
 import json
 import os
 import re
+import threading
 import time
 import logging
 from collections import defaultdict, deque
@@ -776,7 +777,10 @@ _DIVISIBLE = re.compile(
     # someone who owes 1000 is the one direction a payment prompt must never be
     # wrong in. With this, a known headcount divides and an unknown one blanks.
     r"split(?:ting)?\s+(?:it|this|that|the\s+(?:bill|tab|cost|fare|total|check))|"
-    r"everyone\s+(?:owes|sends?|pays?)|you\s+(?:two|three|four|all)|"
+    # "everyone please send me the money" - a filler word between "everyone" and the
+    # verb hid the commonest group phrasing (dogfood 2026-09-11, group_12).
+    r"every(?:one|body)\s+(?:(?:please|pls|plz|kindly|can|could|should|just)\s+)?"
+    r"(?:owes?|send|sends|pay|pays|transfer)|you\s+(?:two|three|four|all)|"
     r"all\s+of\s+(?:you|us))\b", re.IGNORECASE)
 
 # A question ABOUT an amount is not a request FOR it. Recording it as one gave later
@@ -1036,6 +1040,42 @@ class ConversationContext:
 conversation_ctx = ConversationContext()
 
 
+# How far back, in messages, a person's restated commitment still belongs to the request
+# they just answered. Today's case was 4 messages apart; 8 leaves room for a little
+# chat in between without letting a later, unrelated payment reuse settled figures.
+_RESTATE_WINDOW_MSGS = 8
+
+_NUMBER = re.compile(r"(?<![\d.])\d[\d,]*(?:\.\d+)?")
+
+# "sending the other one" - refers to a request other than the one this person just
+# answered. Gowtham, 2026-09-13: with two asks open and no amount typed, leave the
+# amount blank rather than guess which figure is meant.
+_OTHER_ONE = re.compile(r"\b(?:the\s+other(?:\s+one)?|other\s+one|the\s+second\s+one)\b",
+                        re.IGNORECASE)
+
+
+def _amount_key(value) -> Optional[str]:
+    """"$1,000" / "1000" / "1000.00" -> "1000". None when there is no number."""
+    m = _NUMBER.search(str(value or ""))
+    if not m:
+        return None
+    n = m.group(0).replace(",", "")
+    return n.rstrip("0").rstrip(".") if "." in n else n
+
+
+def _locked(method):
+    """Run a RequestMeta method under the instance lock. /detect is a plain def, so
+    FastAPI serves it from a thread pool and two messages for one room can be inside
+    record()/take() at once. take() works out list positions and then pops, and a
+    concurrent append or pop in between raised IndexError (a lost prompt) - v14 did
+    this too. The lock covers each call, not a whole message's sequence of calls."""
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    wrapper.__name__, wrapper.__doc__ = method.__name__, method.__doc__
+    return wrapper
+
+
 class RequestMeta:
     """Carries `triggered_by` for the classifier path. Decides nothing.
 
@@ -1056,6 +1096,7 @@ class RequestMeta:
     MAX_PER_ROOM = 8
 
     def __init__(self):
+        self._lock = threading.RLock()
         self.rooms: dict[str, list] = defaultdict(list)
         # room -> {(intent, sender): ts} of the last fire, for duplicate suppression.
         # Cleared when a new request arrives, so the next commitment counts as a real
@@ -1085,17 +1126,57 @@ class RequestMeta:
         # on the sheet instead of the agreed 3000. So: if no new request has arrived,
         # this fire is a continuation — reuse what the last one resolved.
         self.last_resolved: dict[str, dict] = defaultdict(dict)
+        # room -> intent -> the request record that fire answered, so the reuse can check
+        # it is still the same negotiation (continues_for).
+        self.last_resolved_src: dict[str, dict] = defaultdict(dict)
         self.new_request_since: dict[str, dict] = defaultdict(dict)
+        # room -> (intent, sender) -> (request, msg_no) of the last request handed to that
+        # person's fire, so restating their own commitment gets the same request back.
+        # Per sender: two people answering two requests must not read each other's.
+        self.last_taken: dict[str, dict] = defaultdict(dict)
+        self._seq = 0                    # recording order; time.time() can tie on Windows
 
+    @_locked
     def continues_last(self, room_id, intent):
         """Is this fire part of the same negotiation as the previous one?"""
         return (bool(self.last_resolved.get(room_id, {}).get(intent))
                 and not self.new_request_since.get(room_id, {}).get(intent))
 
-    def remember_resolved(self, room_id, intent, slots):
+    @_locked
+    def remember_resolved(self, room_id, intent, slots, src=None):
         if room_id and slots:
             self.last_resolved[room_id][intent] = dict(slots)
+            self.last_resolved_src[room_id][intent] = src
 
+    @_locked
+    def continues_for(self, room_id, intent, src, sender):
+        """May a fire answering `src` reuse what the previous fire resolved?
+
+        continues_last() only says no request arrived since. Keyed per room, that pasted
+        one request's figures onto a different request (group_12, 2026-09-11): "I can",
+        answering "cab from Yash home to JP nagar", showed Shivaji Nagar from the prompt
+        before it, and "Booking it now" / "Booking a cab ... to forum mall" showed
+        University of Windsor. So the previous fire must have answered the SAME request.
+
+        One exception, money only: a counter-offer. "spot me 5000" / "how about 3000"
+        (recorded as its own, newer request) / "yeah 3000 helps" (fires on the counter)
+        / "sending" (answers the original) must show 3000. That is recognisable: the
+        answered request is older than the counter, from someone else, and the person
+        firing now is the one who countered. Two requests from two people, or two asks
+        from one person, fail one of those and keep their own figures.
+        """
+        last = self.last_resolved_src.get(room_id, {}).get(intent)
+        if not src or not last:
+            return False
+        if last is src or (src.get("message_id")
+                           and src.get("message_id") == last.get("message_id")):
+            return True
+        return (intent == "money"
+                and src.get("seq", 0) < last.get("seq", 0)
+                and src.get("sender") != last.get("sender")
+                and last.get("sender") == sender)
+
+    @_locked
     def mark_fired(self, room_id, intent, sender):
         """Record a fire for duplicate suppression. Does NOT move the settled line."""
         if room_id:
@@ -1103,6 +1184,7 @@ class RequestMeta:
             self.last_fire[room_id][(intent, sender)] = time.time()
             self.fire_msg_no[room_id][(intent, sender)] = self.msg_no[room_id]
 
+    @_locked
     def mark_settled(self, room_id, intent):
         """Close off a negotiation — only call when a real request was answered.
 
@@ -1118,11 +1200,13 @@ class RequestMeta:
             # a property of the conversation.
             self.settled_at[room_id][intent] = time.time()
 
+    @_locked
     def tick(self, room_id):
         """Count one message in this room. Called once per message, before dedup."""
         if room_id:
             self.msg_no[room_id] += 1
 
+    @_locked
     def recently_fired(self, room_id, intent, sender):
         ts = self.last_fire.get(room_id, {}).get((intent, sender))
         if ts is None:
@@ -1136,6 +1220,7 @@ class RequestMeta:
             return True
         return (self.msg_no.get(room_id, 0) - seen) <= _ECHO_WINDOW_MSGS
 
+    @_locked
     def clear_fired(self, room_id, intent):
         """A new request reopens the intent for everyone in the room."""
         room = self.last_fire.get(room_id)
@@ -1143,6 +1228,7 @@ class RequestMeta:
             for key in [k for k in room if k[0] == intent]:
                 room.pop(key, None)
 
+    @_locked
     def record(self, room_id, intent, sender, text, message_id, slots, divisible=False):
         # An EDIT arrives with the same message_id and sender as the original. Replace
         # the stored request instead of appending a second one: the edited version
@@ -1165,10 +1251,15 @@ class RequestMeta:
         # A new request starts a new negotiation — the next fire must resolve its own
         # figures rather than inherit the previous payment's.
         self.new_request_since[room_id][intent] = True
+        # Every request is kept, including a second one from the same person. A newer
+        # request is not always a correction: "send me 60 for the tickets" / "also send
+        # me 40 for lunch" is two debts, and dropping the first put $40 on the sheet for
+        # "and sending the 60 for the tickets too". take() handles the correction case.
         q = self.rooms[room_id]
+        self._seq += 1
         q.append({"intent": intent, "sender": sender, "text": text,
                   "message_id": message_id, "slots": slots or None,
-                  "ts": time.time(),
+                  "ts": time.time(), "seq": self._seq,
                   # A divisible request is owed by every member separately ("1000 each"),
                   # so it must survive being answered. take() consumes an ordinary
                   # request, which is right for "lend me 500" — one debt, one payer —
@@ -1178,6 +1269,7 @@ class RequestMeta:
                   "taken_by": set()})
         del q[:-self.MAX_PER_ROOM]
 
+    @_locked
     def has_open(self, room_id, intent, sender):
         """Is there an unanswered request for this intent from someone else?"""
         now = time.time()
@@ -1193,32 +1285,110 @@ class RequestMeta:
                    and sender not in (e.get("taken_by") or ())
                    for e in self.rooms.get(room_id) or [])
 
-    def take(self, room_id, intent, sender):
-        """Most recent matching request from someone else. None if absent.
+    @_locked
+    def take(self, room_id, intent, sender, reply_to=None, text=None):
+        """The request this fire answers, and how it was chosen: (request, how).
+
+        request is None when there is none. how is one of:
+          "reply"     `reply_to` names it - the message the user replied to. Without
+                      this, "I can do that" replying to Yash's home -> Mumbai airport
+                      request came back with the newer University of Windsor route
+                      (dogfood 2026-09-11, "Correct for the wrong one, I had replied
+                      to Yash's").
+          "amount"    the message states its amount. "And sending the 60 for the
+                      tickets too" answers the $60 request, not the $40 lunch request
+                      made after it.
+          "other"     money: "the other one" - a request other than the one this person
+                      just answered, preferring the same requester's.
+          "restated"  this person answered a request a few messages ago and nothing
+                      newer is open, so they are restating that commitment. Dogfood
+                      2026-09-11, "it turned 100 into 1000": "the trip cost was $1000,
+                      everyone please send" / "the trip cost was $700, ..." / "Okay"
+                      (took $700) / "Okay, sending that amount now" walked back past the
+                      consumed $700 and took the stale $1000.
+          "recent"    the most recent open request from someone else, as before.
+        "reply" and "amount" are explicit: the caller must not overwrite their figures
+        with the previous fire's (continues_last).
 
         Ordinary requests are consumed. A divisible one ("1000 each") is owed by every
-        member separately, so it stays in the queue and only records who has answered —
-        otherwise the first payer eats it and everyone after them gets a prompt with no
-        amount. Each sender may still take it only once, which keeps a single person
-        restating their own commitment from resolving it twice.
+        member separately, so it stays in the queue and records who has answered.
+
+        The QUEUE changes exactly as it always did, except when a reply or a stated
+        amount names a different request. A restatement still consumes what the old
+        scan would have taken. has_open() reads the queue to decide whether a repeat
+        may fire, so leaving the stale $1000 open would have re-enabled a duplicate
+        prompt two messages later. This fixes which request a prompt SHOWS, not whether
+        a prompt appears.
         """
-        q = self.rooms.get(room_id)
-        if not q:
-            return None
+        q = self.rooms.get(room_id) or []
         now = time.time()
-        for i in range(len(q) - 1, -1, -1):
+        msg_no = self.msg_no.get(room_id, 0)
+
+        def amount_of(e):
+            return _amount_key((e.get("slots") or {}).get("amount"))
+
+        # newest first
+        open_ = [i for i in range(len(q) - 1, -1, -1)
+                 if q[i]["intent"] == intent and q[i]["sender"] != sender
+                 and now - q[i]["ts"] <= CONV_CONTEXT_TIME_CAP]
+        # What the scan took before any of this: the newest open request, skipping a
+        # divisible one this sender already answered.
+        old_pick = next((i for i in open_ if not (q[i].get("divisible")
+                                                  and sender in q[i].get("taken_by", ()))),
+                        None)
+
+        def consume(i):
             e = q[i]
-            if e["intent"] != intent or e["sender"] == sender:
-                continue
-            if now - e["ts"] > CONV_CONTEXT_TIME_CAP:
-                continue
             if e.get("divisible"):
-                if sender in e.get("taken_by", ()):
-                    continue
                 e.setdefault("taken_by", set()).add(sender)
                 return e
             return q.pop(i)
-        return None
+
+        def hand_over(i, how):
+            got = consume(i)
+            self.last_taken[room_id][(intent, sender)] = (got, msg_no)
+            return got, how
+
+        if reply_to:
+            for i in open_:
+                if q[i].get("message_id") == reply_to:
+                    return hand_over(i, "reply")
+
+        # Bounded by message distance and time, so a later, unrelated payment cannot
+        # pick up a settled request's figures.
+        prev = self.last_taken.get(room_id, {}).get((intent, sender))
+        if prev and not (msg_no - prev[1] <= _RESTATE_WINDOW_MSGS
+                         and now - prev[0]["ts"] <= CONV_CONTEXT_TIME_CAP):
+            prev = None
+        prev_req = prev[0] if prev else None
+
+        def restated():
+            if old_pick is not None:
+                consume(old_pick)
+            return prev_req, "restated"
+
+        if intent == "money" and text and prev_req and _OTHER_ONE.search(text) \
+                and not _NUMBER.search(text):
+            others = [i for i in open_ if q[i] is not prev_req]
+            same_asker = [i for i in others if q[i]["sender"] == prev_req["sender"]]
+            if same_asker or others:
+                return hand_over((same_asker or others)[0], "other")
+
+        if intent == "money" and text:
+            stated = {_amount_key(n) for n in _NUMBER.findall(text)} - {None}
+            if stated:
+                if prev_req and amount_of(prev_req) in stated:
+                    newer = [i for i in open_ if amount_of(q[i]) in stated
+                             and q[i].get("seq", 0) > prev_req.get("seq", 0)]
+                    return hand_over(newer[0], "amount") if newer else restated()
+                for i in open_:
+                    if amount_of(q[i]) in stated:
+                        return hand_over(i, "amount")
+
+        if prev_req and not any(q[i].get("seq", 0) > prev_req.get("seq", 0) for i in open_):
+            return restated()
+
+        return hand_over(old_pick, "recent") if old_pick is not None else (None, None)
 
 
 request_meta = RequestMeta()
@@ -3276,7 +3446,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 # Recorded under the payer, matching the key the dedup check above reads.
                 # Recording under the sender would never match on an accepted offer.
                 request_meta.mark_fired(room_id, intent, _payer)
-                src = request_meta.take(room_id, intent, sender)
+                src, picked_by = request_meta.take(room_id, intent, sender,
+                                                   reply_to=reply_to, text=text)
                 if src:
                     result["conversation_state"]["triggered_by"] = {
                         "sender": src["sender"],
@@ -3297,6 +3468,11 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # "sending now" hands back the upi message, whose slots are empty,
                     # so the merge was skipped and the payment sheet opened blank.
                     merged = dict(result.get("slots") or {})
+                    # The amount this message literally types, if any. Checked against the
+                    # text so an amount the extractor recovered from elsewhere does not count.
+                    _own_amt = _amount_key(merged.get("amount"))
+                    typed_amount = (_own_amt if _own_amt in {_amount_key(n) for n in
+                                                              _NUMBER.findall(text)} else None)
                     for k, v in (src["slots"] or {}).items():
                         if merged.get(k) in (None, "", []):
                             merged[k] = v
@@ -3332,7 +3508,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         # Skipped when the asker already stated the per-person figure
                         # ("5000, thats 1000 each"), since _negotiated_amount picks
                         # that up and dividing again would give 200.
-                        if src.get("divisible") and merged.get("amount"):
+                        # Not when the payer typed the figure: "Sending you 100 now" on a
+                        # "$700, everyone send" request is already their share - blanking it
+                        # or dividing it by the headcount again would both be wrong.
+                        if src.get("divisible") and merged.get("amount") and not typed_amount:
                             share = _per_person_share(
                                 src.get("text") or "", merged["amount"], participants,
                                 _is_dm_room=bool(room_id and room_id.startswith("dm_")))
@@ -3350,6 +3529,12 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                                 # only overwrites with truthy values, so the total would
                                 # survive from src["slots"]. Mark it for removal.
                                 blanked.add("amount")
+
+                        # Gowtham, 2026-09-13: "sending the other one" with no amount of its
+                        # own leaves the amount blank - which ask is meant is a guess.
+                        if _OTHER_ONE.search(text) and not typed_amount:
+                            merged["amount"] = None
+                            blanked.add("amount")
 
                     # Same problem, ride side: the recorded request holds the
                     # destination that was asked for, which may have been changed
@@ -3395,21 +3580,34 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # this, "spot me 5000" / "how about 3000" / "yeah 3000 helps"
                     # (fires 3000) / "sending" put 5000 on the second sheet, because
                     # scoping to "after the last fire" hid the counter-offer.
-                    if continues:
+                    # Not when the message itself named the request - a reply, or the
+                    # amount it states. "sending the 40 now" then "and sending the 60 for
+                    # the tickets too" is a second payment, not a continuation, and the
+                    # reuse put $40 on the $60 sheet.
+                    # Never over an amount the message types: "can you send me 700" /
+                    # "okay" (fires $700) / ... / "sending you 100 now, rest later" must
+                    # show $100, not the $700 the last fire resolved to.
+                    if (continues and picked_by not in ("reply", "amount")
+                            and request_meta.continues_for(room_id, intent, src, sender)):
                         prev = request_meta.last_resolved.get(room_id, {}).get(intent, {})
                         for k, v in prev.items():
+                            if (k == "amount" and typed_amount) or k in blanked:
+                                continue
                             if k in allowed and v not in (None, "", []):
                                 tb_slots[k] = v
                                 merged[k] = v
                         result["slots"] = merged
-                    request_meta.remember_resolved(room_id, intent, tb_slots)
+                    request_meta.remember_resolved(room_id, intent, tb_slots, src=src)
                     # A real request was answered — close the negotiation off so its
                     # figures cannot leak into the next one.
                     request_meta.mark_settled(room_id, intent)
                     result["conversation_state"]["triggered_by"]["slots"] = tb_slots
 
                     if intent == "money":
-                        amt = merged.get("amount") or (src["slots"] or {}).get("amount")
+                        # A deliberately blanked amount stays blank here too: falling back
+                        # to the request's figure put the $700 total back on the sheet.
+                        amt = (None if "amount" in blanked else
+                               merged.get("amount") or (src["slots"] or {}).get("amount"))
                         # result["money"] can exist as an explicit None, so
                         # setdefault is not enough.
                         money = result.get("money") or {}
@@ -3595,7 +3793,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     result.pop("_text", None)
     result.pop("_cls_embedding", None)
 
-    _log_message(room_id, sender, text, result)
+    _log_message(room_id, sender, text, result, message_id=message_id, reply_to=reply_to)
     return result
 
 
@@ -3636,7 +3834,7 @@ elif _LOG_ROOMS:
                    f"{_LOG_UNTIL} -> {_LOG_PATH}")
 
 
-def _log_message(room_id, sender, text, result):
+def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
     """Append one line per message, until the expiry date."""
     if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
         return
@@ -3659,7 +3857,16 @@ def _log_message(room_id, sender, text, result):
             "scores": {k: v for k, v in (result.get("scores") or {}).items()
                        if k in ("money", "ride")},
             "conv": (result.get("conversation_state") or {}).get("scores"),
+            # Which request a prompt showed, and whether the client sent reply_to. Without
+            # these a log cannot show a prompt carrying the wrong request's amount or
+            # route (dogfood 2026-09-11), or whether the reply fix can work at all.
+            "message_id": message_id,
+            "reply_to": reply_to,
         }
+        tb = (result.get("conversation_state") or {}).get("triggered_by")
+        if tb and row["fired"]:
+            row["matched"] = {"sender": tb.get("sender"), "text": tb.get("text"),
+                              "message_id": tb.get("message_id"), "slots": tb.get("slots")}
         with open(_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         _LOG_STATE["written"] += 1

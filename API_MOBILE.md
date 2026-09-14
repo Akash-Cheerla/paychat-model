@@ -351,6 +351,21 @@ Read the slots, not the text. Parsing an amount or a place out of `triggered_by.
 gives you the superseded value — on a payment sheet that means pre-filling double
 what was agreed.
 
+**An amount the payer types wins.** "can you send me 700" → "okay" → … → "sending you
+100 now, rest later" gives `amount: "$100"`, not the $700 asked for.
+
+**A missing amount is deliberate — leave the field empty.** Since 2026-09-14 the server
+leaves `amount` out of `triggered_by.slots` AND sets `money.detected_amount` to null
+when it cannot be sure of the figure (Gowtham, 2026-09-13):
+
+- a total addressed to everyone with no known headcount — "the trip cost was $700,
+  everyone please send me the money" with no `participants`. With `participants` it
+  shows the share instead.
+- "sending the other one" with two asks open and no amount typed.
+
+Do not fill the field from `triggered_by.text` or an earlier prompt. An empty field
+costs the user one typed number; a wrong one invites paying the wrong sum.
+
 **Direction logic (for immediate money fires without state machine):**
 - `request` → sender is asking for money → recipient should pay
 - `offer` → sender is offering to pay → sender initiates payment
@@ -366,13 +381,21 @@ The state machine works differently in groups vs DMs. You don't need to handle t
 
 **Group chats — rule layer:** Responses only match when the user swipe-replies to the original request message. If Jake just types "bet" into a group with multiple pending requests, nothing fires — the system can't know which request he's responding to. When Jake swipe-replies to Maya's "venmo me 45" and says "bet", it fires correctly.
 
-**Group chats — conversation classifier:** No `reply_to` needed. Maya asks the group, Jake replies "i got u, booking it now", and it fires with `target.show_to: "sender"` — the prompt goes to Jake, who is the one acting. Verified on a room id with no `dm_` prefix.
+**Group chats — conversation classifier:** No `reply_to` needed to fire. Maya asks the group, Jake replies "i got u, booking it now", and it fires with `target.show_to: "sender"` — the prompt goes to Jake, who is the one acting. Verified on a room id with no `dm_` prefix.
 
-**Two requests open at once, answered with a bare "ok"** ("venmo me 20", then "book me a cab to hsr", then just "ok"): the classifier answers the **most recent** request — the ride, in that example. There is no explicit signal for which one is meant, and in real chat the last thing asked is usually the thing being answered. Naming the action — "ok sending" or "ok booking" — is unambiguous and always resolves to the right one.
+**Which request `triggered_by` carries** (classifier path, since 2026-09-14). When more than one request is open, the server picks, in order:
+
+1. **The message the user swipe-replied to** (`reply_to`). Replying to Yash's "home → Mumbai airport" request gets Yash's route even if a newer request came after it.
+2. **The amount the message types.** "sending the 25" answers the $25 request, not a newer $80 one.
+3. **"the other one"** — the requester's other open ask. The amount is left blank (see Money-Specific Fields).
+4. **The request this person just answered**, if they are restating their commitment ("okay" … "okay, sending that amount now") and nothing newer is open. Before this fix a restatement could reach back to an older, corrected request — "$1000" after it had been corrected to "$700".
+5. Otherwise **the most recent** open request. "venmo me 20", then "book me a cab to hsr", then a bare "ok" answers the ride. Naming the action — "ok sending" or "ok booking" — resolves to the right one.
+
+Figures from an earlier prompt (an agreed counter-offer, a changed destination) carry over only to a prompt for the **same** request. A prompt for a different request never shows another request's route or amount.
 
 The rule layer behaves differently here: it fires nothing. So this is one more case where `decided_by` changes what you see.
 
-The backend passes `reply_to` (the replied-to message ID) to the model server. If your app already sends `reply_to_message_id` or similar in the message payload, make sure the backend is forwarding it. Otherwise money/ride in group chats won't fire.
+The backend passes `reply_to` (the replied-to message ID) and `participants` to the model server — confirmed by Samyak on 2026-09-13. On the rule layer money/ride in group chats won't fire without `reply_to`; on the classifier path it decides which request the prompt carries.
 
 **Next-day replies work too.** If someone replies to a money request the next day via swipe-reply, the server matches it from a 48-hour archive of expired requests.
 
@@ -385,7 +408,7 @@ The backend passes `reply_to` (the replied-to message ID) to the model server. I
 - **No slots:** Sometimes intent fires but slots are null. Show a generic popup.
 - **Guardrails:** If `detection.guardrails` is not null, a compliance issue was detected. You may want to show a warning.
 - **`triggered_by` is null:** For self-initiated messages ("I'll venmo you") that fire without a prior pending request, `triggered_by` won't be present. Handle same as before.
-- **Group chat with no `reply_to`:** Money/ride responses are silently ignored. No false fires — by design.
+- **Group chat with no `reply_to`:** Rule layer — money/ride responses are silently ignored, by design. Conversation classifier — they fire, and answer the most recent matching request (see Group Chat vs DM).
 
 ---
 
