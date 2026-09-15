@@ -206,14 +206,12 @@ rule applies only to an offer nobody asked for.
 An unprompted offer fires on the confirmation, not on a third message from the offerer:
 `let me send you 500` / `ok` fires on the `ok`. The offerer does not have to speak again.
 
-**Revised for RIDES by Gowtham, 2026-09-13 — NOT YET IMPLEMENTED.** "Booking prompts are
-not forced actions. You don't have to wait for confirmation handshake." An unprompted
-ride offer (`let me book a cab`, `shall I book a cab for you?`) should fire on the offer
-itself. `I can` answering a cab request fires — it already does. Money offers are
-unchanged: `let me send you 500` still waits for the other party. Until this is built the
-v14 model follows the old rule — it scores unprompted ride offers 0.03–0.08 — and
-`tests/test_let_me_book.py` still encodes it. Building it also has to stop the other
-person's `ok` producing a second booking prompt.
+**`I can` answering a cab request fires — Gowtham, 2026-09-13.** Asked whether a bare
+`I can` is committal enough, he ruled it triggers the booking prompt: "booking prompts are
+not forced actions, you don't have to wait for confirmation handshake" — the requester
+does not have to confirm before the person who said `I can` sees the prompt. This is what
+the v14 model already does (0.995). The ruling was given for replies to a request; it
+does not by itself change the unprompted-offer rule above.
 
 **Who sees it.** The prompt goes to whoever performs the action — the person paying, or
 the person booking — never automatically to whoever typed the confirming message. On
