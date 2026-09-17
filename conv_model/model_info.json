@@ -8,14 +8,19 @@
   "max_length": 256,
   "window": 10,
   "thresholds": {
-    "money": 0.9849999999999995,
-    "ride": 0.9849999999999995
+    "money": 0.985,
+    "ride": 0.985
   },
   "render": "speakers normalised so the final message's sender is A; spliced pending requests marked [earlier]; messages joined by ' | '",
   "loss": "AsymmetricLoss(gamma_neg=2.5, gamma_pos=1.0, clip=0.05)",
-  "trained_on": "conv_windows_v14 \u2014 372374 windows",
+  "trained_on": "conv_windows_v17 — 394514 windows",
   "seed": 1337,
   "epochs": 4,
-  "threshold_selection": "plateau TOP, within 1% of peak F-beta(0.7)",
+  "threshold_selection": "0.985 both labels, set 2026-09-17 from val_curve.json BEFORE any log replay (data/eval/V17_THRESHOLD_PREREG.md). The training run picked 0.988/0.990 as the plateau TOP, which sat on this model's recall cliff - ride recall 0.837 at 0.990 and 0.041 at 0.991 - so clear acceptances scoring 0.990 did not fire. Precision is flat from 0.95 to 0.99, so 0.985 costs nothing and keeps a margin.",
+  "thresholds_as_trained": {
+    "money": 0.9880000000000001,
+    "ride": 0.9900000000000001
+  },
+  "measured": "data/eval/V17_RESULTS.md - dev log 78.0% caught / 9.9% wrong prompts, blind holdout 87.5% / 14.6%, both better than v14",
   "rule": "FIRING_RULE.md"
 }

@@ -1009,7 +1009,7 @@ class ConversationContext:
             # ts rides along so slot recovery can scope itself to messages that came
             # AFTER the request being answered. build_window ignores extra keys.
             out.append({"sender": entry["sender"], "text": entry["text"],
-                        "ts": entry["ts"]})
+                        "ts": entry["ts"], "scores": entry.get("scores") or {}})
         return out[-size:] if out else []
 
     def get_prev_messages(self, room_id: str, max_msgs: int = 3) -> list:
@@ -1047,11 +1047,141 @@ _RESTATE_WINDOW_MSGS = 8
 
 _NUMBER = re.compile(r"(?<![\d.])\d[\d,]*(?:\.\d+)?")
 
+# Someone saying the last attempt did not work. Akash, 2026-09-15: a request re-sent after
+# this gets a new prompt; a re-send without it is the same request and does not.
+_ATTEMPT_FAILED = re.compile(
+    r"\b(?:did\s*n[o']?t\s+(?:get|work|show|come|update|go\s+through)|no\s+intent|no\s+prompt|"
+    r"not\s+(?:getting|working|showing|updating|clickable|passed|coming)|failed|"
+    r"nothing\s+(?:came|showed|happened)|try\s+again|ask\s+again|one\s+more\s+time|"
+    # testers ask for a re-send when the prompt did not appear - that is a failure report
+    r"send\s+(?:one\s+more|another|it\s+again|again)|say\s+(?:it\s+)?again|repeat\s+(?:it|that)|"
+    # what testers actually write when the app misbehaves, not just "it failed":
+    r"struggl\w+|blank\s+(?:pickup|destination|location|amount)|(?:pickup|destination|location|"
+    r"amount)\s+(?:is\s+)?(?:blank|empty|wrong|incorrect|missing)|wrong\s+(?:pickup|destination|"
+    r"location|amount|one)|still\s+(?:blank|wrong|not))\b",
+    re.IGNORECASE)
+
+# The self-acknowledgement guard accepts an acknowledgement only when it has something to
+# answer. A request the base model scores below its recording threshold still counts,
+# as long as someone OTHER than the sender sent it: "can you wire me inr 45" scores 0.35
+# and was never recorded, so the "ok" after it was dropped at conv 0.997.
+_WEAK_REQUEST = 0.3
+
+# What ENDS a round, so the next request is a new one rather than the same one re-sent:
+# a payment or booking carried out (by anyone), or the requester acting on it themselves
+# ("booking an uber from my location" - dogfood 2026-08-11 dm_43_71). Past tense only:
+# "ok sending now" is the acceptance of the request, not the end of it.
+_COMPLETED = re.compile(r"\b(sent|paid|transferred|booked|ordered|done)\b", re.IGNORECASE)
+
 # "sending the other one" - refers to a request other than the one this person just
 # answered. Gowtham, 2026-09-13: with two asks open and no amount typed, leave the
 # amount blank rather than guess which figure is meant.
 _OTHER_ONE = re.compile(r"\b(?:the\s+other(?:\s+one)?|other\s+one|the\s+second\s+one)\b",
                         re.IGNORECASE)
+
+# A reply that is nothing but agreement. Used only by the two guards below, which decide
+# whether such a reply has anything to agree TO; a reply with words of its own
+# ("i can book one too", "sending mine") never matches.
+_BARE_ACK = re.compile(
+    r"^\W*(?:ok(?:ay|ie|k)?|k+|sure|cool|nice|alright|aight|great|perfect|fine|"
+    r"yes|yeah|ya|yep|yup)\W*$", re.IGNORECASE)
+
+# A shortfall stated as a fact, with nothing asked (FIRING_RULE s1a). A debt is NOT one of
+# these: "you owe me 20" / "sure" fires (Akash, 2026-09-17, ruling 8).
+_SHORTFALL = re.compile(
+    r"\b(?:i\s?a?m|i'?m)\s+(?:\S+\s+){0,2}short\b|\bshort\s+on\s+(?:cash|money|funds)\b|"
+    r"\b(?:i\s?a?m|i'?m)\s+(?:so\s+|totally\s+|completely\s+|flat\s+)?broke\b|"
+    r"\bmoney'?s?\s+(?:is\s+)?(?:really\s+|so\s+|super\s+)?tight\b|"
+    r"\bonly\s+(?:have|got)\s+\S+\s+left\b|\bcard\s+(?:got\s+|was\s+)?declined\b|\bcan'?t\s+afford\b",
+    re.IGNORECASE)
+# Words that turn a shortfall into an ask: "im short 300, can you help?"
+_ASKS = re.compile(r"\?|\b(?:can|could|would)\s+(?:you|u|someone|anyone)\b|\b(?:pls|please|plz|help\s+(?:me|out))\b",
+                   re.IGNORECASE)
+_NEGATED = re.compile(r"\b(?:can'?t|cannot|not|no|nah|maybe)\b", re.IGNORECASE)
+# Chatter that sits between a message and the reply to it without changing what is being
+# replied to. Group chats interleave these constantly: in the stale-slots battery a
+# bystander's "lol" between "Sending the 40 now" and another bystander's "ok" hid the take,
+# the "ok" prompted, and the payer's real "sending the other one too" was then dropped as its
+# duplicate.
+_REACTION = re.compile(
+    r"^[\W_]*(?:(?:lol+|lmao+|haha+|hehe+|ha+|nice|cool|k+|ok(?:ay|ie|k)?|sure|yes|yeah|ya|yep|yup|"
+    r"alright|aight|great|perfect|fine|wow|damn|ikr|true|same|rip|omg|hmm+|thanks|thank\s+you|thx|ty|tysm)"
+    r"[\W_]*){0,3}$", re.IGNORECASE)
+
+
+def _latest_substantive(hist: list, sender: str):
+    """(index, entry) of the latest message from someone other than `sender` that is not a
+    reaction, or (None, None)."""
+    for i in range(len(hist) - 1, -1, -1):
+        e = hist[i]
+        if e.get("sender") == sender or _REACTION.match(_norm_greet(e.get("text", ""))):
+            continue
+        return i, e
+    return None, None
+
+
+def _is_clear_take(text: str, intent: str) -> bool:
+    """The speaker has taken the request on themselves: "let me book a cab", "i'll send it",
+    "sending it now". Not a question ("should i book it?"), not a promise for later, not a
+    refusal."""
+    t = _norm_greet(text)
+    if not t or _ASKS.search(t) or _ACT_FUTURE.search(t) or _NEGATED.search(t):
+        return False
+    if intent == "money":
+        return bool(_STATES_ACTION_MONEY.search(t)
+                    or re.search(rf"\b(?:let\s+me|lemme)\s+{_PAY_APP}\b", t, re.IGNORECASE))
+    # "booking it now" names no vehicle, so _STATES_ACTION_RIDE (which must, to keep "booking a
+    # table" out) misses it. Here a ride request is already open and ride fired, so "it" is the cab.
+    return bool(_STATES_ACTION_RIDE.search(t)
+                or re.search(rf"\b(?:let\s+me|lemme)\s+{_RIDE_ACT}\b", t, re.IGNORECASE)
+                or re.search(rf"\b(?:i'?ll|ill|i\s+will)\s+book\b", t, re.IGNORECASE)
+                or re.search(r"\b(?:booking|ordering|getting)\s+(?:it|one|that)\s+(?:now|rn|right\s+now)\b",
+                             t, re.IGNORECASE))
+
+
+def _acknowledges_a_take(hist: list, sender: str, intent: str) -> bool:
+    """Ruling 6 (Akash, 2026-09-17): after someone CLEARLY took a group request, a third
+    person's bare ok acknowledges them rather than committing again.
+
+        A: can someone book me a cab to HSR
+        B: let me book a cab          fires (B)
+        C: okay                       quiet - C is acknowledging B
+
+    Ruling 7 keeps the other case: after a bare "sure", a bare "sure" is still an answer to
+    A and fires, so this needs B's message to be a clear take. Needs a request from a third
+    person before it; a split is excepted, since everyone owes their own share (s5a)."""
+    j, take = _latest_substantive(hist, sender)
+    if take is None or not _is_clear_take(take.get("text", ""), intent):
+        return False
+    for e in reversed(hist[:j]):
+        if e.get("sender") in (sender, take.get("sender")):
+            continue
+        t = _norm_greet(e.get("text", ""))
+        if _DIVISIBLE.search(t):
+            return False
+        if (any(p.search(t) for p in _REQUEST_OF_OTHER)
+                or (e.get("scores") or {}).get(intent, 0) >= _WEAK_REQUEST):
+            return True
+    return False
+
+
+def _agrees_to_a_shortfall(hist: list, sender: str) -> bool:
+    """FIRING_RULE s1a: "im short 300 this month" / "sure" is a polite noise, nothing agreed.
+    The reply must be bare, the other person's latest message a shortfall that asks for
+    nothing, and that person must not have asked for money earlier in the window. v17 scored
+    this 0.974 (v14 0.041) and it prompted on the 82-case set (m03)."""
+    j, stmt = _latest_substantive(hist, sender)
+    if stmt is None:
+        return False
+    t = _norm_greet(stmt.get("text", ""))
+    if not _SHORTFALL.search(t) or _ASKS.search(t) or any(p.search(t) for p in _REQUEST_OF_OTHER):
+        return False
+    for e in hist[:j]:
+        if e.get("sender") == stmt.get("sender"):
+            u = _norm_greet(e.get("text", ""))
+            if _ASKS.search(u) or any(p.search(u) for p in _REQUEST_OF_OTHER):
+                return False
+    return True
 
 
 def _amount_key(value) -> Optional[str]:
@@ -1134,6 +1264,9 @@ class RequestMeta:
         # person's fire, so restating their own commitment gets the same request back.
         # Per sender: two people answering two requests must not read each other's.
         self.last_taken: dict[str, dict] = defaultdict(dict)
+        # room -> intent -> the request a prompt was last opened for, to recognise the
+        # same request sent again (is_restatement).
+        self.last_answered: dict[str, dict] = defaultdict(dict)
         self._seq = 0                    # recording order; time.time() can tie on Windows
 
     @_locked
@@ -1175,6 +1308,55 @@ class RequestMeta:
                 and src.get("seq", 0) < last.get("seq", 0)
                 and src.get("sender") != last.get("sender")
                 and last.get("sender") == sender)
+
+    @_locked
+    def is_restatement(self, room_id, intent, sender, slots, text, hist):
+        """The person a prompt already went to for this exact request, or None.
+
+        Akash, 2026-09-15: the requester re-sending the same request after it was
+        accepted does not earn a second prompt FOR THE PERSON WHO ANSWERED IT (ruling 2) -
+        but a different person answering still gets one (ruling 3), so this returns who is
+        already done rather than swallowing the request for everyone.
+
+        It is a NEW request, and this returns None, when the re-send changes the amount or
+        the route, when someone said the last attempt did not work (_ATTEMPT_FAILED -
+        ruling 5), or when the round CLOSED in between: a payment or booking carried out
+        (_ACTION_TAKEN) ends it, and what follows is a new round. Measured: without those
+        two exceptions this cost 3 real commitments on the 09-10 log and 1 on the holdout.
+        """
+        prev = self.last_answered.get(room_id, {}).get(intent)
+        if not prev or prev["requester"] != sender:
+            return None
+        if self.msg_no.get(room_id, 0) - prev["msg_no"] > _RESTATE_WINDOW_MSGS:
+            return None
+        act = _STATES_ACTION_MONEY if intent == "money" else _STATES_ACTION_RIDE
+        for e in hist:
+            if e.get("ts", 0) <= prev["ts"]:
+                continue
+            t = e.get("text") or ""
+            if _ATTEMPT_FAILED.search(t) or _COMPLETED.search(t):
+                return None
+            if e.get("sender") == sender and act.search(t):
+                return None               # the requester went and did it themselves
+        key = "amount" if intent == "money" else "destination"
+        norm = (_amount_key if intent == "money"
+                else (lambda v: re.sub(r"\W+", " ", str(v or "")).strip().lower() or None))
+        new, old = norm((slots or {}).get(key)), norm(prev["slots"].get(key))
+        if new and old:
+            same = new == old
+        elif new and not old:
+            same = False                  # the re-send adds a figure: a new request
+        elif old and not new:
+            same = True                   # "can you send me $20" then "can you send me"
+        else:
+            # No figure or route on either side: only near-identical wording counts.
+            # At 0.5 "marathahalli to madiwala" and "marathahalli to TinFactory" matched,
+            # and a genuinely new route stopped prompting.
+            a = set(re.findall(r"[a-z0-9]+", prev["text"].lower()))
+            b = set(re.findall(r"[a-z0-9]+", (text or "").lower()))
+            same = (bool(a and b) and len(a & b) / len(a | b) >= 0.9
+                    and re.findall(r"\d+", prev["text"]) == re.findall(r"\d+", text or ""))
+        return prev.get("answered_by") if same else None
 
     @_locked
     def mark_fired(self, room_id, intent, sender):
@@ -1229,7 +1411,8 @@ class RequestMeta:
                 room.pop(key, None)
 
     @_locked
-    def record(self, room_id, intent, sender, text, message_id, slots, divisible=False):
+    def record(self, room_id, intent, sender, text, message_id, slots, divisible=False,
+               answered_by=None):
         # An EDIT arrives with the same message_id and sender as the original. Replace
         # the stored request instead of appending a second one: the edited version
         # always wins (Akash, 2026-08-12), and leaving the stale copy in the queue means
@@ -1266,7 +1449,10 @@ class RequestMeta:
                   # and wrong for a split: the second, third and fourth payers found
                   # nothing left to read and their prompts opened with no amount.
                   "divisible": bool(divisible),
-                  "taken_by": set()})
+                  # The re-send of a request already answered starts with that person
+                  # marked as done: has_open() skips it for them (no second prompt,
+                  # ruling 2) and leaves it open for everyone else (ruling 3).
+                  "taken_by": {answered_by} if answered_by else set()})
         del q[:-self.MAX_PER_ROOM]
 
     @_locked
@@ -1344,9 +1530,16 @@ class RequestMeta:
                 return e
             return q.pop(i)
 
+        def answered(req):
+            self.last_answered[room_id][intent] = {
+                "requester": req["sender"], "slots": dict(req.get("slots") or {}),
+                "text": req.get("text") or "", "msg_no": msg_no, "ts": now,
+                "answered_by": sender}
+
         def hand_over(i, how):
             got = consume(i)
             self.last_taken[room_id][(intent, sender)] = (got, msg_no)
+            answered(got)
             return got, how
 
         if reply_to:
@@ -1365,6 +1558,7 @@ class RequestMeta:
         def restated():
             if old_pick is not None:
                 consume(old_pick)
+            answered(prev_req)
             return prev_req, "restated"
 
         if intent == "money" and text and prev_req and _OTHER_ONE.search(text) \
@@ -3396,8 +3590,18 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             _self_act = (bool(_act_pat.search(text))
                          and not _ACT_FUTURE.search(text))
             if (not scores_alone and not _self_act
-                    and not request_meta.has_open(room_id, intent, sender)):
+                    and not request_meta.has_open(room_id, intent, sender)
+                    and not any(e.get("sender") != sender
+                                and (e.get("scores") or {}).get(intent, 0) >= _WEAK_REQUEST
+                                for e in hist)):
                 continue
+            # Two false prompts v17 added (data/eval/V17_RESULTS.md), stopped here with exact
+            # rules rather than retraining: both are a bare reply with nothing to agree to.
+            if _BARE_ACK.match(_norm_greet(text)):
+                if _acknowledges_a_take(hist, sender, intent):
+                    continue
+                if intent == "money" and _agrees_to_a_shortfall(hist, sender):
+                    continue
             if (request_meta.recently_fired(room_id, intent, _payer)
                     and not request_meta.has_open(room_id, intent, sender)
                     and not (scores_alone and adds_new)):
@@ -3657,13 +3861,20 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     # request records its own entry, take() returns the most recent
                     # match, and the request's own slots win the merge. Both guards are
                     # covered in test_ride_slots.py.
+                    # The same request sent again after a prompt already went out for it
+                    # is not new FOR THE PERSON WHO ANSWERED IT (see is_restatement); it is
+                    # still open for everyone else, who may answer it themselves.
+                    _done_by = request_meta.is_restatement(room_id, intent, sender,
+                                                           result.get("slots"), text, hist)
                     request_meta.record(room_id, intent, sender, text, message_id,
                                         result.get("slots"),
                                         divisible=((intent == "ride" and RIDE_DIVISIBLE)
-                                                   or bool(_DIVISIBLE.search(text))))
-                    # A fresh request reopens the intent, so the next commitment is a
-                    # real fire rather than an echo of the previous one.
-                    request_meta.clear_fired(room_id, intent)
+                                                   or bool(_DIVISIBLE.search(text))),
+                                        answered_by=_done_by)
+                    if not _done_by:
+                        # A fresh request reopens the intent, so the next commitment is a
+                        # real fire rather than an echo of the previous one.
+                        request_meta.clear_fired(room_id, intent)
         sm_result = {"action": None, "pending_intent": None}
         if "money" not in result["intents"]:
             result["money"] = None

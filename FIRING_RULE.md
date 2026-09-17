@@ -75,6 +75,8 @@ act.
 |---|---|
 | `you still owe me 300` / `alright` | ❌ acknowledging the fact |
 | `you still owe me 300` / `oh i forgot, will send now` | ✅ commitment |
+| **`you owe me 20$` / `sure`** | ✅ **agrees to pay** (Akash, 2026-09-17) |
+| `you owe me 20$` / `yeah i know` / `i remember` | ❌ admits the debt, agrees to nothing |
 | `im short 300 this month` / `sure` | ❌ a polite noise, nothing agreed |
 | `im short 300 this month` / `im sorry, will send` | ✅ commitment |
 | `dinner was 3000 last night` / `ok` | ❌ cost talk |
@@ -82,6 +84,11 @@ act.
 | `need 300 for rent, can you help` / `i can help man, sending now` | ✅ commitment |
 
 **The test:** did the reply say they will send/pay/book, or did it only acknowledge?
+
+**A debt stated to the debtor asks for the money** (Akash, 2026-09-17). `you owe me 20`
+prompts when the reply agrees to pay - `sure`, `ok sending`, `yeah let me pay` - and stays
+quiet when the reply only admits the debt - `alright`, `yeah i know`, `i remember`. A
+shortfall (`im short 300 this month`) is still not a request: `sure` there is a polite noise.
 
 This is the one place where a bare `ok` behaves differently after a statement than after
 a request. After a REAL request (§2) a bare `ok` is a full acceptance, because the
@@ -114,7 +121,8 @@ the action is, so `"sure"` means "yes, I will do that". It does not need to rest
 | **`ugh fine, sending`** | ✅ | reluctance is still agreement |
 | **`yeah my bad`** | ❌ | **acknowledges fault, commits to nothing** |
 | `oh right, i forgot` | ❌ | acknowledgement only |
-| `for what?` | ❌ | question — pending stays open |
+| **`sure, how much do you need?`** / **`sure, where to?`** | ✅ | **agreement + a detail question — fires now, amount/route blank** (Akash, 2026-09-15) |
+| `for what?` | ❌ | question with no agreement — pending stays open |
 | `nah im broke` | ❌ | rejection — pending closes |
 | `ill pay you friday` | ❌ | future promise — becomes a reminder, not a payment |
 
@@ -340,9 +348,27 @@ a split — for a while it was not, and the full total went onto the sheet.
 
 * **Distance does not matter.** A genuine acceptance ten messages later still fires.
   What matters is whether it is genuinely responding to the request.
-* **A clarifying question keeps the pending open.** It is not a rejection.
+* **A clarifying question keeps the pending open.** It is not a rejection. Agreement
+  plus a clarifying question (`sure, how much?`) is a commitment and fires (§2).
 * **Each pending fires at most once.** After it fires it is consumed; a later
   unrelated `sure` must not fire it again.
+* **A re-sent request is the same request** (Akash, 2026-09-15). If the requester sends
+  the same request again after it was accepted and the other person says `sure` again,
+  there is no second prompt. It prompts again only when the re-send **changes the amount
+  or route** (a new request), or when someone said the first attempt **failed** in
+  between (`did not get an intent`, `didn't go through`) — then the retry gets a prompt.
+
+  ```
+  A: book me a cab from my location to the airport
+  B: sure                                          FIRE
+  A: book me a cab from my location to the airport
+  B: yes please                                    nothing - same request
+  A: actually book it to the station instead
+  B: sure                                          FIRE - route changed
+  B: did not get an intent
+  A: book it to the station
+  B: sure                                          FIRE - retry after a failure
+  ```
 * **The requester cannot accept their own request.** Repeating or chasing it is not
   acceptance.
 * **Two pendings, one reply**: the reply resolves the one it actually addresses. A
@@ -360,6 +386,40 @@ B: oh i would have                            nothing      already consumed
 ```
 
 The requester still cannot accept their own request.
+
+**Several people answer the same request** (Akash, 2026-09-15). Everyone who commits gets
+their own prompt — prompts are not forced actions, and it never leaves the person who
+actually pays without a sheet. Once someone **confirms it is done** (`sent`, `done,
+booked`), the request is closed and later answers stay quiet. A split is the exception:
+everyone owes their own share, so one person's `sent` closes only their share.
+
+```
+A: can someone send me 10?
+B: sure                       FIRE (B)
+C: sure                       FIRE (C)
+B: sent it
+D: sure                       nothing - already done
+
+A: dinner was 900, everyone send 300
+B: sent
+C: sending mine               FIRE (C) - C still owes
+```
+
+**A bare reply after someone clearly TOOK it is acknowledgement** (Akash, 2026-09-17). What
+the third person's bare `ok` / `okay` / `sure` means depends on what the first answerer said:
+
+```
+A: can someone send me 40 for lunch
+B: sure                        FIRE (B)
+C: sure                        FIRE (C) - both answered A, as above
+
+A: can someone book me a cab to HSR
+B: let me book a cab           FIRE (B) - B clearly took it
+C: okay                        nothing - C is acknowledging B
+C: i can book one too          FIRE (C) - clear words still commit
+```
+
+"Clearly took it": `let me book a cab`, `i'll send it`, `sending now`, `on it, booking now`.
 
 **Two open requests, one ambiguous reply.** REVISED 2026-08-02 — previously this fired
 nothing. It now resolves to the **most recent** open request.

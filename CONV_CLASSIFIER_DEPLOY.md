@@ -2,6 +2,37 @@
 
 **Status: ON in production as of 2026-08-06.**
 
+## Current model: v17 at 0.985 (2026-09-17)
+
+`conv_model/` holds **v17** (`conv_windows_v17`, 394,514 windows, seed 1337, 4 epochs), served
+as fp32 ONNX at thresholds **money 0.985 / ride 0.985**. The thresholds are in
+`model_info.json`, so nothing needs to be set at deploy time.
+
+Measured against the previous production build (v14 on the previous `app.py`) in
+`data/eval/V17_RESULTS.md`:
+
+| | v14 (previous) | v17 + the 09-17 guards |
+|---|---|---|
+| dev log 09-10, adjudicated | 72.0% caught, 13.5% wrong prompts | **78.0%, 9.9%** |
+| blind holdout 08-11 | 82.5% caught, 16.5% wrong prompts | **87.5%, 14.6%** |
+| robustness suite (845 cases) | 64.2 fire / 95.3 quiet / 71.4 held-out | **92.5 / 100 / 88.5** |
+
+Latency is unchanged. Rollback is `git revert` of the model commit, or
+`PAYCHAT_CONV_MODEL=/path/to/conv_model_v14`.
+
+**Why 0.985 and not the trained 0.988/0.990.** v17's scores stop at a ceiling: ride recall is
+0.837 at 0.990 and 0.041 at 0.991. The training notebook picked the top of the plateau, which
+landed on that cliff, so clear acceptances scoring 0.990 did not fire. 0.985 was chosen from the
+validation curve before any real log was replayed (`data/eval/V17_THRESHOLD_PREREG.md`).
+
+**Known misses, accepted for this build** (v17b is meant to fix them): "i'll send it" with no
+request, "you owe me 20" / "sure", and "let me book a cab" answering a group request.
+
+**Two guards in `app.py` (2026-09-17)** suppress a bare `ok`/`sure` that has nothing to agree to:
+a third person's reply after someone clearly took a group request (Akash's ruling 6/7), and a bare
+yes after a shortfall that asks for nothing (`FIRING_RULE.md` §1a). Neither can create a prompt.
+`tests/test_bare_ack_guards.py` covers them and the cases they must not block.
+
 The `Dockerfile` now ships `PAYCHAT_CONV_CLASSIFIER=1`, matching the running
 deployment, so the classifier — not `conversation.py` — is what
 decides money and ride for real users today. Verified from the dogfood logs: group rooms
@@ -52,8 +83,10 @@ rule path. Recorded because the mismatch already caused one round of confusion.
 
 ## What it needs
 
-* `conv_model/` — ships in this commit (git-lfs). `model.safetensors`,
-  `conv_model_int8.onnx`, `model_info.json`, tokenizer files.
+* `conv_model/` — ships in this commit (git-lfs). `model.safetensors`, `conv_model.onnx`
+  (**fp32**), `model_info.json`, `val_curve.json`, tokenizer files. No int8: on v14 quantisation
+  flipped real firing decisions, and on v17 it flips one of the twelve export probes, so the
+  loader's int8 rung is deliberately left empty (see `export_conv_onnx.py`).
 * `onnxruntime` — in `requirements.txt`. Without it the server silently falls back to
   fp32 PyTorch, which works but is ~4x slower.
 
