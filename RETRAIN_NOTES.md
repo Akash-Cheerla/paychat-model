@@ -1,5 +1,10 @@
 # Retrain notes — read before training another conversation model
 
+> **2026-09-17 update.** This opening is no longer true: v14 shipped after v5, and **v17
+> ships today** (see the end of this file and `CONV_CLASSIFIER_DEPLOY.md`). The three
+> defects below are still worth reading — they are why v6-v13 failed — but the section
+> "What finally moved the number (v17)" is the one to start from.
+
 Seven conversation models have been trained since v5. **None of them shipped.** v5 is
 still what production runs.
 
@@ -109,3 +114,39 @@ any operating point.
    models and did not fit v12; the head story fit all seven and did not survive arm C.
 4. **Score on Switchboard before shipping.** It is the only check whose data nobody here
    wrote, and it is what caught v12. Every internal battery said v12 was better.
+
+---
+
+## What finally moved the number (v17, 2026-09-17)
+
+v17 beat v14 on real traffic — dev log 72.0% -> 78.0% caught with wrong prompts 13.5% ->
+9.9%, blind holdout 82.5% -> 87.5% and 16.5% -> 14.6% (`data/eval/V17_RESULTS.md`). Four
+things made the difference, and none of them was "more data of the same kind":
+
+1. **Diagnose before generating.** v14's real misses were vocabulary, not judgement: one
+   word flipped it ("$10" 0.997 vs "10₹" 0.08, "ok" 0.997 vs "why not" 0.03). Its training
+   data had zero fire windows of those phrasings. Probe the model you have on the log you
+   have before writing a generator.
+2. **Measure generalisation, not recall of your own phrasings.** `tests/robustness_lexicon.py`
+   splits every phrase list in half; generators may use the TRAIN half only, and the suite
+   scores the HELD-OUT half, with every phrasing seen in dogfood forced held out. v14 64.6%,
+   v16 69.6%, v17 88.0%. Rounds v6-v16 never measured this at all.
+3. **Prove the data teaches the rule BEFORE the GPU run.** A paired CPU fine-tune of the top
+   two layers, arms differing only in the added windows, two seeds
+   (`scratchpad tune_probe*.py` pattern): it predicted v17's gain, and it is what stopped
+   v17b — its data scored WORSE than v17's, so that run was never spent.
+4. **Rehearse the notebook locally.** Running every cell on CPU before handing it over caught
+   a train/val leak, a stale-data path and a PASS/FAIL bug that would each have cost a run.
+
+Two traps this round added:
+
+- **The threshold can sit on a cliff.** v17's positives stop near 0.99: ride recall is 0.837
+  at 0.990 and 0.041 at 0.991. The notebook's "top of the plateau" rule picked 0.990 and
+  clear acceptances scoring 0.990 did not fire. `make_v17b_notebook.py` now steps the pick
+  down until recall holds across +0.005. Pick thresholds from the val curve BEFORE replaying
+  any log, and write the reason down (`data/eval/V17_THRESHOLD_PREREG.md`).
+- **Quiet families that look like fire families need MATCHED PAIRS.** v17b added "im short
+  300" / "sure" and "you owe me 20" / "alright" as quiet. They look exactly like "request" /
+  "sure", so the model got less sure about ordinary money acceptances (139 cases weaker) and
+  the targeted false prompts barely moved. Generate the pair, differing in one thing, or do
+  not generate it.
