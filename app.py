@@ -4045,6 +4045,27 @@ elif _LOG_ROOMS:
                    f"{_LOG_UNTIL} -> {_LOG_PATH}")
 
 
+# Which build wrote a line. The 2026-09-21 log had to be dated by fingerprinting the scores
+# (v14's quiet messages sit at ~0.033, v17's at ~0.025) to work out when v17 went live, which
+# is guesswork the server can simply answer. Read once: the identity cannot change while the
+# process runs, and _model_identity() reads model_info.json from disk.
+_LOG_IDENT = {"short": None, "full": None, "meta_written": False}
+
+
+def _log_identity():
+    if _LOG_IDENT["short"] is None:
+        try:
+            ident = _model_identity()
+            conv = ident.get("conv_dir") or ident.get("decided_by") or "rules"
+            trained = str(ident.get("conv_trained_on") or "?").split("—")[0].split("-")[0].strip()
+            th = ident.get("conv_thresholds") or {}
+            _LOG_IDENT["short"] = f"{conv}/{trained}@{th.get('money', '?')},{th.get('ride', '?')}"
+            _LOG_IDENT["full"] = ident
+        except Exception as e:      # identity must never stop the log
+            _LOG_IDENT["short"], _LOG_IDENT["full"] = "unknown", {"error": repr(e)}
+    return _LOG_IDENT["short"]
+
+
 def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
     """Append one line per message, until the expiry date."""
     if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
@@ -4073,12 +4094,23 @@ def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
             # route (dogfood 2026-09-11), or whether the reply fix can work at all.
             "message_id": message_id,
             "reply_to": reply_to,
+            # Which model and thresholds decided this line, e.g.
+            # "conv_model/conv_windows_v17@0.985,0.985". A log that cannot say which build
+            # produced it cannot be compared with any other day.
+            "model": _log_identity(),
         }
         tb = (result.get("conversation_state") or {}).get("triggered_by")
         if tb and row["fired"]:
             row["matched"] = {"sender": tb.get("sender"), "text": tb.get("text"),
                               "message_id": tb.get("message_id"), "slots": tb.get("slots")}
         with open(_LOG_PATH, "a", encoding="utf-8") as f:
+            # Once per process: the full identity, so a restart or a redeploy is visible in the
+            # log itself. It carries no text or room, so every reader that loads conversations
+            # (tests/replay_ab.py) skips it.
+            if not _LOG_IDENT["meta_written"]:
+                _LOG_IDENT["meta_written"] = True
+                f.write(json.dumps({"ts": row["ts"], "type": "server_start",
+                                    "model_version": _LOG_IDENT["full"]}, ensure_ascii=False) + "\n")
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         _LOG_STATE["written"] += 1
     except Exception as e:

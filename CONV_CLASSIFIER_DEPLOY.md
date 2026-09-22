@@ -232,8 +232,15 @@ export PAYCHAT_LOG_ALL=1              # or PAYCHAT_LOG_ROOMS=dm_1_2,dm_3_4
 export PAYCHAT_LOG_UNTIL=2026-08-10   # required
 ```
 
-Appends one JSONL line per message — text, sender, room, what fired, and the model's
-scores. `PAYCHAT_LOG_ALL` is appropriate only while the product is used solely by people
+Appends one JSONL line per message — text, sender, room, what fired, the model's scores,
+`message_id`/`reply_to`, the request a prompt matched, and **`model`**: which build decided
+the line, e.g. `conv_model/conv_windows_v17@0.985,0.985`. The first write of each process
+also emits a `{"type": "server_start", "model_version": {...}}` line with the full identity,
+so a redeploy or a restart is visible in the log itself. That line carries no room or text,
+so readers that load conversations (`tests/replay_ab.py`) skip it.
+
+Added 2026-09-22 because the 09-21 log could only be dated by fingerprinting the scores
+(v14's quiet messages sit at ~0.033, v17's at ~0.025) to find out when v17 went live. `PAYCHAT_LOG_ALL` is appropriate only while the product is used solely by people
 who have agreed to it; switch to the room list the moment anyone else has an account.
 
 ### Where it is written, and keeping it
