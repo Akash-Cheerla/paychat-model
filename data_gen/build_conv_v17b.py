@@ -11,13 +11,22 @@ v17 (2026-09-17) beat v14 on both real logs but lost behaviours the batteries co
   C1-C11 new families, below
 
   C1/C2  self-initiated send / book, no request                     fire  (s3; v17 lost "i'll send it")
-  C3     future promise alone, no request                           quiet (s3, the contrast to C1)
-  C4/C5  debt stated -> agrees to pay / only admits it              fire / quiet  (ruling 8)
-  C6/C7  shortfall -> polite noise / a commitment                   quiet / fire  (s1a)
-  C8     clear take ("let me book a cab") answering a request       fire  (s3c; v17: 0.996 -> 0.218)
-  C9     clear take, then a third person's bare ok                  quiet (ruling 6)
-  C10    clear take, then a third person's clear words              fire  (ruling 6)
   C11    two open requests: the verb decides, else the most recent  fire, that intent only (s6a)
+
+  and MATCHED PAIRS - both members share filler, amount, place and speakers, so only the
+  feature that flips the label differs (the first version listed the quiet halves alone and
+  scored BELOW v17, because they look exactly like "request" / "sure"):
+
+  C1/C2  "sending you the 500 now" / "... on friday"          fire / quiet  (s3)
+  C4     one debt: "sure" / "alright"                          fire / quiet  (ruling 8)
+  C8     the same clear take answering a request / with nobody asking  fire / quiet (s3c)
+  C7     a commitment after a shortfall                        fire  (s1a)
+  C10    a third person's clear words after a clear take       fire  (ruling 6)
+
+This batch targets what v17 MISSES. The two quiet families it used to carry - a bare yes after
+a shortfall, and a third person's bare ok after a clear take - are dropped: three CPU probes
+showed they cost more on the fire side than they bought (held-out 92.3 -> 89.7 against v17's own
+data), and both are already handled by the guards in app.py, which can only ever suppress.
 
 v17's original docstring follows.
 
@@ -254,63 +263,105 @@ def main():
                                                      "book a taxi for me to {p}"]).format(p=R.choice(L.PLACES))
     fill = lambda k=3: [{"s": R.choice(("1", "2")), "t": R.choice(pool)} for _ in range(R.randint(0, k))]
 
-    def add_pre(family, role, fire, pre_msgs, msgs, group=False):
-        """Like add(), but with fixed messages before the tested ones (no random filler in between)."""
-        win = pre_msgs + [{"s": s, "t": vary(t)} for s, t in msgs]
+    def add_pre(family, role, fire, pre_msgs, msgs, group=False, raw=False):
+        """Like add(), but with fixed messages before the tested ones (no random filler in between).
+        raw=True keeps the text exactly as given - pair() varies shared sentences ONCE so both
+        members of a pair carry the identical wording."""
+        win = pre_msgs + [{"s": s, "t": (t if raw else vary(t))} for s, t in msgs]
         win = win[-10:]
         text = " ".join(m["t"] for m in win)
         market = "India" if re.search(r"₹|\brs\b|rupees|\binr\b|paytm|gpay|upi|ola|rapido", text, re.I) else "US"
         new.append({"window": win, "fire": fire, "role": role, "conv": hashlib.sha1(text.encode()).hexdigest()[:12],
                     "market": market, "scenario": f"v17b_{family}"})
 
+    # MATCHED PAIRS (rewritten 2026-09-17 after the first CPU probe).
+    #
+    # The first version listed these quiet families on their own: "im short 300"/"sure",
+    # "you owe me 20"/"alright", a third person's "okay". Every one of them looks like
+    # "request"/"sure", which must FIRE, so the model got less sure about ordinary money
+    # acceptances (139 suite cases weaker) while the targeted false prompts barely moved, and
+    # the natural-mixture probe scored v17b BELOW v17 (held-out 92.3 -> 90.6).
+    #
+    # pair() emits both members of a contrast with the SAME filler, amount, place and
+    # speakers, so the only thing left to learn from is the feature that flips the label.
+    def pair(family, fire_msgs, quiet_msgs, fire_role, quiet_role, intent, group=False, k=3):
+        pre = fill(k)
+        # One vary() per distinct sentence, shared by both members: otherwise the same request
+        # appears as "can someone spot me 250" in one and "Can someone spot me 250!!" in the
+        # other, and the pair differs in casing and punctuation as well as in the point.
+        memo = {}
+        v = lambda t: memo.setdefault(t, vary(t))
+        add_pre(family + "_fire", fire_role, [intent], list(pre), [(s, v(t)) for s, t in fire_msgs],
+                group=group, raw=True)
+        add_pre(family + "_quiet", quiet_role, [], list(pre), [(s, v(t)) for s, t in quiet_msgs],
+                group=group, raw=True)
+
+    LATER = ["tomorrow", "on friday", "next week", "tonight", "after work", "once i get paid",
+             "on the 1st", "by monday"]
+    # variety: every TRAIN phrasing of a self-initiated send / booking
     for p in T["SELF_SEND"]:
-        for _ in range(90):
+        for _ in range(60):
             add_pre("C1_self_send", "self_money", ["money"], fill(), [("1", p.format(amt=amt()))])
     for p in ["sending now", "transferring now"]:                       # TRAIN phrases of ACCEPT_MONEY_ACTION
         for _ in range(60):
             add_pre("C1_self_send", "self_money", ["money"], fill(), [("1", p)])
     for p in T["SELF_BOOK"]:
-        for _ in range(100):
+        for _ in range(60):
             add_pre("C2_self_book", "self_ride", ["ride"], fill(), [("1", p.format(place=R.choice(L.PLACES)))])
     for p in ["booking now", "booking it rn"]:                          # TRAIN phrases of ACCEPT_RIDE_ACTION
         for _ in range(60):
             add_pre("C2_self_book", "self_ride", ["ride"], fill(), [("1", p)])
-    for p in T["FUTURE"]:
-        for _ in range(100):
-            add_pre("C3_future_alone", "future_promise", [], fill(), [("1", p)])
+    # C1/C2 pair: doing it NOW fires, the same sentence with a time on it does not (s3)
+    for _ in range(400):
+        a, shape = amt(), R.choice(["i'll send you the {a} {when}", "sending you the {a} {when}",
+                                    "i'll transfer the {a} {when}", "paying you the {a} {when}"])
+        pair("C1_self_send_vs_later", [("1", shape.format(a=a, when="now"))],
+             [("1", shape.format(a=a, when=R.choice(LATER)))], "self_money", "future_promise", "money")
+    for _ in range(300):
+        pl, shape = R.choice(L.PLACES), R.choice(["{w} your cab to {p}", "{w} your uber to {p}", "{w} you an ola to {p}"])
+        pair("C2_self_book_vs_later", [("1", shape.format(w="booking", p=pl) + " now")],
+             [("1", "i'll " + shape.format(w="book", p=pl) + " " + R.choice(LATER))],
+             "self_ride", "future_promise", "ride")
+    # C4/C5 pair (ruling 8): one debt statement, the reply decides. Agreeing to pay fires,
+    # admitting the debt does not.
     debt_yes = T["DEBT_PAY_AGREE"] + ["sure", "sure thing", "sure np"]
     debt_admit = T["DEBT_ADMIT"] + ["alright"]
-    for d in T["DEBT_STATEMENTS"]:
-        for _ in range(110):
-            add_pre("C4_debt_pay", "ack_money", ["money"], fill(), [("1", d.format(amt=amt())), ("2", R.choice(debt_yes))])
-        for _ in range(90):
-            add_pre("C5_debt_admit", "ack_other", [], fill(), [("1", d.format(amt=amt())), ("2", R.choice(debt_admit))])
-    # Weighted up after the first CPU probe: "im short 300" / "sure" stayed a false prompt in every
-    # arm. Half the replies are the bare yes words that actually fool it.
-    short_bare = ["sure", "ok", "okay", "yeah"]
-    for s in T["SHORTFALL"]:
-        for _ in range(250):
-            reply = R.choice(short_bare) if R.random() < 0.5 else R.choice(T["SHORTFALL_POLITE"])
-            add_pre("C6_shortfall_polite", "neutral", [], fill(), [("1", s.format(amt=amt())), ("2", reply)])
-        for _ in range(60):
+    for _ in range(400):
+        d = R.choice(T["DEBT_STATEMENTS"]).format(amt=amt())
+        pair("C4_debt_pay_vs_admit", [("1", d), ("2", R.choice(debt_yes))],
+             [("1", d), ("2", R.choice(debt_admit))], "ack_money", "ack_other", "money")
+    # C7: a commitment after a shortfall fires (s1a). The QUIET half of this contrast - a bare
+    # yes or a sympathy noise after a shortfall - is deliberately NOT here; see the note below.
+    for _ in range(300):
+        s = R.choice(T["SHORTFALL"]).format(amt=amt())
+        for _ in range(1):
             add_pre("C7_shortfall_commit", "ack_money", ["money"], fill(),
-                    [("1", s.format(amt=amt())), ("2", R.choice(T["SHORTFALL_COMMIT"]).format(amt=amt()))])
-    third_bare = ["okay", "ok", "sure", "cool", "k", "alright", "nice", "great", "yes", "yeah"]
-    for intent, takes, req in (("money", T["CLEAR_TAKE_MONEY"], group_money), ("ride", T["CLEAR_TAKE_RIDE"], group_ride)):
-        for t in takes:
-            for _ in range(60):
-                add_pre("C8_clear_take_answers", f"ack_{intent}", [intent], fill(2), [("1", req()), ("2", t)], group=True)
-            # weighted up after the first CPU probe: 400 windows did not move g09 against the ~720
-            # offer -> accept windows that share its shape once speakers are normalised
-            for _ in range(175):
-                add_pre("C9_third_bare_after_take", "ack_other", [], fill(2),
-                        [("1", req()), ("2", t), ("3", R.choice(third_bare))], group=True)
-    for p in T["THIRD_EXPLICIT"]:
-        ride = "book" in p
-        for _ in range(60):
-            add_pre("C10_third_explicit_after_take", "ack_ride" if ride else "ack_money", ["ride" if ride else "money"], fill(2),
-                    [("1", group_ride() if ride else group_money()), ("2", R.choice(T["CLEAR_TAKE_RIDE"] if ride else T["CLEAR_TAKE_MONEY"])),
-                     ("3", p)], group=True)
+                    [("1", s), ("2", R.choice(T["SHORTFALL_COMMIT"]).format(amt=amt()))])
+    takes_of = {"money": T["CLEAR_TAKE_MONEY"], "ride": T["CLEAR_TAKE_RIDE"]}
+    req_of = {"money": group_money, "ride": group_ride}
+    # DROPPED, 2026-09-17, after two CPU probes: the shortfall/"sure" family and the third
+    # person's-bare-ok family (g09). Both are QUIET families that look exactly like
+    # "request" / "sure", and every version of them - listed alone, weighted up, and as matched
+    # pairs - cost more on the fire side than it bought: money acceptance wording, self-initiated
+    # sends and offers all lost confidence, and held-out phrasings fell 92.3 -> 89.7 against v17's
+    # own data. Both cases are already handled deterministically by the guards in app.py
+    # (_acknowledges_a_take, _agrees_to_a_shortfall), which cannot be wrong in the firing
+    # direction because a guard can only suppress. A guard cannot ADD a prompt, so this batch
+    # spends itself on what v17 MISSES instead.
+    # C10 (ruling 6): a third person's clear words after a clear take still fire.
+    for _ in range(300):
+        intent = R.choice(("money", "ride"))
+        expl = R.choice([p for p in T["THIRD_EXPLICIT"] if ("book" in p) == (intent == "ride")]
+                        or T["THIRD_EXPLICIT"])
+        add_pre("C10_third_explicit_after_take", f"ack_{intent}", [intent], fill(2),
+                [("1", req_of[intent]()), ("2", R.choice(takes_of[intent])), ("3", expl)], group=True)
+    # C8 pair (s3c): the SAME "let me book a cab" fires when it answers a request and waits
+    # when nobody asked. v17 read it as an unprompted offer even after a request (0.996 -> 0.218).
+    for _ in range(300):
+        intent = R.choice(("money", "ride"))
+        q, take = req_of[intent](), R.choice(takes_of[intent])
+        pair("C8_take_answers_vs_alone", [("1", q), ("2", take)],
+             [("2", take)], f"ack_{intent}", "offer", intent, group=True, k=2)
     for _ in range(600):
         money_first = R.random() < 0.5
         reqs = ([("1", money_req()), ("3", "also " + ride_req())] if money_first
