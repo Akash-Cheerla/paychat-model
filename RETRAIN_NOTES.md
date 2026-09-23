@@ -5,8 +5,9 @@
 > defects below are still worth reading — they are why v6-v13 failed — but the section
 > "What finally moved the number (v17)" is the one to start from.
 
-Seven conversation models have been trained since v5. **None of them shipped.** v5 is
-still what production runs.
+As of 2026-09-02, seven conversation models had been trained since v5 and **none of them had
+shipped** - v5 was still what production ran. (v14 shipped later that month, and v17 on
+2026-09-20.) The three defects below were found while working out why.
 
 Two defects in the training pipeline were found on 2026-09-02, both measured, neither
 previously known. They do not explain every failure, and one hypothesis that looked
@@ -137,6 +138,34 @@ things made the difference, and none of them was "more data of the same kind":
    v17b — its data scored WORSE than v17's, so that run was never spent.
 4. **Rehearse the notebook locally.** Running every cell on CPU before handing it over caught
    a train/val leak, a stale-data path and a PASS/FAIL bug that would each have cost a run.
+
+### The CPU probe cannot rank two batches - calibrated 2026-09-22
+
+Point 3 above says to prove the data on a paired CPU fine-tune before spending a GPU run. That
+holds for "does this batch teach the rule AT ALL" - it predicted v17's direction. It does NOT
+hold for "is batch B better than batch A", and three rounds of v17b data were reshaped against
+it before that was checked.
+
+The check: run the probe on a pair whose answer is known. v16's batch against v17's, where the
+real runs measured held-out phrasings 69.6% -> 88.0%. With settings faithful to production
+(AsymmetricLoss, real ~14.5% fire rate, each arm scored at its own threshold from the
+plateau+cliff rule) the probe reported:
+
+```
+start (v14) 73.1     A = more v16 data 73.9     B = v17's batch 73.1      (-0.9)
+```
+
+Blind. The earlier version (plain BCE, fixed 0.5 threshold) only looked sensitive because BCE
+recalibrates the whole model in a few hundred steps - that movement was the fine-tune, not the
+data. The gap is structural: a real run sees ~1.4M window-exposures (4 epochs x 345k windows),
+the probe 3,000, about 450x less.
+
+**Rank batches on the GPU instead, cheaply.** `data_gen/make_ab_notebook.py` builds
+`colab_ab/train_ab_colab.ipynb`: both batches, ONE epoch each, same session, same seed, same
+warm start, same loss and schedule, each scored on the 835-case suite plus the regression
+conversations, ending in a single verdict line. About half the cost of a normal run, and it
+answers the question in the regime that decides it. **Calibrate any new instrument against a
+known gap before trusting it.**
 
 Two traps this round added:
 

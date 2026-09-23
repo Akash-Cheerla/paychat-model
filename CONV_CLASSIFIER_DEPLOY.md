@@ -2,11 +2,18 @@
 
 **Status: ON in production as of 2026-08-06.**
 
-## Current model: v17 at 0.985 (2026-09-17)
+## Current model: v17 at 0.985 — LIVE since 2026-09-20
 
 `conv_model/` holds **v17** (`conv_windows_v17`, 394,514 windows, seed 1337, 4 epochs), served
 as fp32 ONNX at thresholds **money 0.985 / ride 0.985**. The thresholds are in
 `model_info.json`, so nothing needs to be set at deploy time.
+
+Confirmed live from the dogfood log exported 2026-09-21: the deploy landed between 09-19 and
+09-20 (before the `model` field existed, the date had to come from a score fingerprint - v14's
+quiet messages sit at ~0.033, v17's at ~0.025). Its first traffic was 68 messages in 8 rooms
+with 4 prompts, all four correct, no false prompts and nothing in the 0.90-0.985 near-miss
+band. Far too small to confirm the log-level gains below; enough to say the deploy took and
+nothing broke.
 
 Measured against the previous production build (v14 on the previous `app.py`) in
 `data/eval/V17_RESULTS.md`:

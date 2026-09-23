@@ -1,7 +1,19 @@
-# PayChat v25 — Mobile Integration
+# PayChat — Mobile Integration
 
 **For:** iOS & Android teams  
-**What you receive:** Detection results attached to chat messages by the backend
+**What you receive:** Detection results attached to chat messages by the backend  
+**Models in production (2026-09-23):** DualHeadRoberta v26 for the nine intents and slots;
+conversation classifier **v17** for money and ride (live since 2026-09-20)
+
+> **What changed for your screens, 2026-09-17.** Nothing in the payload shape. Two kinds of
+> message stopped producing a prompt, both deliberate:
+> - in a group, a third person's bare "ok"/"sure" after someone already said they would do it
+>   ("let me book a cab") — the prompt stays with the person who took it;
+> - a bare "sure" after a statement that asks for nothing ("im short 300 this month").
+>
+> Money and ride now also fire on more real acceptances than before ("can you give me 10₹" /
+> "ok", "sure, how much do you need?"), so expect somewhat more prompts overall, not fewer.
+> The rules are in `FIRING_RULE.md`; the measured effect is in `data/eval/V17_RESULTS.md`.
 
 ---
 
@@ -13,7 +25,7 @@ User sends message → Backend calls /classify → Gets detection → Attaches t
 
 You never call the model API directly. The backend attaches detection data to each message.
 
-**Big change in v25:** Money and ride intents now fire on the *response*, not the request. If Alice says "venmo me $20", that message has no intent. When Bob replies "sure", *that* message carries the money intent + info about who requested it.
+**How money and ride fire** (since v25, and still true): on the *response*, not the request. If Alice says "venmo me $20", that message has no intent. When Bob replies "sure", *that* message carries the money intent + info about who requested it.
 
 ---
 

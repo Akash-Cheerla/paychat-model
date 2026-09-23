@@ -1,10 +1,27 @@
-# PayChat v25 — Integration Guide
+# PayChat — Integration Guide
+
+> **Status, 2026-09-23.** What production actually runs:
+>
+> | | |
+> |---|---|
+> | base model (9 intents, slots) | DualHeadRoberta **v26** (`saved_model/`) |
+> | money + ride decisions | **conversation classifier v17** (`conv_model/`), thresholds 0.985 / 0.985 |
+> | since | v17 live 2026-09-20; the classifier itself has decided money/ride since 2026-08-06 |
+>
+> **The conversation state machine described below does NOT decide money or ride.** Those two
+> intents are decided by the conversation classifier, which reads the last 10 messages and
+> needs no `reply_to` and no `dm_<lo>_<hi>` room id. The state machine still applies to the
+> other seven intents. See `CONV_CLASSIFIER_DEPLOY.md` for the live path, its measured
+> numbers and its rollback.
+>
+> Everything below about the HTTP API, the payload shape and slot extraction is still accurate.
 
 ## Overview
 
 PayChat detects 9 actionable intents in chat messages (money, ride, food_order, etc.) and extracts slots (recipient, amount, time, destination). It runs as an HTTP API with a conversation state machine that tracks pending requests and fires intents on responses.
 
-**Model:** DualHeadRoberta v25 — RoBERTa-base with 4 heads (topic, action, projection, response)  
+**Model:** DualHeadRoberta v26 — RoBERTa-base with 4 heads (topic, action, projection, response),
+plus the conversation classifier (`conv_model/`) which decides money and ride  
 **Latency:** 30-50ms (GPU), 400-500ms (CPU)  
 **Response head accuracy:** 92.7% on held-out test set
 

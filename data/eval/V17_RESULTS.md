@@ -55,9 +55,31 @@ Both stop a BARE reply that has nothing to agree to; neither can add a prompt.
 - s1a: a bare yes after a shortfall that asks for nothing ("im short 300 this month" / "sure").
   Debts are excluded, so "you owe me 20" / "sure" still fires (ruling 8).
 
+## In production since 2026-09-20 (added 2026-09-23)
+
+From the dogfood log exported 09-21 (`data/eval/dogfood_2026-09-21.jsonl`, gitignored): the
+deploy landed between 09-19 and 09-20, dated by score fingerprint because the log had no model
+field then (`app.py` now writes one). First traffic under v17: 68 messages, 8 rooms, 4 prompts,
+all correct - a plea answered with "Oh ok", "Ok i will transfer", "Can you send me 100 rupees?"
+/ "Sure", and a cab request answered with "Yes". No false prompts, nothing in the 0.90-0.985
+near-miss band, and correct silence on 19 voice-call blobs, a conditional ("Ok i will check my
+account and let you know") and a repeated plea's second "Ok" (ruling 2).
+
+Replaying the 25 rooms active since 09-17 (2,654 messages) through v17 and v14 on the same
+code: **both produce 129 prompts**, 46 messages differ. v17 adds ~19 correct ones (including
+"Can you please send me 10₹" / "Ok" and "can you spot 200 till then?" / "Yep fr") and ~4
+questionable; it drops ~12 of v14's false prompts - a payment prompt on "Please send the code
+now" / "Sure sending again" (an OTP), one on a bare ✌🏼, one on "Sending*", several on the team
+discussing the app - and misses ~8 v14 caught, all the families listed below. Latency
+unchanged: median 428 ms v14, 467 ms v17.
+
 ## Known, accepted losses (v17 model misses, not the guards)
 
 "i'll send it" 0.972, "sending now" 0.985, "I'll be sending you that dollar that I owe you" 0.141,
 "you owe me 20$" / "sure" 0.271, "let me book a cab" answering a group request 0.218, "ok sending"
-with two requests open 0.954. These are what v17b is for; a CPU probe showed the current v17b data
-is not yet better than v17's (it weakens money acceptances), so v17b needs matched-pair data first.
+with two requests open 0.954. These are what v17b is for. Its status as of 2026-09-23: **not trained, and not decided.**
+Three rounds of v17b data were judged by a paired CPU probe that was then calibrated against a
+known gap (v16's batch vs v17's, real outcome 69.6% -> 88.0% held-out) and found blind - it
+reported -0.9. Those three verdicts do not stand. Ranking the batches now waits on
+`colab_ab/train_ab_colab.ipynb` (built by `data_gen/make_ab_notebook.py`): both batches, one
+epoch each, one session, one verdict line. See RETRAIN_NOTES.md.

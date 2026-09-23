@@ -1,12 +1,29 @@
-# PayChat v25 — Backend Integration
+# PayChat — Backend Integration
 
 **For:** Samyak (Phoenix/Elixir backend)  
-**Model:** DualHeadRoberta v25 (9 intents + response head, context-aware)  
+**Models in production (2026-09-23):** DualHeadRoberta **v26** (`saved_model/`) for the nine
+intents and slots, plus the **conversation classifier v17** (`conv_model/`, thresholds
+0.985 / 0.985) which decides money and ride. v17 went live 2026-09-20.  
 **Repo:** https://github.com/Akash-Cheerla/paychat-model
+
+> **Read this before the response-head section below.** Money and ride are NOT decided by the
+> response head or the pending store any more; the conversation classifier decides them from
+> the last 10 messages. It needs no `reply_to` and no `dm_<lo>_<hi>` room-id convention, and it
+> fires in group chats. `conversation_state.decided_by` tells you which path ran, and
+> `status` on that path is only ever `fired` or `no_fire`. The other seven intents are
+> unchanged. Full detail, measured numbers and rollback: `CONV_CLASSIFIER_DEPLOY.md`.
+>
+> Two suppression rules were added 2026-09-17, so these produce no prompt: a third person's
+> bare "ok"/"sure" after someone already clearly took a group request ("let me book a cab"),
+> and a bare yes after a statement that asks for nothing ("im short 300 this month" / "sure").
+> Both are in `FIRING_RULE.md` (§1a, §6a).
+>
+> Keep sending `reply_to` and `participants`: the classifier uses them to put the right
+> request's amount and route on the prompt.
 
 ---
 
-## What's New (v25)
+## What was new in v25 (2026-07, kept for history)
 
 - **Response head** — ML classifier that understands responses to pending requests (ack, reject, future promise, question, already done, neutral). Replaces old regex-based classification.
 - **Conversation state machine** — intents like money and ride fire on the *response*, not the request. Alice says "venmo me $20" → stored as pending. Bob says "sure" → money intent fires on Bob's message.

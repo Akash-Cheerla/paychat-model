@@ -33,3 +33,10 @@ decimal place.
 ## Notebook follow-up
 
 The plateau-top rule must stay a safe margin below the recall cliff; fix before v18.
+
+**Outcome (2026-09-23).** 0.985/0.985 shipped in `conv_model/model_info.json` and has been live
+since 2026-09-20. The cliff-aware rule is now in `data_gen/make_v17b_notebook.py` and
+`data_gen/make_ab_notebook.py`, and it reproduces this choice on v17's curve by itself: on the
+validation slice it picks ride 0.985 (down from the plateau top 0.990) and leaves money at
+0.988. An independent check while rebuilding the probe picked 0.985/0.985 for the shipped
+model from its own validation data.
