@@ -437,6 +437,54 @@ You don't need to implement cooldown on your side — the server handles it via 
 
 ---
 
+## Endpoint: `GET /room-summary/{room_id}` — what's open, what was prompted
+
+Added 2026-09-27 for live traffic. Built from the state `/classify` already keeps, so it
+describes the same conversation the classifier sees. Read-only: calling it cannot change a
+later prompt.
+
+```
+GET /room-summary/dm_10_20            # the whole room
+GET /room-summary/dm_10_20?sender=20  # prompts aimed at user 20 only
+```
+
+```json
+{
+  "room": "dm_10_20",
+  "messages_seen": 14,
+  "open_requests": [
+    { "intent": "ride", "from": "10", "text": "can someone book me a cab to the airport",
+      "message_id": "m_41", "slots": { "destination": "Airport" },
+      "divisible": true, "answered_by": [], "age_seconds": 92 }
+  ],
+  "prompts": [
+    { "ts": "2026-09-27T09:14:03", "intent": "money", "to": "20", "said_by": "20",
+      "message_id": "m_44", "text": "sure", "slots": { "amount": "$500", "note": "lunch" },
+      "answers": { "from": "10", "text": "can you send me 500 for lunch", "message_id": "m_39" } }
+  ],
+  "settled": { "money": 310 },
+  "window_ttl_seconds": 14400,
+  "as_of": "2026-09-27T09:15:35"
+}
+```
+
+| field | meaning |
+|---|---|
+| `open_requests` | asked, nobody has answered yet. An ordinary request leaves the list when someone takes it; a split (`divisible: true`) stays, and `answered_by` lists the user ids who have already paid their share |
+| `prompts` | prompts this server showed, oldest first, last 25 per room. `to` is who performs the action (the payer or the booker) — the same person `target.show_to` points at. `answers` is the request it carried |
+| `settled` | seconds since the last completed prompt per intent |
+| `messages_seen` | messages this room has sent through `/classify` since the server started |
+
+Two limits, both shared with the classifier itself: it is **memory only**, so a restart empties
+it exactly as it empties the conversation window, and a request older than
+`PAYCHAT_CONV_CONTEXT_TTL` (4h) drops off, because the classifier can no longer see it either.
+With the classifier off the endpoint returns an `error` string rather than pretending to know.
+
+**Not** `/summary/{room_id}/{user_name}`: that one only ever sees the demo WebSocket chat
+(`/chat`) and returns empty for real rooms.
+
+---
+
 ## Error Responses
 
 | Status | Meaning |

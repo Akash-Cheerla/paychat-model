@@ -1248,6 +1248,10 @@ class RequestMeta:
         # is ordinary; one person restating their own commitment is the thing to
         # suppress, and that is a per-speaker question.
         self.last_fire: dict[str, dict] = defaultdict(dict)
+        # Prompts this process has shown, newest last, for /room-summary. Bounded per room
+        # like every other structure here: this is a live view for the clients, not a store,
+        # and it is gone on restart (so is the conversation window it describes).
+        self.fires: dict[str, deque] = defaultdict(lambda: deque(maxlen=25))
         # Messages seen per room, and the count at each fire. The echo test is a
         # question about conversational distance, not wall-clock time.
         self.msg_no: dict[str, int] = defaultdict(int)
@@ -1463,6 +1467,55 @@ class RequestMeta:
                   # ruling 2) and leaves it open for everyone else (ruling 3).
                   "taken_by": {answered_by} if answered_by else set()})
         del q[:-self.MAX_PER_ROOM]
+
+    @_locked
+    def note_fire(self, room_id, entry):
+        """Remember a prompt for /room-summary. Records, decides nothing."""
+        self.fires[room_id].append(entry)
+
+    @_locked
+    def drop_last_fires(self, room_id, message_id):
+        """Forget notes for a message whose prompt was withdrawn (guardrails blocked it)."""
+        q = self.fires.get(room_id)
+        if q:
+            keep = [f for f in q if f.get("message_id") != message_id]
+            q.clear()
+            q.extend(keep)
+
+    @_locked
+    def summary(self, room_id, sender=None, limit=25):
+        """What is open and what has been prompted in this room, from the state the server
+        already keeps. Read-only: it changes nothing and cannot affect a later fire.
+
+        `open` is a request nobody has answered yet - the queue drops an ordinary request when
+        it is taken, and a divisible one ("1000 each") stays open for everyone who has not
+        paid, which is why `taken_by` is reported rather than a bare boolean.
+        """
+        now = time.time()
+        opens = []
+        for e in self.rooms.get(room_id, []):
+            if now - e["ts"] > CONV_CONTEXT_TIME_CAP:
+                continue                      # outside the window the classifier can see
+            # Every open request is listed whoever asks: in a group one may be waiting for
+            # anybody. `sender` only narrows the prompts, which belong to one person.
+            opens.append({
+                "intent": e["intent"],
+                "from": e["sender"],
+                "text": e["text"],
+                "message_id": e["message_id"],
+                "slots": {k: v for k, v in (e["slots"] or {}).items() if v},
+                "divisible": e["divisible"],
+                "answered_by": sorted(str(s) for s in e["taken_by"]),
+                "age_seconds": int(now - e["ts"]),
+            })
+        fires = [f for f in self.fires.get(room_id, ()) if not sender or f.get("to") == sender]
+        return {
+            "room": room_id,
+            "messages_seen": self.msg_no.get(room_id, 0),
+            "open_requests": opens,
+            "prompts": list(fires)[-limit:],
+            "settled": {k: int(now - v) for k, v in (self.settled_at.get(room_id) or {}).items()},
+        }
 
     @_locked
     def has_open(self, room_id, intent, sender):
@@ -3948,6 +4001,23 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 result["target"] = {"show_to": "others", "reason": "accepted_offer"}
             else:
                 result["target"] = {"show_to": "sender", "reason": "accepted_request"}
+        # Remember the prompt for /room-summary, now that the recipient is known. Guardrails
+        # below can still clear the intents, so this records what was decided, and the
+        # guardrail branch drops the note again.
+        _cs = result.get("conversation_state") or {}
+        _tb = _cs.get("triggered_by") or {}
+        for _i in [i for i in result["intents"] if i in MANAGED_INTENTS]:
+            request_meta.note_fire(room_id, {
+                "ts": datetime.utcnow().isoformat(timespec="seconds"),
+                "intent": _i,
+                "to": _resolve_payer(room_id, sender),      # whoever performs the action
+                "said_by": sender,
+                "message_id": message_id,
+                "text": text[:200],
+                "slots": {k: v for k, v in (result.get("slots") or {}).items() if v},
+                "answers": {"from": _tb.get("sender"), "text": (_tb.get("text") or "")[:200],
+                            "message_id": _tb.get("message_id")} if _tb else None,
+            })
 
     # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])
@@ -3959,6 +4029,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
             result["slots"] = None
             result["target"] = None
             result["context_boosted"] = None
+            # No prompt was shown, so /room-summary must not claim one was.
+            request_meta.drop_last_fires(room_id, message_id)
 
     # Phase 7: Only surface the intents the product actually ships.
     #
@@ -4129,6 +4201,34 @@ def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
             _LOG_STATE["fail_warned"] = True
             logger.error(f"DOGFOOD LOG WRITE FAILED - nothing is being recorded to "
                          f"{_LOG_PATH}: {e}")
+
+
+@app.get("/room-summary/{room_id}")
+async def room_summary(room_id: str, sender: str = None, limit: int = 25):
+    """What money/ride is open in this room, and what has been prompted.
+
+    Built from the state /detect already keeps, so it describes the SAME conversation the
+    classifier sees, on live traffic. Read-only: asking cannot change a later prompt.
+
+    Not the same thing as `/summary/{room_id}/{user_name}`, which only sees the demo
+    WebSocket chat and returns nothing for real rooms.
+
+    `sender` (a user id) narrows `prompts` to the ones aimed at that person; open requests are
+    always listed in full, because in a group one may be waiting for anybody.
+
+    Two honest limits, both shared with the classifier itself:
+      * memory only - a restart empties it, exactly as it empties the conversation window
+      * a request older than PAYCHAT_CONV_CONTEXT_TTL (4h) is dropped, because the classifier
+        can no longer see it either
+    """
+    if conv_classifier is None:
+        return {"room": room_id, "error": "the conversation classifier is off on this server, "
+                                          "so there is no request state to summarise "
+                                          "(set PAYCHAT_CONV_CLASSIFIER=1)"}
+    out = request_meta.summary(room_id, sender=sender, limit=max(1, min(limit, 25)))
+    out["window_ttl_seconds"] = CONV_CONTEXT_TIME_CAP
+    out["as_of"] = datetime.utcnow().isoformat(timespec="seconds")
+    return out
 
 
 @app.get("/log-status")
