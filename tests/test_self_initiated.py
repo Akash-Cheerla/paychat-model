@@ -42,6 +42,10 @@ CASES = [
     ("I'll need to book a cab ride back home",        "ride",  False, "spec 3c, need"),
     ("I'll transfer you tonight",                     "money", False, "screenshot, future"),
     ("i'll pay on the 1st",                           "money", False, "Anupam, future"),
+    # Akash, 2026-09-27: same-day immediate wording counts as now. An explicit later time
+    # ("tonight", below) is still a promise and stays quiet.
+    ("your part of that is 15000, sending you the 15000 today", "money", True, "Akash 09-27, same day"),
+    ("transferring the 2000 right away",              "money", True,  "Akash 09-27, same day"),
     ("just sent it",                                  "money", False, "spec 3a, done"),
     ("cab booked",                                    "ride",  False, "spec 3a, done"),
     ("one sec opening the app",                       "money", False, "spec 3b"),

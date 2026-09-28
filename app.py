@@ -678,8 +678,17 @@ _PAY_ACT = (r"(?:send(?:ing)?|transfer(?:ring)?|pay(?:ing)?|venmo(?:ing)?|"
 # food. So the ride half has to name what is being booked.
 _RIDE_ACT2 = r"(?:book(?:ing)?|get(?:ting)?|order(?:ing)?|grab(?:bing)?|call(?:ing)?|arrang(?:e|ing))"
 
+# Same-day immediate wording counts as now (Akash, 2026-09-27). Found by matrix-testing the
+# 2026-09-27 reports: "your part of that is 15000, sending you the 15000 today" scored 0.995 on
+# the classifier and was still dropped, because with nobody asking, a message only counts as
+# self-sufficient when it states an action - and the pattern below required "now". An explicit
+# LATER time is still a promise and stays out: "tonight", "this evening", "after work", "by 6"
+# are matched by _ACT_FUTURE, which vetoes this, and "I'll transfer you tonight" must stay quiet
+# (tests/test_self_initiated.py, from a screenshot).
+_SAME_DAY = r"(?:now|right now|rn|today|right away|straight away|asap|in a (?:bit|min|minute|sec|second))"
+
 _STATES_ACTION_MONEY = re.compile(
-    rf"\b{_PAY_ACT}\b(?:\s+\w+){{0,3}}\s+(?:now|right now|rn)\b"
+    rf"\b{_PAY_ACT}\b(?:\s+\w+){{0,3}}\s+{_SAME_DAY}\b"
     rf"|\b(?:i\s?a?m|i\'?m)\s+{_PAY_ACT}\b"
     rf"|\b(?:i\s?will|i\'?ll|ill)\s+(?:just\s+|also\s+)?{_PAY_ACT}\b",
     re.IGNORECASE)
