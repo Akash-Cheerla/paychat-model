@@ -1487,18 +1487,24 @@ class RequestMeta:
         """What is open and what has been prompted in this room, from the state the server
         already keeps. Read-only: it changes nothing and cannot affect a later fire.
 
-        `open` is a request nobody has answered yet - the queue drops an ordinary request when
-        it is taken, and a divisible one ("1000 each") stays open for everyone who has not
-        paid, which is why `taken_by` is reported rather than a bare boolean.
+        A request is "open" until someone answers it - the queue drops an ordinary request when
+        it is taken, and a divisible one ("1000 each") stays for everyone who has not paid,
+        which is why `answered_by` is reported rather than a bare boolean.
+
+        With `sender`, this answers "what do I have to act on": `open_requests` holds only what
+        OTHER people asked, and the caller's own unanswered asks move to `my_requests` - sorted,
+        not hidden. Without `sender` every open request is listed, because in a group one may be
+        waiting for anybody.
+
+        A request older than CONV_CONTEXT_TIME_CAP is still listed, with `expired: true`: the
+        classifier can no longer see it, so nobody can answer it any more, but dropping it
+        silently would make "nothing was asked" and "it aged out" look identical (Akash,
+        2026-09-27).
         """
         now = time.time()
-        opens = []
+        mine, theirs = [], []
         for e in self.rooms.get(room_id, []):
-            if now - e["ts"] > CONV_CONTEXT_TIME_CAP:
-                continue                      # outside the window the classifier can see
-            # Every open request is listed whoever asks: in a group one may be waiting for
-            # anybody. `sender` only narrows the prompts, which belong to one person.
-            opens.append({
+            item = {
                 "intent": e["intent"],
                 "from": e["sender"],
                 "text": e["text"],
@@ -1507,15 +1513,21 @@ class RequestMeta:
                 "divisible": e["divisible"],
                 "answered_by": sorted(str(s) for s in e["taken_by"]),
                 "age_seconds": int(now - e["ts"]),
-            })
-        fires = [f for f in self.fires.get(room_id, ()) if not sender or f.get("to") == sender]
-        return {
+                "expired": now - e["ts"] > CONV_CONTEXT_TIME_CAP,
+            }
+            (mine if sender and e["sender"] == str(sender) else theirs).append(item)
+        fires = [f for f in self.fires.get(room_id, ()) if not sender or f.get("to") == str(sender)]
+        out = {
             "room": room_id,
             "messages_seen": self.msg_no.get(room_id, 0),
-            "open_requests": opens,
+            "open_requests": theirs,
             "prompts": list(fires)[-limit:],
             "settled": {k: int(now - v) for k, v in (self.settled_at.get(room_id) or {}).items()},
         }
+        if sender:
+            out["for"] = str(sender)
+            out["my_requests"] = mine
+        return out
 
     @_locked
     def has_open(self, room_id, intent, sender):
@@ -4213,13 +4225,17 @@ async def room_summary(room_id: str, sender: str = None, limit: int = 25):
     Not the same thing as `/summary/{room_id}/{user_name}`, which only sees the demo
     WebSocket chat and returns nothing for real rooms.
 
-    `sender` (a user id) narrows `prompts` to the ones aimed at that person; open requests are
-    always listed in full, because in a group one may be waiting for anybody.
+    `sender` (a user id) turns it into "what do I have to act on": `prompts` holds only the ones
+    aimed at that person, `open_requests` only what other people asked, and their own unanswered
+    asks move to `my_requests`. Without it, everything in the room is listed.
 
-    Two honest limits, both shared with the classifier itself:
-      * memory only - a restart empties it, exactly as it empties the conversation window
-      * a request older than PAYCHAT_CONV_CONTEXT_TTL (4h) is dropped, because the classifier
-        can no longer see it either
+    A request the classifier can no longer see (older than PAYCHAT_CONV_CONTEXT_TTL, 4h) is
+    still listed, marked `expired: true` - nobody can answer it any more, but hiding it would
+    make "nothing was asked" and "it aged out" look the same.
+
+    One limit worth knowing: memory only. A restart empties this exactly as it empties the
+    conversation window the classifier reads. `prompts` is the last 25 for the room and is not
+    age-capped; `open_requests` is whatever is still in the request queue (8 per room).
     """
     if conv_classifier is None:
         return {"room": room_id, "error": "the conversation classifier is off on this server, "

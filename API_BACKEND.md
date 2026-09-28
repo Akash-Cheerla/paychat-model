@@ -444,9 +444,14 @@ describes the same conversation the classifier sees. Read-only: calling it canno
 later prompt.
 
 ```
-GET /room-summary/dm_10_20            # the whole room
-GET /room-summary/dm_10_20?sender=20  # prompts aimed at user 20 only
+GET /room-summary/dm_10_20            # everything in the room
+GET /room-summary/dm_10_20?sender=20  # what user 20 has to act on
 ```
+
+With `sender`, it answers "what do I have to act on": `prompts` holds only the ones aimed at
+that user, `open_requests` only what **other** people asked, and their own unanswered asks move
+to `my_requests` — sorted out, not hidden. Without `sender`, every open request is listed,
+because in a group one may be waiting for anybody.
 
 ```json
 {
@@ -471,14 +476,23 @@ GET /room-summary/dm_10_20?sender=20  # prompts aimed at user 20 only
 | field | meaning |
 |---|---|
 | `open_requests` | asked, nobody has answered yet. An ordinary request leaves the list when someone takes it; a split (`divisible: true`) stays, and `answered_by` lists the user ids who have already paid their share |
+| `my_requests` | only with `sender`: that user's own unanswered asks |
 | `prompts` | prompts this server showed, oldest first, last 25 per room. `to` is who performs the action (the payer or the booker) — the same person `target.show_to` points at. `answers` is the request it carried |
+| `expired` | on a request the classifier can no longer see (older than 4h). It is still listed, because hiding it would make "nothing was asked" and "it aged out" look identical — but nobody can answer it any more |
 | `settled` | seconds since the last completed prompt per intent |
 | `messages_seen` | messages this room has sent through `/classify` since the server started |
 
-Two limits, both shared with the classifier itself: it is **memory only**, so a restart empties
-it exactly as it empties the conversation window, and a request older than
-`PAYCHAT_CONV_CONTEXT_TTL` (4h) drops off, because the classifier can no longer see it either.
-With the classifier off the endpoint returns an `error` string rather than pretending to know.
+**Why 4 hours.** That is the classifier's memory (`PAYCHAT_CONV_CONTEXT_TTL`), not a choice this
+endpoint makes: money and ride are decided by reading the conversation window, so a request
+older than the window cannot be answered by anyone. Five minutes was once too short — a reply
+seven minutes after the request scored 0.03 instead of 0.997 — and a day is too long, because a
+stale request attaches itself to an unrelated "sure". The value is configurable, and
+`window_ttl_seconds` in the response says what the server is running.
+
+`prompts` is **not** age-capped: it is the last 25 for the room, however old. One limit applies
+to all of it: **memory only**, so a restart empties this exactly as it empties the conversation
+window. With the classifier off the endpoint returns an `error` string rather than pretending to
+know.
 
 **Not** `/summary/{room_id}/{user_name}`: that one only ever sees the demo WebSocket chat
 (`/chat`) and returns empty for real rooms.

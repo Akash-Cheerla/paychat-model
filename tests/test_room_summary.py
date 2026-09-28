@@ -93,12 +93,35 @@ def main():
         check("it records who has paid", sorted(split[0]["answered_by"]) == ["2", "3"],
               json.dumps(split[0]["answered_by"]))
 
-    # 4. ?sender= narrows the prompts to one person, and leaves open requests alone
+    # 4. ?sender= answers "what do I have to act on"
     _, out = summary(room, sender="2")
     check("sender filter keeps only that person's prompts",
           all(x["to"] == "2" for x in out.get("prompts", [])),
           json.dumps([x["to"] for x in out.get("prompts", [])]))
-    check("sender filter still lists every open request", bool(out.get("open_requests")))
+    check("open_requests holds only what OTHERS asked",
+          all(o["from"] != "2" for o in out.get("open_requests", [])),
+          json.dumps([o["from"] for o in out.get("open_requests", [])]))
+    check("it says who it is for", out.get("for") == "2", str(out.get("for")))
+
+    # my own asks are sorted out, not hidden
+    room = f"dm_rs{tag}_4"
+    send(room, 1, "can you send me 500 for lunch", 0)          # asked by 1
+    send(room, 2, "can you book me a cab to the airport", 1)   # asked by 2
+    _, out = summary(room, sender="2")
+    theirs = [o["from"] for o in out.get("open_requests", [])]
+    mine = [o["from"] for o in out.get("my_requests", [])]
+    check("what is waiting on me lists the other person's ask", theirs == ["1"], json.dumps(theirs))
+    check("my own ask is in my_requests", mine == ["2"], json.dumps(mine))
+    _, out = summary(room)
+    check("without sender, both are in open_requests",
+          sorted(o["from"] for o in out.get("open_requests", [])) == ["1", "2"],
+          json.dumps([o["from"] for o in out.get("open_requests", [])]))
+    check("without sender there is no my_requests", "my_requests" not in out)
+
+    # a fresh request is not expired; the flag is always present so the app can rely on it
+    fresh = (out.get("open_requests") or [{}])[0]
+    check("expired is reported and false for a fresh request", fresh.get("expired") is False,
+          json.dumps({k: fresh.get(k) for k in ("age_seconds", "expired")}))
 
     # 5. a room nobody has messaged
     code, out = summary(f"dm_rs{tag}_never")
