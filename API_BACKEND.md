@@ -1,6 +1,6 @@
 # PayChat — Backend Integration
 
-**For:** Samyak (Phoenix/Elixir backend)  
+
 **Models in production (2026-09-23):** DualHeadRoberta **v26** (`saved_model/`) for the nine
 intents and slots, plus the **conversation classifier v17** (`conv_model/`, thresholds
 0.985 / 0.985) which decides money and ride. v17 went live 2026-09-20.  
