@@ -463,15 +463,22 @@ because in a group one may be waiting for anybody.
       "divisible": true, "answered_by": [], "age_seconds": 92 }
   ],
   "prompts": [
-    { "ts": "2026-09-27T09:14:03", "intent": "money", "to": "20", "said_by": "20",
+    { "ts": "2026-09-27T09:14:03Z", "intent": "money", "to": "20", "said_by": "20",
       "message_id": "m_44", "text": "sure", "slots": { "amount": "$500", "note": "lunch" },
       "answers": { "from": "10", "text": "can you send me 500 for lunch", "message_id": "m_39" } }
   ],
   "settled": { "money": 310 },
   "window_ttl_seconds": 14400,
-  "as_of": "2026-09-27T09:15:35"
+  "as_of": "2026-09-27T09:15:35Z"
 }
 ```
+
+**Every timestamp here is UTC with the `Z`.** Changed 2026-09-30, after Brahma asked what
+timezone `ts` was in: the old form (`2026-09-27T09:14:03`, no offset) is read as LOCAL time
+by JavaScript's `Date` — 5h30m out on an IST device, silently — rejected by Swift's
+`ISO8601DateFormatter`, and thrown on by Kotlin's `Instant.parse`. `ts`, `as_of`, and
+`started_at` / `loaded_at` on `/health` all carry it now. For "how old is this", prefer
+`age_seconds` on a request: it is an int computed here, with no timezone in it at all.
 
 | field | meaning |
 |---|---|

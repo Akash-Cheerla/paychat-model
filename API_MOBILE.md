@@ -294,13 +294,17 @@ never sets it.
 | `user_id` | Who said the phrase. **Not** necessarily who sees the prompt — see below. |
 | `fields[].slot` | `pickup` or `destination` — which slot to overwrite once resolved. |
 | `fields[].phrase` | The literal text, for showing in the editable field before it resolves. |
-| `fields[].resolve` | `gps` or `saved_place` — see below. |
-| `fields[].place` | For `saved_place`: `home` or `office`. `null` for `gps`. |
+| `fields[].resolve` | `gps`, `saved_place`, `participant` or `ask` — see below. |
+| `fields[].place` | `home` or `office` when the wording named one, else `null` (meaning: that person's current position). |
+| `fields[].name` | `participant` only: the first name as typed, for you to match against the roster. `null` when the phrase said "your". |
+| `fields[].who` | `participant` only: `"other_party"` when the phrase said "your" rather than a name — whoever in the room is **not** `user_id`. `null` when `name` is set. |
 
 | `resolve` | What to do |
 |-----------|-----------|
-| `gps` | Device location. "my location", "here". |
+| `gps` | Device location. "my location", "here", "where i am". |
 | `saved_place` | The user's profile address book, `place` says which. Not GPS — "home" is still home when they're out. |
+| `participant` | Somebody else's location: `name` when they were named ("Brahma's current location"), `who: "other_party"` when the phrase said "your". Ask that person, or use a position they have already shared. |
+| `ask` | We cannot resolve it and neither can you — show the field empty and let the user pick an address. "my hostel", "their location". |
 
 Named places ("tin factory", "adidas store") are never reported — search those in Places
 with a local bias as you would anyway. The block appears only for slots you cannot
@@ -328,6 +332,40 @@ else:
 ```
 
 Leaving it as written is always a safe fallback. The field is editable by design.
+
+### "your location" — `who: "other_party"`
+
+Added 2026-09-30. The mirror image of the trap above: the person acting says the phrase,
+and it means the location of the person they are talking to.
+
+```
+31: "i'll book you a cab from your current location to the airport"
+```
+
+The sheet opens on 31, who is booking — but the pickup is **30's** location, which 31's
+phone cannot read. So:
+
+```json
+"needs_location": {
+  "user_id": "31",
+  "fields": [
+    { "slot": "pickup", "phrase": "Your Current Location", "resolve": "participant",
+      "name": null, "who": "other_party", "place": null }
+  ]
+}
+```
+
+`who: "other_party"` means **whoever in this room is not `user_id`**. In a DM that is
+unambiguous. In a group it is not, so fall back to the person `reply_to` points at, and
+if there is no `reply_to`, treat it as `ask` and let the user choose.
+
+"your place" / "your office" come back the same way with `place` set to `home` / `office`,
+meaning their saved address rather than their current position.
+
+Third-person pronouns — "his current location", "their location", "our current location" —
+come back as `ask`. There is no name for you to match and no single device to read, so the
+user picks. What you must **not** do is render the phrase as an address: "Their Location"
+in a pickup field is the bug Andril reported for "My Location" on 2026-09-08.
 
 ---
 

@@ -24,7 +24,7 @@ import time
 import logging
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -74,6 +74,26 @@ CONTEXT_TIME_CAP = 300  # 5 minutes — ignore context messages older than this
 # Matches PENDING_TTL in conversation.py (4h), which was raised from 5 minutes for the
 # same reason on the rules path.
 CONV_CONTEXT_TIME_CAP = int(os.environ.get("PAYCHAT_CONV_CONTEXT_TTL", 4 * 3600))
+
+
+# Every timestamp this server hands out goes through here, and it carries the Z.
+#
+# The naive form ("2026-09-30T01:41:19") says UTC nowhere. Brahma hit all three
+# consequences on 2026-09-30, asking what timezone `ts` was in: JavaScript's
+# `new Date()` reads an offsetless date-time as LOCAL (5h30m out on an IST device,
+# silently), Swift's ISO8601DateFormatter returns nil for it, and Kotlin's
+# Instant.parse throws. The offset is not decoration.
+#
+# Timezone-aware throughout, which also drops the DeprecationWarning the old naive
+# UTC call carries from Python 3.12 on.
+def _utc_iso(timespec: str = "auto") -> str:
+    """UTC, ISO 8601, Z-suffixed: 2026-09-30T01:41:19Z."""
+    return datetime.now(timezone.utc).isoformat(timespec=timespec).replace("+00:00", "Z")
+
+
+def _utc_today() -> str:
+    """Today's UTC date as YYYY-MM-DD, for comparing against PAYCHAT_LOG_UNTIL."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 # How many messages after a prompt a restatement still counts as an echo. Measured
 # on the 2026-08-30 log: real echoes sat 1-4 messages behind the fire, genuinely new
@@ -162,7 +182,7 @@ model_state = {
 stats = {
     "requests": 0,
     "detections": 0,
-    "started_at": datetime.utcnow().isoformat(),
+    "started_at": _utc_iso(),
     "avg_latency_ms": 0,
     "_latency_sum": 0,
 }
@@ -221,7 +241,7 @@ def load_model(model_dir: Path = MODEL_DIR):
     model_state["has_response_head"] = has_response_head
     model_state["thresholds"] = thresholds
     model_state["version"]    = version
-    model_state["loaded_at"]  = datetime.utcnow().isoformat()
+    model_state["loaded_at"]  = _utc_iso()
 
     # Load ONNX session if available (faster CPU inference) — prefer INT8 quantized
     onnx_int8 = model_dir / "model_int8.onnx"
@@ -1987,13 +2007,24 @@ _NOT_A_PLACE = {
 _TIMEY = re.compile(r"^\d|\b(?:am|pm|o'?clock|hrs?|hours?|mins?|minutes?)\b", re.IGNORECASE)
 
 
+def _tidy_possessive(p: str) -> str:
+    """"andril 's place" -> "Andril's Place".
+
+    spaCy splits the clitic, and joining a subtree puts the space back in; .title() then
+    capitalises the s. The pickup is rendered to the user in an editable field, so this
+    is read by a person, not just matched by _person_location.
+    """
+    p = re.sub(r"\s+'s\b", "'s", p, flags=re.I)
+    return re.sub(r"'S\b", "'s", p)
+
+
 def _norm_place(p: Optional[str]) -> Optional[str]:
     """Same casing rule clean_phrase() applies, so both paths agree."""
     if not p:
         return None
     if p.lower() in ("home", "my place", "my house", "your place"):
         return p.lower()
-    return p.title() if p.islower() and len(p) > 3 else p
+    return _tidy_possessive(p.title() if p.islower() and len(p) > 3 else p)
 
 
 def _plausible_place(cand: Optional[str]) -> Optional[str]:
@@ -2071,7 +2102,21 @@ _SAVED_PLACES = {
     "home":   {"home", "my home", "my house", "my place", "my flat", "my apartment"},
     "office": {"office", "my office", "work", "my work", "my workplace"},
 }
+
+# "from where i am" and "from here" never reached the slots at all. spaCy tags both as
+# adverbs, so there is no pobj for the parse to read, and "here" is in _VAGUE_PLACES on
+# top of that - the pickup came back None and the hint had nothing to attach to. They are
+# in _GPS_PLACES deliberately (they are exactly the phrases that need a device location),
+# so match them literally and fill what the parse left empty. Longest alternative first,
+# so "my location right now" wins over "my location".
+_GPS_ALT = "|".join(re.escape(x) for x in sorted(_GPS_PLACES, key=len, reverse=True))
+_GPS_FROM = re.compile(rf"\bfrom\s+({_GPS_ALT})\b", re.I)
+_GPS_TO = re.compile(rf"\bto\s+({_GPS_ALT})\b", re.I)
 _LOC_STRIP = re.compile(r"[^a-z ]+")
+
+# The place words, shared by all three possessive forms below.
+_LOC_WORDS = (r"current\s+location|location|loc|place|position|spot|end|side|"
+              r"home|house|apartment|flat|residence|office|work|workplace")
 
 # "<Name>'s location" — someone else in the chat, not the speaker.
 #
@@ -2096,10 +2141,28 @@ _LOC_STRIP = re.compile(r"[^a-z ]+")
 #       -> place=None means ask that person for their current position. Only the
 #          home/office wordings resolve against their saved places.
 _PERSON_LOC = re.compile(
-    r"^\s*(?:from\s+|to\s+)?([a-z][a-z.\-]{1,19})\s*(?:'s|s)\s+"
-    r"(location|loc|current\s+location|place|position|spot|end|side|"
-    r"home|house|apartment|flat|residence|"
-    r"office|work|workplace)\s*$", re.I)
+    rf"^\s*(?:from\s+|to\s+)?([a-z][a-z.\-]{{1,19}})\s*(?:'s|s)\s+"
+    rf"({_LOC_WORDS})\s*$", re.I)
+
+# "your location", "your place" - the OTHER party in the room, and the phone the prompt
+# opens on cannot read it: on "i'll book you a cab from your current location" the sheet
+# opens for the booker and the location wanted is the rider's.
+#
+# Ruled by Akash 2026-09-30: report it exactly as a named participant is reported, with
+# `who` standing in for the name, because the resolver already knows how to ask a person
+# for their position. "other_party" means "whoever in this room is not `user_id`" - and
+# user_id names the speaker of the phrase, not whoever the prompt opened for. In a group
+# that needs reply_to to disambiguate; the roster lives with the resolver, not here.
+_YOUR_LOC = re.compile(
+    rf"^\s*(?:from\s+|to\s+)?your\s+(?:current\s+)?({_LOC_WORDS})\s*$", re.I)
+
+# "his location", "their location", "our current location" - a third party the text does
+# not name, so there is nobody for the resolver to ask. Deliberately conservative: `ask`
+# stops the client rendering "Their Location" into the pickup field as though it were an
+# address (the bug Andril reported for "My Location") without inventing a resolution.
+_OTHER_PRONOUN_LOC = re.compile(
+    rf"^\s*(?:from\s+|to\s+)?(?:his|her|their|our|its)\s+"
+    rf"(?:current\s+)?({_LOC_WORDS})\s*$", re.I)
 
 # Words that take a possessive but are never a chat participant. Kept short on purpose:
 # the resolver's fallback already makes a wrong guess harmless, so the only entries that
@@ -2130,7 +2193,11 @@ def _person_location(raw: str):
     if not m:
         return None
     name, word = m.group(1), m.group(2).lower()
-    if name.lower() in _NOT_A_NAME or len(name) < 2:
+    # The regex accepts a bare trailing "s" as the possessive, so a pronoun is captured
+    # one letter short: "his current location" gave name "Hi" and the client went looking
+    # for a participant called Hi. Check the word the writer actually typed too.
+    if (name.lower() in _NOT_A_NAME or (name + "s").lower() in _NOT_A_NAME
+            or len(name) < 2):
         return None
     return name, _PERSON_PLACE.get(re.sub(r"\s+", " ", word))
 
@@ -2165,7 +2232,19 @@ def _location_hint(slots: dict, speaker) -> Optional[dict]:
         if person:
             name, place = person
             fields.append({"slot": key, "phrase": raw, "resolve": "participant",
-                           "name": name, "place": place})
+                           "name": name, "who": None, "place": place})
+            continue
+        # The other party, named by "your" rather than by name (see _YOUR_LOC).
+        m = _YOUR_LOC.match(raw.strip())
+        if m:
+            word = re.sub(r"\s+", " ", m.group(1).lower())
+            fields.append({"slot": key, "phrase": raw, "resolve": "participant",
+                           "name": None, "who": "other_party",
+                           "place": _PERSON_PLACE.get(word)})
+            continue
+        # A third party nobody named - unresolvable, and say so (see _OTHER_PRONOUN_LOC).
+        if _OTHER_PRONOUN_LOC.match(raw.strip()):
+            fields.append({"slot": key, "phrase": raw, "resolve": "ask", "place": None})
             continue
         # Self-referential and not one of the two saved places - "my hostel", "my pg",
         # "my hotel". Ruled 2026-09-02: we are NOT adding place types beyond home and
@@ -2746,7 +2825,7 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
         p = _tidy_place(p) or ""
         if not p:
             return ""
-        return p.title() if p.islower() and len(p) > 3 else p
+        return _tidy_possessive(p.title() if p.islower() and len(p) > 3 else p)
 
     if to_phrases:
         _d = clean_phrase(to_phrases[0])
@@ -2793,20 +2872,41 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
 
     # If destination is a vague reference, try to resolve from context
     dest = result.get("destination", "").lower().strip()
+    _dest_from_context = False
     if dest in _VAGUE_PLACES and prev_messages:
         resolved = _resolve_place_from_context(prev_messages)
         if resolved:
             result["destination"] = resolved
+            _dest_from_context = True
         else:
             del result["destination"]
 
     pickup = result.get("pickup", "").lower().strip()
+    from_context = {"destination"} if _dest_from_context else set()
     if pickup in _VAGUE_PLACES and prev_messages:
         resolved = _resolve_place_from_context(prev_messages)
         if resolved:
             result["pickup"] = resolved
-        else:
+            from_context.add("pickup")
+        elif pickup not in _GPS_PLACES:
             del result["pickup"]
+        # else: "here" is both vague and a GPS phrase. An address from context is the
+        # better answer, but when there is none, keeping the phrase lets the location
+        # hint ask the device. Deleting it left the client with an empty pickup field
+        # and no idea it could resolve one.
+
+    # An explicit "from <gps phrase>" / "to <gps phrase>" beats the parse, which does not
+    # see these as places at all: "cab from where im at to hsr" came back with pickup
+    # "To Hsr" - the phrase ends in a preposition, so the subtree swallowed the next one,
+    # and a fill that only touched an EMPTY slot left that copy of the destination in the
+    # pickup field. An address recovered from context above is the one thing that outranks
+    # it: someone typed that, and it beats asking the device.
+    for key, rx in (("pickup", _GPS_FROM), ("destination", _GPS_TO)):
+        if key in from_context:
+            continue
+        m = rx.search(text)
+        if m:
+            result[key] = _norm_place(m.group(1))
 
     return result
 
@@ -4020,7 +4120,7 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         _tb = _cs.get("triggered_by") or {}
         for _i in [i for i in result["intents"] if i in MANAGED_INTENTS]:
             request_meta.note_fire(room_id, {
-                "ts": datetime.utcnow().isoformat(timespec="seconds"),
+                "ts": _utc_iso("seconds"),
                 "intent": _i,
                 "to": _resolve_payer(room_id, sender),      # whoever performs the action
                 "said_by": sender,
@@ -4163,7 +4263,7 @@ def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
     """Append one line per message, until the expiry date."""
     if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
         return
-    if datetime.utcnow().strftime("%Y-%m-%d") > _LOG_UNTIL:
+    if _utc_today() > _LOG_UNTIL:
         if not _LOG_STATE["expired_warned"]:
             _LOG_STATE["expired_warned"] = True
             logger.warning(
@@ -4173,7 +4273,7 @@ def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
         return
     try:
         row = {
-            "ts": datetime.utcnow().isoformat(timespec="seconds"),
+            "ts": _utc_iso("seconds"),
             "room": room_id,
             "sender": sender,
             "text": text,
@@ -4243,15 +4343,14 @@ async def room_summary(room_id: str, sender: str = None, limit: int = 25):
                                           "(set PAYCHAT_CONV_CLASSIFIER=1)"}
     out = request_meta.summary(room_id, sender=sender, limit=max(1, min(limit, 25)))
     out["window_ttl_seconds"] = CONV_CONTEXT_TIME_CAP
-    out["as_of"] = datetime.utcnow().isoformat(timespec="seconds")
+    out["as_of"] = _utc_iso("seconds")
     return out
 
 
 @app.get("/log-status")
 async def log_status():
     """Is collection actually running? Cheap to check mid-batch."""
-    from datetime import datetime as _dt
-    today = _dt.utcnow().strftime("%Y-%m-%d")
+    today = _utc_today()
     on = bool(_LOG_ALL or _LOG_ROOMS)
     return {
         "logging": on and today <= _LOG_UNTIL,
@@ -4509,7 +4608,8 @@ async def ws_chat(websocket: WebSocket, room_id: str):
                     continue
 
                 nickname = chat_users[websocket]["nickname"]
-                ts = datetime.utcnow().strftime("%-I:%M %p") if os.name != 'nt' else datetime.utcnow().strftime("%#I:%M %p")
+                ts = (datetime.now(timezone.utc).strftime("%-I:%M %p") if os.name != 'nt'
+                      else datetime.now(timezone.utc).strftime("%#I:%M %p"))
                 msg_id = f"{nickname}_{int(time.time()*1000)}"
 
                 # Full pipeline: keyword → model context → slots → lifecycle
@@ -4771,7 +4871,7 @@ def _pipeline_to_msg(text: str, sender: str, result: dict, room_id: str = None) 
         "pir_changes": pir_changes,
         "pir_alive": [],
         "top_scores": top_scores,
-        "ts": datetime.utcnow().isoformat(),
+        "ts": _utc_iso(),
     }
 
 
