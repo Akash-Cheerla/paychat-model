@@ -80,6 +80,8 @@ This is the only endpoint you need. Call it for every message (DMs and group cha
 | `message_id` | string | No | Message ID (echoed back, also stored with pending requests for `triggered_by`) |
 | `reply_to` | string | No | Message ID of the message being replied to (from the chat app's reply-to-message feature). **Required for group chats** — see below. |
 | `participants` | int | No | Number of people in the room, **including the sender**. Group rooms only; ignored for `dm_*`. Used to divide a split — see Splits below. Nothing breaks without it. |
+| `roster` | object[] | No | Who is in the room, one entry per member **including the sender**: `{"id": "20", "name": "Akash", "nickname": "AK", "places": ["home", "office"]}`. `name` is the first word of the display name, `places` the **names** of the saved places that person has (never coordinates). Lets a ride's "Akash's address" / "your place" resolve to a user id — see `needs_location` below. At most 50 entries; larger or malformed is treated as absent, never rejected. Not stored, not logged, read by nothing else. |
+| `client` | string | No | The app build that produced the message, e.g. `ios-1.4.2`. Echoed and logged, never used for classification. |
 
 **`sender` is required now.** Without it the server falls back to immediate-fire mode (no request→response tracking), which defeats the whole point of the state machine.
 
@@ -163,10 +165,13 @@ This is important. The state machine matches responses to pending requests diffe
   "lifecycle": null,
   "guardrails": null,
   "context_boosted": null,
+  "needs_location": null,
   "latency_ms": 435.5,
   "chat_id": null,
   "message_id": "msg_789",
-  "sender": "12"
+  "sender": "12",
+  "client": null,
+  "model_version": { "base": "v26", "conv": "conv_windows_v17", "decided_by": "conv_classifier" }
 }
 ```
 
@@ -182,6 +187,8 @@ This is important. The state machine matches responses to pending requests diffe
 | `conversation_state` | object \| null | State machine result — see below |
 | `lifecycle` | object \| null | Cancel/defer/confirm state changes |
 | `guardrails` | object \| null | Compliance flags (PCI, AML, phishing) |
+| `needs_location` | object \| null | Ride pickup/destination the client or server must resolve, and whose they are — see its own section below |
+| `model_version` | object | Which models decided (`base`, `conv`, `decided_by`) |
 | `latency_ms` | float | Inference time |
 
 ### Which intents are surfaced
@@ -429,11 +436,54 @@ All slot keys are always returned for the intent — null if not detected. No ne
 
 ---
 
+## `needs_location` — which ride slots to resolve, and whose they are
+
+Present only when a ride is involved and a pickup or destination is self-referential
+("my location", "home") or refers to a person ("Akash's address", "your place"). Named
+places ("MG Road") get no entry: the client runs those through Places anyway. Emitted on
+the **request** as well as on the fire — the rider's app has to know before the fire —
+and on a fire the fields are built from `triggered_by.slots`, so `user_id` is
+`triggered_by.sender`, the speaker of the phrases, not whoever the prompt opened for.
+
+```json
+"needs_location": {
+  "user_id": "10",
+  "fields": [
+    { "slot": "pickup",      "phrase": "My Home",         "resolve": "saved_place", "place": "home", "user_id": "10" },
+    { "slot": "destination", "phrase": "Akash's Address", "resolve": "gps",         "place": null,   "user_id": "20" }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `user_id` | The speaker of the phrases. Kept for clients written before fields had owners. |
+| `fields[].slot` | `pickup` or `destination`. |
+| `fields[].phrase` | The text as extracted, to show when nothing resolves. |
+| `fields[].resolve` | What to do — table below. |
+| `fields[].place` | `home`, `office` or null (a current position). |
+| `fields[].user_id` | **Whose** location this field is: the speaker for "my …", the matched member for "X's …" / "your …", null when nobody can say. |
+| `fields[].name` | Only on an unresolved person phrase: the name as written, for the log. |
+| `fields[].who` | `"other_party"` on a "your …" phrase that could not be resolved (no roster, or a group). |
+
+| `resolve` | When | Expected handling |
+|---|---|---|
+| `gps` | "my location", "here", or "X's current location" with exactly one roster match | The server asks `user_id`'s device over its socket if that user is someone else; the device owner's own client fills from GPS |
+| `saved_place` | "my home", "office", or "X's home" **when that person's `places` has it** | Looked up from the saved-places table for `user_id`, coordinates written into the slot |
+| `ask` | "my hostel", a name matching nobody or more than one member, a saved place the person has not stored, "his/their …", or "your …" in a group | Open the address picker with `phrase` pre-filled |
+| `participant` | Only when **no roster was sent**: a person phrase with `name` (and `who` for "your …") | Whoever holds the roster matches it; treat as `ask` otherwise |
+
+Resolution rules: a name matches a roster entry when it equals that entry's `name` or
+`nickname` case-insensitively — exact token, one match only. "your …" resolves to the other
+entry in a two-person roster (a DM) and is `ask` in a group. Curly apostrophes are
+normalised, and "address"/"addr" read as home. Every rule above degrades to `ask` rather
+than guess: a wrong person's home in a cab booking is worse than a picker.
+
 ## Popup Cooldown
 
-The server enforces a **30-second cooldown** per (room_id, intent). If money fires at T=0 and another money message arrives at T=10, the second one won't fire. This prevents spam.
-
-You don't need to implement cooldown on your side — the server handles it via `room_id`.
+There is **no cooldown** on `/classify`. An earlier server enforced one per (room, intent);
+the conversation state machine replaced it, and the only thing that still applies one is
+the `/ws/{room}/{user}` demo endpoint. Do not implement one client-side either.
 
 ---
 

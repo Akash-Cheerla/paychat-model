@@ -2116,7 +2116,10 @@ _LOC_STRIP = re.compile(r"[^a-z ]+")
 
 # The place words, shared by all three possessive forms below.
 _LOC_WORDS = (r"current\s+location|location|loc|place|position|spot|end|side|"
-              r"home|house|apartment|flat|residence|office|work|workplace")
+              r"home|house|apartment|flat|residence|address|addr|office|work|workplace")
+
+# Phones type curly apostrophes; the possessive regexes want the straight one.
+_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'"})
 
 # "<Name>'s location" — someone else in the chat, not the speaker.
 #
@@ -2125,17 +2128,22 @@ _LOC_WORDS = (r"current\s+location|location|loc|place|position|spot|end|side|"
 # The pickup resolved (it is in _GPS_PLACES) and the destination did not, because nothing
 # here recognised a person's name as a place.
 #
-# We do NOT resolve the name. /detect receives `participants` as an integer headcount and
-# has no roster, and the design above exists precisely so that whose-location-is-this
-# leaves the server as a hint rather than arriving as a coordinate. So the name is
-# reported and whoever holds the roster matches it. A name that matches nobody falls back
-# to `ask`, which also disposes of "the driver's location" and "mom's house" without this
-# having to tell people from things.
+# The name is resolved against the `roster` the caller sends with the request
+# (2026-10-01): one entry per room member with the first word of their name, their
+# nickname, and the NAMES of the saved places they have (never coordinates). The roster
+# is read by _location_hint and nowhere else — it does not touch scoring, the
+# conversation window or splits, it is not stored, and it is not logged. The design
+# above still holds: whose-location-is-this leaves as a hint with a user id, never as a
+# coordinate. Without a roster the name is reported as before (`resolve: "participant"`)
+# and whoever holds the roster matches it. A name that matches nobody, or more than one
+# person, falls back to `ask`, which also disposes of "the driver's location" and "mom's
+# house" without this having to tell people from things.
 #
 # Gowtham 2026-09-08, two rulings encoded here:
 #   "It should crack it for a full matching first name that's part of the conversation"
-#       -> exact first-name matching is the resolver's job; a candidate is emitted, not a
-#          decision. Nicknames are explicitly out of scope for now.
+#       -> exact first-name (or nickname) matching, case-insensitive, one match only. Two
+#          people sharing a name fall back to `ask`: a wrong person's home address in a
+#          cab booking is worse than a picker. Fuzzy matching is out of scope.
 #   "location should always make a request for current location, unless it says home
 #    location or residence or the like"
 #       -> place=None means ask that person for their current position. Only the
@@ -2182,7 +2190,7 @@ _NOT_A_NAME = {"my", "your", "his", "her", "their", "our", "its", "the", "a", "a
 # CURRENT position, per the ruling above.
 _PERSON_PLACE = {
     "home": "home", "house": "home", "apartment": "home", "flat": "home",
-    "residence": "home", "place": "home",
+    "residence": "home", "place": "home", "address": "home", "addr": "home",
     "office": "office", "work": "office", "workplace": "office",
 }
 
@@ -2202,28 +2210,99 @@ def _person_location(raw: str):
     return name, _PERSON_PLACE.get(re.sub(r"\s+", " ", word))
 
 
-def _location_hint(slots: dict, speaker) -> Optional[dict]:
+# The caller sends at most this many members; anything larger is treated as no roster
+# rather than truncated, because a truncated roster would turn a real member into
+# "nobody of that name".
+_ROSTER_MAX = 50
+
+
+def _normalize_roster(raw) -> Optional[list]:
+    """`roster` as sent -> [{id, name, nickname, places}] ready for matching, or None.
+
+    Lenient on purpose: an entry without an id or a name is skipped, never a 422. The
+    caller treats any non-200 as "no detection" for the whole message, so a strict schema
+    here would switch detection off because a nickname was the wrong type.
+    """
+    if not isinstance(raw, list) or not raw or len(raw) > _ROSTER_MAX:
+        return None
+    out = []
+    for e in raw:
+        if not isinstance(e, dict):
+            continue
+        uid, name = e.get("id"), e.get("name")
+        if uid is None or not isinstance(name, str) or not name.strip():
+            continue
+        nick = e.get("nickname")
+        places = e.get("places")
+        out.append({
+            "id": str(uid),
+            "name": name.strip().split()[0].lower(),
+            "nickname": nick.strip().lower() if isinstance(nick, str) and nick.strip() else None,
+            "places": {p for p in places if isinstance(p, str) and p in _SAVED_PLACES}
+                      if isinstance(places, list) else set(),
+        })
+    return out or None
+
+
+def _roster_entry(roster, user_id):
+    return next((e for e in roster or () if e["id"] == user_id), None)
+
+
+def _roster_matches(roster, name: str) -> list:
+    n = name.strip().lower()
+    return [e for e in roster or () if e["name"] == n or e["nickname"] == n]
+
+
+def _loc_field(slot, phrase, resolve, place, user_id) -> dict:
+    return {"slot": slot, "phrase": phrase, "resolve": resolve, "place": place,
+            "user_id": user_id}
+
+
+def _person_field(slot, phrase, entry, place) -> dict:
+    """A resolved member: their position, or their saved place if they have it."""
+    if place is None:
+        return _loc_field(slot, phrase, "gps", None, entry["id"])
+    if place in entry["places"]:
+        return _loc_field(slot, phrase, "saved_place", place, entry["id"])
+    return _loc_field(slot, phrase, "ask", place, entry["id"])
+
+
+def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
     """Which ride slots the client has to resolve locally, and whose location they are.
 
     Returns None for an ordinary booking — a named pickup and destination need nothing
     from the device, and a hint on those would have the client asking for GPS it has no
     use for.
+
+    `roster` (from _normalize_roster) names the people in the room. With it, "<Name>'s
+    ..." and, in a DM, "your ..." resolve to a user id, and a saved place is only
+    reported as `saved_place` when that person has it — otherwise `ask`, so the client
+    opens its picker at once instead of the caller discovering the miss. Every field
+    carries the `user_id` whose location it is (None when nobody can say); the top-level
+    `user_id` is the speaker, kept for clients written before fields had owners.
     """
     if not slots:
         return None
+    speaker_id = str(speaker) if speaker is not None else None
+    me = _roster_entry(roster, speaker_id) if roster else None
     fields = []
     for key in ("pickup", "destination"):
         raw = slots.get(key)
         if not isinstance(raw, str) or not raw.strip():
             continue
-        norm = _LOC_STRIP.sub("", raw.strip().lower()).strip()
+        # The extractor title-cases, so "Akash's" can arrive as "Akash'S"; the phrase is
+        # shown on the sheet when nothing resolves, so put the apostrophe-s back.
+        raw = re.sub(r"'S\b", "'s", raw.strip().translate(_APOSTROPHES))
+        norm = _LOC_STRIP.sub("", raw.lower()).strip()
         if norm in _GPS_PLACES:
-            fields.append({"slot": key, "phrase": raw, "resolve": "gps", "place": None})
+            fields.append(_loc_field(key, raw, "gps", None, speaker_id))
             continue
         saved = next((pl for pl, names in _SAVED_PLACES.items() if norm in names), None)
         if saved:
-            fields.append({"slot": key, "phrase": raw,
-                           "resolve": "saved_place", "place": saved})
+            # With a roster we know whether the speaker has this place; without one the
+            # caller finds out from its DB and asks the device on a miss.
+            resolve = "ask" if me is not None and saved not in me["places"] else "saved_place"
+            fields.append(_loc_field(key, raw, resolve, saved, speaker_id))
             continue
         # Someone else's location. Checked against the RAW phrase, not `norm` - _LOC_STRIP
         # deletes the apostrophe, so "Brahma's location" and a hypothetical "brahmas
@@ -2231,20 +2310,43 @@ def _location_hint(slots: dict, speaker) -> Optional[dict]:
         person = _person_location(raw)
         if person:
             name, place = person
-            fields.append({"slot": key, "phrase": raw, "resolve": "participant",
-                           "name": name, "who": None, "place": place})
+            if roster is None:
+                # No roster: report the name for whoever holds one (pre-roster contract).
+                fields.append({"slot": key, "phrase": raw, "resolve": "participant",
+                               "name": name, "who": None, "place": place})
+                continue
+            matches = _roster_matches(roster, name)
+            if len(matches) == 1:
+                fields.append(_person_field(key, raw, matches[0], place))
+            else:
+                # Nobody, or more than one, of that name: the picker, with the name kept
+                # so a log can say which it was.
+                f = _loc_field(key, raw, "ask", place, None)
+                f["name"] = name
+                fields.append(f)
             continue
         # The other party, named by "your" rather than by name (see _YOUR_LOC).
-        m = _YOUR_LOC.match(raw.strip())
+        m = _YOUR_LOC.match(raw)
         if m:
-            word = re.sub(r"\s+", " ", m.group(1).lower())
-            fields.append({"slot": key, "phrase": raw, "resolve": "participant",
-                           "name": None, "who": "other_party",
-                           "place": _PERSON_PLACE.get(word)})
+            place = _PERSON_PLACE.get(re.sub(r"\s+", " ", m.group(1).lower()))
+            if roster is None:
+                fields.append({"slot": key, "phrase": raw, "resolve": "participant",
+                               "name": None, "who": "other_party", "place": place})
+                continue
+            # Only a DM can say who "you" is. In a group it is the picker.
+            other = None
+            if len(roster) == 2 and me is not None:
+                other = next((e for e in roster if e["id"] != speaker_id), None)
+            if other is not None:
+                fields.append(_person_field(key, raw, other, place))
+            else:
+                f = _loc_field(key, raw, "ask", place, None)
+                f["who"] = "other_party"
+                fields.append(f)
             continue
         # A third party nobody named - unresolvable, and say so (see _OTHER_PRONOUN_LOC).
-        if _OTHER_PRONOUN_LOC.match(raw.strip()):
-            fields.append({"slot": key, "phrase": raw, "resolve": "ask", "place": None})
+        if _OTHER_PRONOUN_LOC.match(raw):
+            fields.append(_loc_field(key, raw, "ask", None, None))
             continue
         # Self-referential and not one of the two saved places - "my hostel", "my pg",
         # "my hotel". Ruled 2026-09-02: we are NOT adding place types beyond home and
@@ -2252,10 +2354,10 @@ def _location_hint(slots: dict, speaker) -> Optional[dict]:
         # address, which is the bug Andril reported for "My Location". So say so
         # explicitly: the phrase is unresolvable and the user has to pick an address.
         if norm.startswith("my ") and len(norm.split()) <= 3:
-            fields.append({"slot": key, "phrase": raw, "resolve": "ask", "place": None})
+            fields.append(_loc_field(key, raw, "ask", None, speaker_id))
     if not fields:
         return None
-    return {"user_id": str(speaker) if speaker is not None else None, "fields": fields}
+    return {"user_id": speaker_id, "fields": fields}
 
 
 # An address stated in its own message. _pickup_fallback only sees the message it is
@@ -3442,7 +3544,8 @@ _MONEY_HAS_DIRECTIVE = re.compile(
 
 def full_pipeline(text: str, room_id: str = None, context: list = None,
                    sender: str = None, message_id: str = None,
-                   reply_to: str = None, participants: int = None) -> dict:
+                   reply_to: str = None, participants: int = None,
+                   roster: list = None) -> dict:
     """Run the complete detection pipeline: model → keywords → suppression → slots → state machine → lifecycle."""
     # Phase 1a: Model inference (standalone, no context prefix — context is for state machine)
     if context is not None:
@@ -4187,9 +4290,9 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
         # triggered_by.slots is what both clients read first; fall back to the top
         # level for an immediate fire, which has no triggered_by.
         hint = _location_hint(tb.get("slots") or result.get("slots") or {},
-                              tb.get("sender", sender))
+                              tb.get("sender", sender), roster)
     else:
-        hint = _location_hint(result.get("slots") or {}, sender)
+        hint = _location_hint(result.get("slots") or {}, sender, roster)
     if hint:
         result["needs_location"] = hint
 
@@ -4383,6 +4486,14 @@ class DetectRequest(BaseModel):
     # than an empty one. Do NOT infer it from who has spoken — in a 5-person trip only
     # two people may be talking.
     participants: Optional[int] = None
+    # Who is in the room, for resolving "<Name>'s location" in a ride — see
+    # _location_hint. One entry per member INCLUDING the sender:
+    #   {"id": "20", "name": "Akash", "nickname": "AK", "places": ["home", "office"]}
+    # `name` is the first word of the display name, `places` the NAMES of the saved
+    # places (home/office) that person has — never coordinates. At most 50 entries; a
+    # larger or malformed roster is treated as absent, never rejected. Not stored, not
+    # logged, and read by nothing but the location hint.
+    roster: Optional[list] = None
     # Whatever identifies the app build that produced this message, e.g. "ios-1.4.2".
     # Never used for classification — it is echoed back and written to the log line so
     # a mixed log can be filtered by client. Until everyone updates their app, the logs
@@ -4443,7 +4554,8 @@ def detect(req: DetectRequest):
     rid = req.room_id or req.chat_id
     result = full_pipeline(req.text, room_id=rid, context=req.context,
                            sender=req.sender, message_id=req.message_id,
-                           reply_to=req.reply_to, participants=req.participants)
+                           reply_to=req.reply_to, participants=req.participants,
+                           roster=_normalize_roster(req.roster))
     return DetectResponse(
         **{k: v for k, v in result.items() if k in DetectResponse.model_fields},
         chat_id=req.chat_id,
