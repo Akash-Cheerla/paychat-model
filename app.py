@@ -2112,6 +2112,27 @@ _SAVED_PLACES = {
 _GPS_ALT = "|".join(re.escape(x) for x in sorted(_GPS_PLACES, key=len, reverse=True))
 _GPS_FROM = re.compile(rf"\bfrom\s+({_GPS_ALT})\b", re.I)
 _GPS_TO = re.compile(rf"\bto\s+({_GPS_ALT})\b", re.I)
+
+# A label word is open-ended, so the only thing stopping it running into the rest of the
+# sentence is this: no word of it may be a preposition.
+#
+# Both words need the guard, not just the second. "from rupeshs address to rv road" was
+# captured as "rupeshs address to rv" - the engine took the possessive s off the end of
+# "addres|s", which left "to" free to be the label's FIRST word. With the guard it has to
+# backtrack to name "rupesh" + label "address", which is what the sentence says.
+_NOT_A_LABEL = (r"(?!to\b|from\b|at\b|and\b|for\b|near\b|by\b|with\b|in\b|on\b"
+                r"|via\b|then\b|towards?\b)")
+
+# "from <Name>'s <label>" / "to <Name>'s <label>", for the extraction pass at the end of
+# _extract_ride_slots. Validated through _person_any_location before it is used, so a
+# pronoun ("from his office") does not become a name here.
+_POSSESSIVE_PLACE = {
+    prep: re.compile(
+        rf"\b{prep}\s+((?:[a-z][a-z.\-]{{1,19}}\s+){{0,2}}[a-z][a-z.\-]{{1,19}}"
+        rf"\s*(?:'s|s)\s+{_NOT_A_LABEL}[a-z][a-z\-]{{1,24}}"
+        rf"(?:\s+{_NOT_A_LABEL}[a-z][a-z\-]{{1,24}})?)\b", re.I)
+    for prep in ("from", "to")
+}
 _LOC_STRIP = re.compile(r"[^a-z ]+")
 
 # The place words, shared by all three possessive forms below.
@@ -2172,6 +2193,40 @@ _OTHER_PRONOUN_LOC = re.compile(
     rf"^\s*(?:from\s+|to\s+)?(?:his|her|their|our|its)\s+"
     rf"(?:current\s+)?({_LOC_WORDS})\s*$", re.I)
 
+# "<Name>'s <anything>" - the label is open, because a profile may hold any name for an
+# address ("gym", "pg", "new flat"). Used ONLY when a roster was sent: the member's own
+# `places` decides whether the label is a place at all, so the regex can afford to be
+# loose where a closed list could not. Up to three name tokens, so "gowtham reddys home"
+# keeps the whole name instead of capturing "reddy".
+_PERSON_ANY_LOC = re.compile(
+    rf"^\s*(?:from\s+|to\s+)?((?:[a-z][a-z.\-]{{1,19}}\s+){{0,2}}[a-z][a-z.\-]{{1,19}})"
+    rf"\s*(?:'s|s)\s+({_NOT_A_LABEL}[a-z][a-z\-]{{1,24}}"
+    rf"(?:\s+{_NOT_A_LABEL}[a-z][a-z\-]{{1,24}})?)\s*$", re.I)
+
+# "my <label>" for an open label, same idea for the speaker's own profile.
+_MY_ANY_LOC = re.compile(
+    rf"^\s*(?:from\s+|to\s+)?my\s+(?:current\s+)?"
+    rf"([a-z][a-z\-]{{1,24}}(?:\s+[a-z][a-z\-]{{1,24}})?)\s*$", re.I)
+
+
+def _person_any_location(raw: str):
+    """(name as written, label lowercased) for "<Name>'s <label>", or None."""
+    m = _PERSON_ANY_LOC.match(raw.strip())
+    if not m:
+        return None
+    span = m.group(1).strip()
+    label = re.sub(r"\s+", " ", m.group(2).strip().lower())
+    words = span.split()
+    last = words[-1].lower()
+    if last in _NOT_A_NAME or (last + "s") in _NOT_A_NAME or len(last) < 2:
+        return None
+    # An article leading the span means this is a thing, not a person: "to the adidas
+    # store" fits the possessive shape exactly ("the adida" + "s" + "store") and would
+    # otherwise have the literal pass overwrite a perfectly good parse of a shop name.
+    if words[0].lower() in _NOT_A_NAME:
+        return None
+    return span, label
+
 # Words that take a possessive but are never a chat participant. Kept short on purpose:
 # the resolver's fallback already makes a wrong guess harmless, so the only entries that
 # earn their place are ones that would otherwise fire on every message.
@@ -2184,7 +2239,13 @@ _NOT_A_NAME = {"my", "your", "his", "her", "their", "our", "its", "the", "a", "a
                # and is indistinguishable from a name by shape alone.
                "driver", "cab", "car", "uber", "ola", "rapido", "lyft", "taxi", "auto",
                "hotel", "airport", "station", "restaurant", "hospital", "mall", "store",
-               "guy", "man", "lady", "friend", "brother", "sister"}
+               "guy", "man", "lady", "friend", "brother", "sister",
+               # Kinship: the comment above claims this list disposes of "mom's house",
+               # and it did not - "moms house" reported a member named "Mom". With a
+               # roster that degrades to `ask` anyway; without one it was a bogus name.
+               "mom", "mum", "mommy", "mummy", "ma", "dad", "daddy", "papa", "pa",
+               "wife", "husband", "son", "daughter", "uncle", "aunt", "aunty",
+               "grandma", "grandpa", "boss", "landlord", "neighbour", "neighbor"}
 
 # Which saved place a possessive wording points at. Anything not listed is the person's
 # CURRENT position, per the ruling above.
@@ -2238,10 +2299,88 @@ def _normalize_roster(raw) -> Optional[list]:
             "id": str(uid),
             "name": name.strip().split()[0].lower(),
             "nickname": nick.strip().lower() if isinstance(nick, str) and nick.strip() else None,
-            "places": {p for p in places if isinstance(p, str) and p in _SAVED_PLACES}
+            # Every label, not just home/office. The profile is the vocabulary: this
+            # used to filter to _SAVED_PLACES, so a saved "gym" was dropped here and
+            # "Gowtham's gym" could never resolve however well it parsed. Bounded so a
+            # junk roster cannot make the matching below expensive.
+            "places": {p.strip().lower() for p in places[:25]
+                       if isinstance(p, str) and p.strip() and len(p.strip()) <= 40}
                       if isinstance(places, list) else set(),
         })
     return out or None
+
+
+def _edit_distance(a: str, b: str, cap: int = 3) -> int:
+    """Damerau-Levenshtein, bounded at `cap` so a long mismatch costs almost nothing.
+
+    Transposition counts as ONE edit, which is the whole reason for Damerau here:
+    "bramha" is one step from "brahma", and swapped letters are the most common way a
+    name gets misspelled.
+    """
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if abs(la - lb) > cap:
+        return cap + 1
+    prev2, prev = None, list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        for j in range(1, lb + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        if min(cur) > cap:
+            return cap + 1
+        prev2, prev = prev, cur
+    return prev[lb]
+
+
+def _roster_fuzzy(roster, name: str):
+    """The one member whose name or nickname is a near-miss for `name`, or None.
+
+    Two edits for an ordinary name, one for a short one - at four characters or fewer a
+    single edit already reaches a different name. And the margin: the runner-up must be at
+    least two edits worse, so a room with both "Rupesh" and "Rupesha" resolves neither and
+    the user picks. Never guesses between people.
+    """
+    q = (name or "").strip().lower()
+    if len(q) < 3 or not roster:
+        return None
+    tol = 1 if len(q) <= 4 else 2
+    # "rupes home" is a typo of "rupeshs home", but the possessive regex takes the bare s
+    # as the marker and hands over the name "rupe". So compare the name with that s put
+    # back too, and keep whichever is closer.
+    forms = (q, q + "s")
+    scored = []
+    for e in roster:
+        cands = [e["name"]] + ([e["nickname"]] if e["nickname"] else [])
+        d = min(_edit_distance(f, c) for f in forms for c in cands)
+        scored.append((d, e))
+    scored.sort(key=lambda x: x[0])
+    if scored[0][0] > tol:
+        return None
+    if len(scored) > 1 and scored[1][0] < scored[0][0] + 2:
+        return None
+    return scored[0][1]
+
+
+def _fuzzy_label(entry, label: str) -> Optional[str]:
+    """That member's stored label that `label` is a near-miss for, or None.
+
+    Far safer than the name version: the candidate set is one person's handful of saved
+    places, and the owner is already decided, so the worst case is their other address
+    rather than somebody else's. A tie resolves to nothing.
+    """
+    q = (label or "").strip().lower()
+    if not q or not entry["places"]:
+        return None
+    tol = 1 if len(q) <= 4 else 2
+    scored = sorted((( _edit_distance(q, p), p) for p in entry["places"]),
+                    key=lambda x: x[0])
+    if scored[0][0] > tol or (len(scored) > 1 and scored[1][0] == scored[0][0]):
+        return None
+    return scored[0][1]
 
 
 def _roster_entry(roster, user_id):
@@ -2258,13 +2397,62 @@ def _loc_field(slot, phrase, resolve, place, user_id) -> dict:
             "user_id": user_id}
 
 
+# Label words that mean "where they are right now" rather than a saved address. Asked
+# of a person, these are a device question, never a profile lookup.
+_POSITION_WORDS = {"location", "loc", "current location", "position", "spot", "end",
+                   "side", "current loc", "current position"}
+
+
+def _match_label(entry, label: str) -> Optional[str]:
+    """The label as that member STORED it, or None if they have nothing like it.
+
+    Compared both ways through _PERSON_PLACE, so "Akash's house" finds a stored "home"
+    and "Akash's home" finds a stored "house". Returns the stored spelling, because that
+    is what the caller looks up in its saved-places table.
+    """
+    if not label:
+        return None
+    if label in entry["places"]:
+        return label
+    want = _PERSON_PLACE.get(label, label)
+    for p in entry["places"]:
+        if p == want or _PERSON_PLACE.get(p, p) == want:
+            return p
+    # Spelt wrong. Cheap and low-risk here: the person is already decided and their list
+    # is tiny, so "hoem" finds "home" and "ofice" finds "office" (Akash, 2026-10-01).
+    return _fuzzy_label(entry, label) or _fuzzy_label(entry, want)
+
+
 def _person_field(slot, phrase, entry, place) -> dict:
     """A resolved member: their position, or their saved place if they have it."""
     if place is None:
         return _loc_field(slot, phrase, "gps", None, entry["id"])
-    if place in entry["places"]:
-        return _loc_field(slot, phrase, "saved_place", place, entry["id"])
+    stored = _match_label(entry, place)
+    if stored:
+        return _loc_field(slot, phrase, "saved_place", stored, entry["id"])
     return _loc_field(slot, phrase, "ask", place, entry["id"])
+
+
+def _person_label_field(slot, phrase, entry, label) -> dict:
+    """A member's place named by an arbitrary profile label ("Gowtham's gym").
+
+    Only reached with a roster, so the answer is decided here rather than handed on:
+    their position for a position word, their stored place when they have one, else the
+    picker. A label nobody saved is `ask` and never a guess - a wrong address in a cab
+    booking is worse than a picker.
+    """
+    if label in _POSITION_WORDS:
+        return _loc_field(slot, phrase, "gps", None, entry["id"])
+    # Their own saved place comes BEFORE a misspelt position word. "hom" is two edits from
+    # "loc" and would have been read as a device lookup, when the person has a "home"
+    # saved and that is plainly what was meant.
+    stored = _match_label(entry, label)
+    if stored:
+        return _loc_field(slot, phrase, "saved_place", stored, entry["id"])
+    if any(_edit_distance(label, w) <= (1 if len(label) <= 4 else 2)
+           for w in _POSITION_WORDS):
+        return _loc_field(slot, phrase, "gps", None, entry["id"])
+    return _loc_field(slot, phrase, "ask", _PERSON_PLACE.get(label, label), entry["id"])
 
 
 def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
@@ -2316,6 +2504,12 @@ def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
                                "name": name, "who": None, "place": place})
                 continue
             matches = _roster_matches(roster, name)
+            # A known place word is strong evidence this is a person, so a near-miss name
+            # is enough on its own here.
+            if not matches:
+                near = _roster_fuzzy(roster, name)
+                if near is not None:
+                    matches = [near]
             if len(matches) == 1:
                 fields.append(_person_field(key, raw, matches[0], place))
             else:
@@ -2324,6 +2518,31 @@ def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
                 f = _loc_field(key, raw, "ask", place, None)
                 f["name"] = name
                 fields.append(f)
+            continue
+        # "<Name>'s <any label>" - resolved against that member's own places, which is
+        # the only reason an open label is safe here (see _PERSON_ANY_LOC). Runs after the
+        # closed-list form above, so the known words keep their exact behaviour.
+        any_person = _person_any_location(raw) if roster is not None else None
+        if any_person:
+            span, label = any_person
+            matches = (_roster_matches(roster, span)
+                       or _roster_matches(roster, span.split()[0]))
+            if len(matches) == 1:
+                fields.append(_person_label_field(key, raw, matches[0], label))
+                continue
+            # No exact name. A near-miss is allowed, but only when the LABEL resolves for
+            # that person too - an open label carries no evidence of its own that this is
+            # a person at all, so both halves have to agree. Otherwise a room with a
+            # "Dominic" would turn "domino's pizza" into an address picker.
+            near = _roster_fuzzy(roster, span) or _roster_fuzzy(roster, span.split()[0])
+            if near is not None and _match_label(near, label):
+                fields.append(_person_label_field(key, raw, near, label))
+                continue
+            # Nobody of that name. Unlike a closed-list word, an open label on an unknown
+            # name is usually not a person at all - "st john's hospital", "domino's pizza",
+            # "mcdonald's parking". Report nothing and let the client search it in Places,
+            # which is what it did before this branch existed. Emitting `ask` here would
+            # replace a findable landmark with an address picker.
             continue
         # The other party, named by "your" rather than by name (see _YOUR_LOC).
         m = _YOUR_LOC.match(raw)
@@ -2348,11 +2567,24 @@ def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
         if _OTHER_PRONOUN_LOC.match(raw):
             fields.append(_loc_field(key, raw, "ask", None, None))
             continue
-        # Self-referential and not one of the two saved places - "my hostel", "my pg",
-        # "my hotel". Ruled 2026-09-02: we are NOT adding place types beyond home and
-        # office. But without a hint the client renders "My Hostel" as though it were an
-        # address, which is the bug Andril reported for "My Location". So say so
-        # explicitly: the phrase is unresolvable and the user has to pick an address.
+        # Self-referential and not a place we can name - "my hostel", "my pg", "my hotel".
+        #
+        # Ruled 2026-09-02 that we were NOT adding place types beyond home and office. That
+        # held while the place types lived in this file. Akash reopened it on 2026-10-01 -
+        # "in future they can keep whatever" - and the answer is no longer a list here: if
+        # the speaker's own roster entry holds the label, it resolves like any other saved
+        # place. What the ruling still decides is the fallback, and it is unchanged: a label
+        # nobody saved is `ask`, never a guess, because without a hint the client renders
+        # "My Hostel" as though it were an address (the bug Andril reported for "My
+        # Location") and a wrong address in a booking is worse than a picker.
+        if me is not None:
+            m = _MY_ANY_LOC.match(raw)
+            if m:
+                label = re.sub(r"\s+", " ", m.group(1).strip().lower())
+                stored = _match_label(me, label)
+                if stored:
+                    fields.append(_loc_field(key, raw, "saved_place", stored, speaker_id))
+                    continue
         if norm.startswith("my ") and len(norm.split()) <= 3:
             fields.append(_loc_field(key, raw, "ask", None, speaker_id))
     if not fields:
@@ -3009,6 +3241,19 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
         m = rx.search(text)
         if m:
             result[key] = _norm_place(m.group(1))
+
+    # Same treatment for "from|to <Name>'s <label>". The parse loses the label on some
+    # words and keeps it on others for no reason the caller can predict: "gowthams gym"
+    # came back as pickup "Gowthams" while "gowthams gymnasium" and "gowthams pg"
+    # survived, so a saved "gym" was unresolvable by accident of tokenisation. Matched
+    # literally instead. The name check keeps "from his office" out, which the pronoun
+    # branch of the hint handles.
+    for key, prep in (("pickup", "from"), ("destination", "to")):
+        if key in from_context:
+            continue
+        m = _POSSESSIVE_PLACE[prep].search(text)
+        if m and _person_any_location(m.group(1)):
+            result[key] = _norm_place(m.group(1).strip())
 
     return result
 
@@ -4490,7 +4735,9 @@ class DetectRequest(BaseModel):
     # _location_hint. One entry per member INCLUDING the sender:
     #   {"id": "20", "name": "Akash", "nickname": "AK", "places": ["home", "office"]}
     # `name` is the first word of the display name, `places` the NAMES of the saved
-    # places (home/office) that person has — never coordinates. At most 50 entries; a
+    # places that person has — never coordinates. The names are open: "home", "office",
+    # "gym", "pg", "new flat" all work, because `places` is what decides whether a label
+    # in a message is a place at all (2026-10-01). At most 50 entries, 25 places each; a
     # larger or malformed roster is treated as absent, never rejected. Not stored, not
     # logged, and read by nothing but the location hint.
     roster: Optional[list] = None

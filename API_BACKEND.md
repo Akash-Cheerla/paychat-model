@@ -80,7 +80,7 @@ This is the only endpoint you need. Call it for every message (DMs and group cha
 | `message_id` | string | No | Message ID (echoed back, also stored with pending requests for `triggered_by`) |
 | `reply_to` | string | No | Message ID of the message being replied to (from the chat app's reply-to-message feature). **Required for group chats** — see below. |
 | `participants` | int | No | Number of people in the room, **including the sender**. Group rooms only; ignored for `dm_*`. Used to divide a split — see Splits below. Nothing breaks without it. |
-| `roster` | object[] | No | Who is in the room, one entry per member **including the sender**: `{"id": "20", "name": "Akash", "nickname": "AK", "places": ["home", "office"]}`. `name` is the first word of the display name, `places` the **names** of the saved places that person has (never coordinates). Lets a ride's "Akash's address" / "your place" resolve to a user id — see `needs_location` below. At most 50 entries; larger or malformed is treated as absent, never rejected. Not stored, not logged, read by nothing else. |
+| `roster` | object[] | No | Who is in the room, one entry per member **including the sender**: `{"id": "20", "name": "Akash", "nickname": "AK", "places": ["home", "office"]}`. `name` is the first word of the display name, `places` the **names** of the saved places that person has, whatever they are called — `home`, `office`, `gym`, `pg`, `new flat` (never coordinates; at most 25, each up to 40 chars). Lets a ride's "Akash's address" / "your place" resolve to a user id — see `needs_location` below. At most 50 entries; larger or malformed is treated as absent, never rejected. Not stored, not logged, read by nothing else. |
 | `client` | string | No | The app build that produced the message, e.g. `ios-1.4.2`. Echoed and logged, never used for classification. |
 
 **`sender` is required now.** Without it the server falls back to immediate-fire mode (no request→response tracking), which defeats the whole point of the state machine.
@@ -461,7 +461,7 @@ and on a fire the fields are built from `triggered_by.slots`, so `user_id` is
 | `fields[].slot` | `pickup` or `destination`. |
 | `fields[].phrase` | The text as extracted, to show when nothing resolves. |
 | `fields[].resolve` | What to do — table below. |
-| `fields[].place` | `home`, `office` or null (a current position). |
+| `fields[].place` | The saved place to look up, **spelled as that person stored it** in `places` — so look it up by this string, not by the words in the message. `null` means a current position. |
 | `fields[].user_id` | **Whose** location this field is: the speaker for "my …", the matched member for "X's …" / "your …", null when nobody can say. |
 | `fields[].name` | Only on an unresolved person phrase: the name as written, for the log. |
 | `fields[].who` | `"other_party"` on a "your …" phrase that could not be resolved (no roster, or a group). |
@@ -469,15 +469,53 @@ and on a fire the fields are built from `triggered_by.slots`, so `user_id` is
 | `resolve` | When | Expected handling |
 |---|---|---|
 | `gps` | "my location", "here", or "X's current location" with exactly one roster match | The server asks `user_id`'s device over its socket if that user is someone else; the device owner's own client fills from GPS |
-| `saved_place` | "my home", "office", or "X's home" **when that person's `places` has it** | Looked up from the saved-places table for `user_id`, coordinates written into the slot |
+| `saved_place` | Any label **that person actually has in `places`** — "my home", "Gowtham's gym", "Rupesh's new flat" | Looked up from the saved-places table for `user_id` by `place`, coordinates written into the slot |
 | `ask` | "my hostel", a name matching nobody or more than one member, a saved place the person has not stored, "his/their …", or "your …" in a group | Open the address picker with `phrase` pre-filled |
 | `participant` | Only when **no roster was sent**: a person phrase with `name` (and `who` for "your …") | Whoever holds the roster matches it; treat as `ask` otherwise |
 
 Resolution rules: a name matches a roster entry when it equals that entry's `name` or
-`nickname` case-insensitively — exact token, one match only. "your …" resolves to the other
-entry in a two-person roster (a DM) and is `ask` in a group. Curly apostrophes are
-normalised, and "address"/"addr" read as home. Every rule above degrades to `ask` rather
-than guess: a wrong person's home in a cab booking is worse than a picker.
+`nickname` case-insensitively — exact token, one match only. A first-and-last name matches on
+the first word, so "Gowtham Reddy's home" finds Gowtham. "your …" resolves to the other entry
+in a two-person roster (a DM) and is `ask` in a group. Curly apostrophes are normalised.
+Every rule degrades to `ask` rather than guess: a wrong person's home in a cab booking is
+worse than a picker.
+
+**The label is open, and `places` is the whitelist** (2026-10-01). It is not a fixed
+`home`/`office` list any more: "Gowtham's gym" resolves when Gowtham has `gym` saved, and is
+`ask` when he does not. Send whatever the profile holds and it works without a server change.
+Two details follow from that:
+
+* **Aliases match both ways.** `house`, `flat`, `apartment`, `residence`, `address`, `addr`
+  all mean `home`; `work` and `workplace` mean `office`. So "Akash's house" finds a stored
+  `home`, and "Akash's home" finds a stored `house`. `place` always reports the **stored**
+  spelling, which is the one to look up.
+* **An unknown name with an open label gets no field at all.** "from st john's hospital",
+  "to the adidas store", "mcdonald's parking" fit the possessive shape but are ordinary
+  places — search them in Places as before. Only a name that matches exactly one member
+  becomes a location field. Kinship words (`mom`, `dad`, `wife`, …) are never treated as
+  members.
+
+A label the roster does not confirm is never guessed at, so the worst case is the picker the
+user would have seen anyway.
+
+**Misspellings and romanisation variants resolve** (2026-10-01). `Goutham's home`,
+`Gowtam's home`, `Gautham's home` and `Bramha's office` all reach the right member, and
+`gowthams hoem`, `brahmas ofice`, `gowthams gm`, `rupeshs new flt` all reach the right saved
+place. This is mostly not typing error: a name has several romanisations and whoever types
+uses theirs, not the spelling in the other person's profile. You do not need to normalise
+anything before sending — send the display name as it is.
+
+The rule is a near-miss **with a margin**: at most two edits (one for a name of four
+characters or fewer), and the next closest member must be at least two edits further away.
+So a room with both `Rupesh` and `Rupesha` resolves `rupes` to **nobody** and the user gets
+the picker — a wrong person's home in a cab booking is worse than a picker. An exact match
+always wins over a near one. For an open label the name *and* the label must both land, so a
+room containing a `Dominic` still treats "domino's pizza" as a Places search, not as his
+address.
+
+Two things still do not resolve, by design: a phrase with no possessive marker at all
+(`gowthamm home` — two plain words), and a name so mangled that another member is equally
+close.
 
 ## Popup Cooldown
 
