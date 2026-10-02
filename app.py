@@ -99,6 +99,12 @@ def _utc_today() -> str:
 # on the 2026-08-30 log: real echoes sat 1-4 messages behind the fire, genuinely new
 # commitments 9 or more. Beyond the classifier's own 10-message window it cannot see
 # the earlier fire at all, so calling anything past that an echo is guesswork.
+# Tried at 8 on 2026-10-01 to close a duplicate prompt (group_12, "Okay" 09:07:02 then "I
+# am booking the cab as per your request now" 09:14:18 - same person, same request, six
+# messages apart). The ship gate rejected it: the blind 08-11 holdout fell from 87.5% of
+# commitments caught to 75.0%, so real traffic does have genuine commitments 7 and 8
+# messages behind a fire and the 08-30 "9 or more" figure does not generalise. Back at 6;
+# the duplicate stays open rather than paying for it in recall.
 _ECHO_WINDOW_MSGS = 6
 
 # A ride request stays answerable by everyone who offers, instead of being consumed by
@@ -1168,6 +1174,36 @@ def _is_clear_take(text: str, intent: str) -> bool:
                              t, re.IGNORECASE))
 
 
+def _speaker_is_the_actor(text: str, intent: str) -> bool:
+    """Is this the speaker describing their OWN action, rather than asking anyone?
+
+    Used to keep such a message out of the request queue. Dogfood 2026-10-01, group_12:
+    "I am booking a cab from Rupesh's current location to rv road metro station" (ride
+    0.793) and "I need to book a cab from Rupesh's current location ..." (0.913) were both
+    recorded as open requests, because recording only asked whether the intent model scored
+    it and the classifier stayed quiet. Ten minutes later "Yes" had five candidates to
+    choose between and took one of those, so the sheet opened with Rupesh's location as the
+    pickup for Andril's trip.
+
+    A message that asks somebody else is still a request, however it describes the speaker
+    ("I need a cab, can you book me one") - _REQUEST_OF_OTHER decides that and wins.
+    """
+    t = _norm_greet(text)
+    if not t or any(p.search(t) for p in _REQUEST_OF_OTHER):
+        return False
+    # A NEED stays in the queue even though it never fires, because somebody else may
+    # volunteer for it and its slots are the right slots for that trip: "I need to book a
+    # cab from my current location to forum mall" / "Sure" is a real acceptance, and
+    # dropping the need left that prompt with no destination at all. 3c says a need does
+    # not fire; it does not say a need cannot be answered.
+    #
+    # An IN-PROGRESS statement is different. The speaker is already doing it, so there is
+    # nothing to accept, and leaving it in the queue is what let "Yes" ten minutes later
+    # open a sheet with Rupesh's location as the pickup for Andril's trip.
+    act = _STATES_ACTION_MONEY if intent == "money" else _STATES_ACTION_RIDE
+    return bool(act.search(t))
+
+
 def _acknowledges_a_take(hist: list, sender: str, intent: str) -> bool:
     """Ruling 6 (Akash, 2026-09-17): after someone CLEARLY took a group request, a third
     person's bare ok acknowledges them rather than committing again.
@@ -1630,8 +1666,37 @@ class RequestMeta:
                 "text": req.get("text") or "", "msg_no": msg_no, "ts": now,
                 "answered_by": sender}
 
+        def backfill(got):
+            """A follow-up re-ask carries no figures of its own.
+
+            "Can you book it?" two messages after "Can you book a cab from my current
+            location to forum mall?" is the same trip, so the sheet should show that
+            trip's slots. Dogfood 2026-10-01, group_12: without this the empty re-ask fell
+            through to whatever the PREVIOUS fire had resolved, and the prompt opened with
+            Andril's destination and Rupesh's pickup - one sheet describing two trips.
+
+            Narrow on purpose: only when the chosen request has no slots at all, only from
+            the SAME asker, only from an EARLIER request, and only inside the window. A
+            request that states its own figures is never touched, which is what keeps the
+            stale-slot guards intact.
+            """
+            if not got or (got.get("slots") or {}):
+                return got
+            cands = [e for e in q
+                     if e is not got and e["intent"] == got["intent"]
+                     and e["sender"] == got["sender"]
+                     and e.get("seq", 0) < got.get("seq", 0)
+                     and (e.get("slots") or {})
+                     and now - e["ts"] <= CONV_CONTEXT_TIME_CAP]
+            if not cands:
+                return got
+            src = max(cands, key=lambda e: e.get("seq", 0))
+            out = dict(got)
+            out["slots"] = dict(src["slots"])
+            return out
+
         def hand_over(i, how):
-            got = consume(i)
+            got = backfill(consume(i))
             self.last_taken[room_id][(intent, sender)] = (got, msg_no)
             answered(got)
             return got, how
@@ -1675,6 +1740,24 @@ class RequestMeta:
 
         if prev_req and not any(q[i].get("seq", 0) > prev_req.get("seq", 0) for i in open_):
             return restated()
+
+        # Never reach BACK past a request this sender has already answered.
+        #
+        # A re-ask is recorded as already-taken for them (is_restatement, ruling 2: the
+        # same request sent again gets no second prompt). old_pick skips a divisible
+        # request they have answered, so three recent entries in a row were skipped and it
+        # reached back to an unrelated ten-minute-old one. Dogfood 2026-10-01, group_12:
+        # "Yes" answered "I need to book a cab from Rupesh's current location to rv road
+        # metro station" and opened Andril's forum-mall trip with Rupesh's pickup.
+        #
+        # Whatever they most recently answered is what they are talking about. backfill()
+        # fills its figures when the re-ask itself carried none.
+        floor = q[old_pick].get("seq", 0) if old_pick is not None else -1
+        taken_newer = [i for i in open_
+                       if sender in (q[i].get("taken_by") or ())
+                       and q[i].get("seq", 0) > floor]
+        if taken_newer:
+            return hand_over(max(taken_newer, key=lambda k: q[k].get("seq", 0)), "restated")
 
         return hand_over(old_pick, "recent") if old_pick is not None else (None, None)
 
@@ -2097,6 +2180,9 @@ _GPS_PLACES = {
     "my current loc", "my current spot", "my location right now",
     "my current position", "where i am", "where i am now", "where im at",
     "my position", "this location", "here",
+    # Dogfood 2026-10-01: "book a cab from my here to Pearson airport" put the literal
+    # string "my" in the pickup field. Typed by a real user, so it belongs on the list.
+    "my here", "here now", "my current place",
 }
 _SAVED_PLACES = {
     "home":   {"home", "my home", "my house", "my place", "my flat", "my apartment"},
@@ -2207,6 +2293,51 @@ _PERSON_ANY_LOC = re.compile(
 _MY_ANY_LOC = re.compile(
     rf"^\s*(?:from\s+|to\s+)?my\s+(?:current\s+)?"
     rf"([a-z][a-z\-]{{1,24}}(?:\s+[a-z][a-z\-]{{1,24}})?)\s*$", re.I)
+
+
+# "<Name> <label>" with NO possessive marker - "Gowtham Home", "Brahma Office". This is
+# how the team actually typed it on 2026-10-01 ("Can someone book me a cab from Gowtham
+# Home to JP nagar ?"), and both possessive forms above need an apostrophe or a trailing s,
+# so the whole feature was unreachable from the phrasing people use.
+#
+# Deliberately loose, because the check that follows is strict: BOTH halves must land, so
+# the name has to match exactly one member AND the label has to be one of that person's own
+# saved places. "Rv Road Metro Station" and "JP nagar" match nobody and stay Places
+# searches, which is what they are.
+_BARE_WORD = re.compile(r"^[a-z][a-z.\-]{0,23}$", re.I)
+_BARE_PREFIX = re.compile(r"^\s*(?:from|to)\s+", re.I)
+# A label word is never a preposition - the same guard the possessive forms use.
+_LABEL_STOP = {"to", "from", "at", "and", "for", "near", "by", "with", "in", "on",
+               "via", "then", "toward", "towards"}
+
+
+def _bare_person_candidates(raw: str):
+    """(name, label) splits of a bare phrase, SHORTEST NAME FIRST.
+
+    The ordering is the whole point. "Rupesh New Flat" splits both as ("Rupesh", "new
+    flat") and as ("Rupesh New", "flat"), and the second resolved "flat" through the home
+    alias - putting Rupesh's HOME on a booking meant for his new flat. Trying the longest
+    label first means an exact saved label always beats an alias of a shorter one.
+    """
+    w = _BARE_PREFIX.sub("", raw.strip()).split()
+    if not (2 <= len(w) <= 4) or any(not _BARE_WORD.match(x) for x in w):
+        return []
+    out = []
+    for n in (1, 2):
+        label_words = w[n:]
+        if not (1 <= len(label_words) <= 2):
+            continue
+        name_words = [x.lower() for x in w[:n]]
+        if (name_words[-1] in _NOT_A_NAME or (name_words[-1] + "s") in _NOT_A_NAME
+                or name_words[0] in _NOT_A_NAME or len(name_words[-1]) < 2):
+            continue
+        # Two characters is allowed because a name that short can only ever be matched
+        # EXACTLY against the roster - _roster_fuzzy refuses anything under three - so
+        # "GT Home" reaches Gowtham's nickname without opening the door to guesswork.
+        if any(x.lower() in _LABEL_STOP for x in label_words):
+            continue
+        out.append((" ".join(w[:n]), " ".join(label_words).lower()))
+    return out
 
 
 def _person_any_location(raw: str):
@@ -2420,7 +2551,21 @@ def _match_label(entry, label: str) -> Optional[str]:
             return p
     # Spelt wrong. Cheap and low-risk here: the person is already decided and their list
     # is tiny, so "hoem" finds "home" and "ofice" finds "office" (Akash, 2026-10-01).
-    return _fuzzy_label(entry, label) or _fuzzy_label(entry, want)
+    got = _fuzzy_label(entry, label) or _fuzzy_label(entry, want)
+    if got:
+        return got
+    # A misspelt ALIAS word rather than a misspelt saved one: "wrk" is one edit from
+    # "work", which means office, but the person stores "office" and no amount of
+    # comparing "wrk" with "office" gets there. So match the alias vocabulary first and
+    # then look up what it canonicalises to. One clear winner only.
+    tol = 1 if len(label) <= 4 else 2
+    near = sorted((_edit_distance(label, k), k) for k in _PERSON_PLACE)
+    if near and near[0][0] <= tol and not (len(near) > 1 and near[1][0] == near[0][0]):
+        canon = _PERSON_PLACE[near[0][1]]
+        for p in entry["places"]:
+            if p == canon or _PERSON_PLACE.get(p, p) == canon:
+                return p
+    return None
 
 
 def _person_field(slot, phrase, entry, place) -> dict:
@@ -2543,6 +2688,27 @@ def _location_hint(slots: dict, speaker, roster: list = None) -> Optional[dict]:
             # "mcdonald's parking". Report nothing and let the client search it in Places,
             # which is what it did before this branch existed. Emitting `ask` here would
             # replace a findable landmark with an address picker.
+            continue
+        # "<Name> <label>" with no possessive - "Gowtham Home" (see
+        # _bare_person_candidates). Both halves must land, and nothing is reported when
+        # they do not: with no apostrophe there is no signal at all that this is a person
+        # rather than a place.
+        hit = None
+        for span, label in (_bare_person_candidates(raw) if roster is not None else ()):
+            cands = (_roster_matches(roster, span)
+                     or _roster_matches(roster, span.split()[0]))
+            if len(cands) == 1:
+                near = cands[0]
+            elif cands:
+                near = None                      # two of that name: the picker, below
+            else:
+                near = (_roster_fuzzy(roster, span)
+                        or _roster_fuzzy(roster, span.split()[0]))
+            if near is not None and _match_label(near, label):
+                hit = (near, label)
+                break
+        if hit:
+            fields.append(_person_label_field(key, raw, hit[0], hit[1]))
             continue
         # The other party, named by "your" rather than by name (see _YOUR_LOC).
         m = _YOUR_LOC.match(raw)
@@ -4363,6 +4529,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                 # Asking what the figure IS opens nothing. See _AMOUNT_INQUIRY — this
                 # is the whole fix for one debt producing a sheet per commitment.
                 if _AMOUNT_INQUIRY.search(text):
+                    continue
+                # Neither does the speaker describing their own action or their own need:
+                # nobody has been asked, so there is nothing for anyone to accept.
+                if _speaker_is_the_actor(text, intent):
                     continue
                 thr = model_state["thresholds"].get(intent, 0.5)
                 if result["scores"].get(intent, 0) >= thr:
