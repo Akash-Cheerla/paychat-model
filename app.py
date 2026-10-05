@@ -1258,6 +1258,42 @@ def _amount_key(value) -> Optional[str]:
     return n.rstrip("0").rstrip(".") if "." in n else n
 
 
+# What a written amount is denominated in. Symbols and the words people actually type;
+# the list is short on purpose, and anything unrecognised reads as "no currency named".
+_CURRENCIES = (
+    ("INR", r"\u20b9|\brs\.?\b|\binr\b|\brupees?\b"),
+    ("USD", r"\$|\busd\b|\bdollars?\b|\bbucks?\b"),
+    ("EUR", r"\u20ac|\beur\b|\beuros?\b"),
+    ("GBP", r"\u00a3|\bgbp\b|\bpounds?\b"),
+    ("CAD", r"\bcad\b"),
+    ("AED", r"\baed\b|\bdirhams?\b"),
+)
+
+
+def _currency_of(value) -> Optional[str]:
+    """The currency a written amount names, or None when it names none."""
+    t = str(value or "").lower()
+    return next((code for code, pat in _CURRENCIES if re.search(pat, t)), None)
+
+
+def _same_amount(a, b) -> bool:
+    """Do two written amounts mean the same money?
+
+    "$50" and "50 rupees" do not. Comparing the digits alone swallowed a real request
+    twice in four days of dogfood (2026-09-30..10-03): the second was read as the first
+    re-sent, so the acceptance got no prompt at all.
+
+    An amount naming no currency still matches one that does - "send me 50" right after
+    "send me $50" is the same request restated, not a new one, and reading it as new would
+    put a second sheet on screen for one payment.
+    """
+    ka, kb = _amount_key(a), _amount_key(b)
+    if ka is None or kb is None or ka != kb:
+        return False
+    ca, cb = _currency_of(a), _currency_of(b)
+    return ca is None or cb is None or ca == cb
+
+
 def _locked(method):
     """Run a RequestMeta method under the instance lock. /detect is a plain def, so
     FastAPI serves it from a thread pool and two messages for one room can be inside
@@ -1410,9 +1446,12 @@ class RequestMeta:
         key = "amount" if intent == "money" else "destination"
         norm = (_amount_key if intent == "money"
                 else (lambda v: re.sub(r"\W+", " ", str(v or "")).strip().lower() or None))
-        new, old = norm((slots or {}).get(key)), norm(prev["slots"].get(key))
+        new_raw, old_raw = (slots or {}).get(key), prev["slots"].get(key)
+        new, old = norm(new_raw), norm(old_raw)
         if new and old:
-            same = new == old
+            # Money compares the amounts AS WRITTEN, so a different currency is a
+            # different request: see _same_amount.
+            same = _same_amount(new_raw, old_raw) if intent == "money" else new == old
         elif new and not old:
             same = False                  # the re-send adds a figure: a new request
         elif old and not new:
