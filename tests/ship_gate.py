@@ -33,6 +33,20 @@ BASE = {
     "dogfood_2026-08-11": {"caught": 82.5, "wrong": 16.5},
 }
 
+# Replayed and printed on every run, but NOTHING passes or fails on it. 2026-09-30..10-03,
+# the first post-deploy window where every line is tagged conv_windows_v17@0.985.
+#
+# Not a criterion yet, for two reasons. Its commitment list was read by ONE judge (me,
+# 2026-10-04) and 39 of its 42 commitments are messages the live v17 server itself fired
+# on, with only 3 found by sweeping for misses - so "caught" partly measures v17 against a
+# list derived from v17. The other two logs were adjudicated by two judges, which is what
+# their `timing` labels record. And its prompt counts are small enough (41 for v14, 47 for
+# the current build) that the wrong-prompt rate moves 0.6 points on a single prompt.
+#
+# It becomes a criterion when a second judge has labelled it independently and the two have
+# been reconciled. Until then it is here to be watched, not to decide anything.
+REPORT_ONLY = ("dogfood_2026-10-03",)
+
 
 def score_log(stem, url, tag):
     rooms = load(str(ROOT / f"data/eval/{stem}.jsonl"))
@@ -93,6 +107,15 @@ def main():
         rows.append((f"{short}: wrong prompts", w, BASE[stem]["wrong"], "<="))
         better |= c > BASE[stem]["caught"] + 0.05 or w < BASE[stem]["wrong"] - 0.05
         print(f"  {short}: {detail}")
+
+    # Watched, not judged - see REPORT_ONLY.
+    for stem in REPORT_ONLY:
+        try:
+            c, w, detail = score_log(stem, a.url, f"watch{a.name}")
+            print(f"  {stem.replace('dogfood_', '')}: {detail}   "
+                  f"[{c:.1f}% caught, {w:.1f}% wrong - WATCHED, not a criterion]")
+        except FileNotFoundError:
+            pass            # the log or its adjudication is not on this machine
 
     print(f"\n  {'criterion':38}{a.name:>10}{'v14':>10}   verdict")
     ok = True

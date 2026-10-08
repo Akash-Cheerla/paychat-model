@@ -1,0 +1,5850 @@
+[
+ {
+  "name": "llm: Headcount clarified after ask, someone drops",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, the team dinner last night came to $246 total. Can everyone send me their share?"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, was that including drinks? I only had water."
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, it's the whole bill. We said we'd split it evenly."
+   },
+   {
+    "sender": "30",
+    "text": "I think Priya and Alex left early, so they might not have been there for the main course."
+   },
+   {
+    "sender": "40",
+    "text": "Actually Priya paid for her own drinks at the bar, so she shouldn't be in this split."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, so just the four of us then. $246 / 4 = $61.50 each."
+   },
+   {
+    "sender": "50",
+    "text": "That works. Sending now."
+   }
+  ],
+  "expected": "$61.50",
+  "_facts": {
+   "total_value": 246,
+   "total_text": "$246",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected to smaller amount, vague initial count",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "So the Airbnb cleaning fee was €110, but I just checked and it was actually €92.50 after the discount."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, so how many of us are splitting that? Was it all five of us?"
+   },
+   {
+    "sender": "30",
+    "text": "I think it was just the ones who stayed the full week. Some left early."
+   },
+   {
+    "sender": "40",
+    "text": "I was there the whole time, so count me in."
+   },
+   {
+    "sender": "50",
+    "text": "Me too."
+   },
+   {
+    "sender": "20",
+    "text": "Let's just figure it out later. For now, sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 92.5,
+   "total_text": "€92.50",
+   "currency": "EUR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill split unevenly, headcount given early",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The group ski house total was $1850. There were 7 of us staying, so it's $264.29 each."
+   },
+   {
+    "sender": "10",
+    "text": "Wait, I thought it was 8? Did someone cancel?"
+   },
+   {
+    "sender": "30",
+    "text": "Yeah, Jamie couldn't make it last minute. So 7."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, that's fine. Can I pay you in two parts?"
+   },
+   {
+    "sender": "30",
+    "text": "Sure, no rush."
+   },
+   {
+    "sender": "40",
+    "text": "I'll send mine now."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$264.29",
+  "_facts": {
+   "total_value": 1850,
+   "total_text": "$1850",
+   "currency": "USD",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned, confusion",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "Hey, the Uber to the airport was $56 total. Can you all send me $14 each?"
+   },
+   {
+    "sender": "10",
+    "text": "Wait, I thought Mark paid for the Uber?"
+   },
+   {
+    "sender": "40",
+    "text": "No, that was the other ride. This is the one from Tuesday."
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, I was in that one. Sending now."
+   },
+   {
+    "sender": "30",
+    "text": "I wasn't on that ride, so I'm not paying."
+   },
+   {
+    "sender": "40",
+    "text": "No problem. Just the three of you then."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "$14",
+  "_facts": {
+   "total_value": 56,
+   "total_text": "$56",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill, decimals, headcount never stated",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "I grabbed coffee for the group earlier, it was $7.25 total. Can you split it?"
+   },
+   {
+    "sender": "10",
+    "text": "How many coffees was that?"
+   },
+   {
+    "sender": "50",
+    "text": "Three, but I don't remember who exactly."
+   },
+   {
+    "sender": "20",
+    "text": "I had one. Happy to pay my part."
+   },
+   {
+    "sender": "30",
+    "text": "I didn't get one, sorry."
+   },
+   {
+    "sender": "50",
+    "text": "No worries, just send what you think."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 7.25,
+   "total_text": "$7.25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives several messages later, corrected total",
+  "participants": 9,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "The team lunch bill was Rs 324. Let's split it."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, was that for everyone or just our table?"
+   },
+   {
+    "sender": "40",
+    "text": "Just our table. But I think some people left before the bill came."
+   },
+   {
+    "sender": "30",
+    "text": "I was there the whole time."
+   },
+   {
+    "sender": "50",
+    "text": "Me too."
+   },
+   {
+    "sender": "10",
+    "text": "I left early, so I shouldn't pay full."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, let's just say 6 of us split it evenly. That's Rs 54 each."
+   },
+   {
+    "sender": "20",
+    "text": "Fine. Sending now."
+   }
+  ],
+  "expected": "₹54",
+  "_facts": {
+   "total_value": 324,
+   "total_text": "Rs 324",
+   "currency": "INR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Refusal and negotiation, total in rupees, vague count",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The cab from the airport was ₹1500. Can you all chip in?"
+   },
+   {
+    "sender": "10",
+    "text": "I didn't take that cab, I took the train."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, so just the ones who were in the cab."
+   },
+   {
+    "sender": "20",
+    "text": "I was in it, but there were like 4 or 5 of us?"
+   },
+   {
+    "sender": "40",
+    "text": "I think 5 including the driver? No, driver doesn't count."
+   },
+   {
+    "sender": "30",
+    "text": "Let's just say 4 of us. I'll cover the rest."
+   },
+   {
+    "sender": "50",
+    "text": "I wasn't there, but I can send a little if you want."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 1500,
+   "total_text": "₹1500",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure given, headcount unknown",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The museum tickets were $18 per person. Can everyone send me that?"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought it was $15?"
+   },
+   {
+    "sender": "10",
+    "text": "No, that was the student rate. We paid full price."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, I'll send $18. But I need to know how many of us went."
+   },
+   {
+    "sender": "10",
+    "text": "I don't have the exact list, but just send if you were there."
+   },
+   {
+    "sender": "40",
+    "text": "I was there. Sending now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 18,
+   "total_text": "$18",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill total changes after correction, headcount fixed",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The groceries for the party were $150 total."
+   },
+   {
+    "sender": "10",
+    "text": "Actually, I have the receipt here, it was $130 after the coupon."
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, my bad. So $130 split 4 ways is $32.50 each."
+   },
+   {
+    "sender": "30",
+    "text": "Works for me."
+   },
+   {
+    "sender": "40",
+    "text": "Sure."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$32.50",
+  "_facts": {
+   "total_value": 130,
+   "total_text": "$130",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Multiple currencies mentioned, final in USD, headcount null",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "The hotel room was 180 euros, which came to $210 on my card. Can you all send me your part?"
+   },
+   {
+    "sender": "10",
+    "text": "How many people are splitting that?"
+   },
+   {
+    "sender": "50",
+    "text": "I think it was 5 or 6 of us? I need to check."
+   },
+   {
+    "sender": "20",
+    "text": "I was in that room, so count me in."
+   },
+   {
+    "sender": "30",
+    "text": "Me too."
+   },
+   {
+    "sender": "40",
+    "text": "I wasn't there, I had my own room."
+   },
+   {
+    "sender": "50",
+    "text": "Okay, just send whatever you think is fair."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 210,
+   "total_text": "$210",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount corrected after initial ask",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, dinner was $200 total. Split between 4 of us, so $50 each."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought it was 5 of us? Did we forget someone?"
+   },
+   {
+    "sender": "30",
+    "text": "No, Sarah left early. So it's 4."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, $50 each then."
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$50",
+  "_facts": {
+   "total_value": 200,
+   "total_text": "$200",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague count and total corrected later",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The bill is 90 rupees, but I don't know how many of us are paying."
+   },
+   {
+    "sender": "30",
+    "text": "Actually the total was 120 rupees. The 90 was just my part."
+   },
+   {
+    "sender": "40",
+    "text": "So we split 120? How many people?"
+   },
+   {
+    "sender": "50",
+    "text": "There were 6 of us, but I think only 5 are paying."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 90,
+   "total_text": "90 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill and refusal",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "Lunch was $45.50 total for 3 of us. That's $15.17 each."
+   },
+   {
+    "sender": "40",
+    "text": "I thought it was $45.50 for 4? But I wasn't there."
+   },
+   {
+    "sender": "50",
+    "text": "I'm not paying because I only had a salad. That's like $8."
+   },
+   {
+    "sender": "10",
+    "text": "Fine, I'll cover the difference. Sending my share now."
+   }
+  ],
+  "expected": "$15.17",
+  "_facts": {
+   "total_value": 45.5,
+   "total_text": "$45.50",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount only at the end",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "The Airbnb was $300. We need to split it."
+   },
+   {
+    "sender": "50",
+    "text": "How many people are paying?"
+   },
+   {
+    "sender": "10",
+    "text": "Let's figure it out. Who's in?"
+   },
+   {
+    "sender": "20",
+    "text": "I'm in. So is my partner. That's 2."
+   },
+   {
+    "sender": "30",
+    "text": "I'm in. And my brother. That's 2 more."
+   },
+   {
+    "sender": "40",
+    "text": "Okay so 5 total. That's $60 each."
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$60",
+  "_facts": {
+   "total_value": 300,
+   "total_text": "$300",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals and chit-chat",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "Coffee was $7.25. Split between 2? That's $3.63 each."
+   },
+   {
+    "sender": "10",
+    "text": "Sounds good. How's the weather there?"
+   },
+   {
+    "sender": "20",
+    "text": "Raining. Anyway, I'll send my share."
+   }
+  ],
+  "expected": "$3.62",
+  "_facts": {
+   "total_value": 7.25,
+   "total_text": "$7.25",
+   "currency": "USD",
+   "headcount": 2,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill with partial payment and dropouts",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The hotel is €1200 total. We need to split it among everyone who stayed."
+   },
+   {
+    "sender": "30",
+    "text": "I only stayed 2 nights out of 4, so I shouldn't pay full."
+   },
+   {
+    "sender": "40",
+    "text": "Let's just split evenly. How many of us were there? 10?"
+   },
+   {
+    "sender": "50",
+    "text": "No, 2 people left early. So 8."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, €150 each. I'm sending my share and my friend's."
+   }
+  ],
+  "expected": "€300",
+  "_facts": {
+   "total_value": 1200,
+   "total_text": "€1200",
+   "currency": "EUR",
+   "headcount": 8,
+   "payer_shares": 2
+  }
+ },
+ {
+  "name": "llm: Bill stated as per-person with unknown total",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "It's $25 per person for the tickets. Just send me that."
+   },
+   {
+    "sender": "40",
+    "text": "How many people total? I need to know if I'm covering anyone."
+   },
+   {
+    "sender": "50",
+    "text": "Just yourself, I think. Not sure about the rest."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected twice and headcount unclear",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "Groceries were $120. Split between us."
+   },
+   {
+    "sender": "50",
+    "text": "Actually it was $150. The receipt says $150."
+   },
+   {
+    "sender": "10",
+    "text": "Wait, I thought it was $130. But okay, $150."
+   },
+   {
+    "sender": "20",
+    "text": "How many people are splitting this? There were 4 of us shopping but only some are paying."
+   },
+   {
+    "sender": "30",
+    "text": "I'm not sure, let's just say $150 total for now."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 150,
+   "total_text": "$150",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill in rupees with unclear headcount",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The auto fare was Rs 500 total. We need to split it."
+   },
+   {
+    "sender": "30",
+    "text": "How many people were in the auto? I lost count."
+   },
+   {
+    "sender": "40",
+    "text": "I think 4 or 5 of us."
+   },
+   {
+    "sender": "50",
+    "text": "Just split it evenly among whoever was there."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 500,
+   "total_text": "Rs 500",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill with no headcount and a second bill",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The pizza was $60 total. Also, I paid $20 for the movie tickets earlier."
+   },
+   {
+    "sender": "20",
+    "text": "Let's just do the pizza for now. How many people?"
+   },
+   {
+    "sender": "30",
+    "text": "I don't know, maybe 3 or 4. Just send what you owe."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 60,
+   "total_text": "$60",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after initial ask",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, dinner was $240 total."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought it was just 4 of us?"
+   },
+   {
+    "sender": "30",
+    "text": "No, Sarah and Mike joined later. So 6."
+   },
+   {
+    "sender": "40",
+    "text": "Oh right."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share."
+   }
+  ],
+  "expected": "$40",
+  "_facts": {
+   "total_value": 240,
+   "total_text": "$240",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague headcount never clarified",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "That group gift was €95.50 total."
+   },
+   {
+    "sender": "30",
+    "text": "How many of us are splitting it?"
+   },
+   {
+    "sender": "10",
+    "text": "A few of us, I'll figure it out later."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, just tell me what I owe."
+   },
+   {
+    "sender": "50",
+    "text": "Sending now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 95.5,
+   "total_text": "€95.50",
+   "currency": "EUR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected after challenge",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The bill was $200 total."
+   },
+   {
+    "sender": "20",
+    "text": "That seems high."
+   },
+   {
+    "sender": "30",
+    "text": "You're right, I double-counted the tip. It was $180."
+   },
+   {
+    "sender": "10",
+    "text": "Cool."
+   },
+   {
+    "sender": "40",
+    "text": "Ok sending my share."
+   }
+  ],
+  "expected": "$45",
+  "_facts": {
+   "total_value": 180,
+   "total_text": "$180",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: One person refuses to pay",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Cabin rental was $150 total."
+   },
+   {
+    "sender": "20",
+    "text": "I'm not paying, I didn't stay the last night."
+   },
+   {
+    "sender": "30",
+    "text": "Dude, we agreed to split evenly."
+   },
+   {
+    "sender": "20",
+    "text": "Fine, whatever."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$30",
+  "_facts": {
+   "total_value": 150,
+   "total_text": "$150",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals INR",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Chai and snacks came to ₹180.75 total."
+   },
+   {
+    "sender": "30",
+    "text": "Let's split it three ways."
+   },
+   {
+    "sender": "10",
+    "text": "Works for me."
+   },
+   {
+    "sender": "40",
+    "text": "I'll send my share."
+   }
+  ],
+  "expected": "₹60",
+  "_facts": {
+   "total_value": 180.75,
+   "total_text": "₹180.75",
+   "currency": "INR",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bare number no currency",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The event cost 12500 total."
+   },
+   {
+    "sender": "20",
+    "text": "How many people are chipping in?"
+   },
+   {
+    "sender": "30",
+    "text": "Eight of us, including the organizer."
+   },
+   {
+    "sender": "10",
+    "text": "Got it."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$1562.50",
+  "_facts": {
+   "total_value": 12500,
+   "total_text": "12500",
+   "currency": "bare",
+   "headcount": 8,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second bill mentioned then ignored",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Lunch was $72 total."
+   },
+   {
+    "sender": "20",
+    "text": "Also, who owes for the parking?"
+   },
+   {
+    "sender": "30",
+    "text": "Let's deal with lunch first."
+   },
+   {
+    "sender": "40",
+    "text": "Agreed."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share."
+   }
+  ],
+  "expected": "$18",
+  "_facts": {
+   "total_value": 72,
+   "total_text": "$72",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure with unknown headcount",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "It's $25 per person for the tickets."
+   },
+   {
+    "sender": "50",
+    "text": "How many of us are going again?"
+   },
+   {
+    "sender": "40",
+    "text": "Not sure yet, some people haven't confirmed."
+   },
+   {
+    "sender": "10",
+    "text": "Just send me your part."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Uneven division for couples",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The Airbnb was $210 total."
+   },
+   {
+    "sender": "30",
+    "text": "But we have a couple, so split it as 4 shares, not 5."
+   },
+   {
+    "sender": "40",
+    "text": "Right, that makes sense."
+   },
+   {
+    "sender": "10",
+    "text": "Ok sending my share."
+   }
+  ],
+  "expected": "$52.50",
+  "_facts": {
+   "total_value": 210,
+   "total_text": "$210",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount changes due to dropouts",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "The boat rental was $300 total."
+   },
+   {
+    "sender": "10",
+    "text": "I thought 6 of us were going."
+   },
+   {
+    "sender": "20",
+    "text": "Two bailed, so only 4 of us now."
+   },
+   {
+    "sender": "30",
+    "text": "Ok that changes things."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$75",
+  "_facts": {
+   "total_value": 300,
+   "total_text": "$300",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount revealed after ask, one declines",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, dinner last night was $120 total. Can everyone send their share?"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, who all was there?"
+   },
+   {
+    "sender": "30",
+    "text": "Me, you, 40, and 50. And 20 joined later but didn't eat."
+   },
+   {
+    "sender": "20",
+    "text": "Yeah I just had drinks, not splitting food."
+   },
+   {
+    "sender": "40",
+    "text": "So it's 4 of us then? $30 each?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah 4 ways. $30 each."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$30",
+  "_facts": {
+   "total_value": 120,
+   "total_text": "$120",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected twice, headcount still vague",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "That group gift for 30 was $75 total. Split between whoever chipped in?"
+   },
+   {
+    "sender": "30",
+    "text": "Actually the card was $85.50 with the fee."
+   },
+   {
+    "sender": "40",
+    "text": "And I think 50 also gave cash separately?"
+   },
+   {
+    "sender": "20",
+    "text": "No 50 didn't. Just us in the chat who said yes."
+   },
+   {
+    "sender": "50",
+    "text": "I can send whatever, just tell me the amount."
+   },
+   {
+    "sender": "20",
+    "text": "It's $85.50 total, divide by however many of us actually paid."
+   },
+   {
+    "sender": "60",
+    "text": "I'm confused, just send me a number."
+   },
+   {
+    "sender": "20",
+    "text": "Forget it, just send $20 each and I'll cover the rest."
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 85.5,
+   "total_text": "$85.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill, someone refuses to pay",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Coffee run was $9.60 total for the three of us."
+   },
+   {
+    "sender": "20",
+    "text": "I didn't ask for coffee, I'm not paying."
+   },
+   {
+    "sender": "30",
+    "text": "You drank it though."
+   },
+   {
+    "sender": "20",
+    "text": "Fine but I'm not covering 40's."
+   },
+   {
+    "sender": "10",
+    "text": "40 wasn't there. It's just us three."
+   },
+   {
+    "sender": "30",
+    "text": "So $3.20 each."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$3.20",
+  "_facts": {
+   "total_value": 9.6,
+   "total_text": "$9.60",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large INR bill, headcount arrives later",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Team lunch yesterday came to Rs 14,500 total. Please send your share."
+   },
+   {
+    "sender": "20",
+    "text": "How many people? I thought it was 10 of us."
+   },
+   {
+    "sender": "30",
+    "text": "Two people left early before the bill."
+   },
+   {
+    "sender": "40",
+    "text": "So 8 people? 14,500/8 is 1812.50 each."
+   },
+   {
+    "sender": "50",
+    "text": "I only had a salad, can I pay less?"
+   },
+   {
+    "sender": "10",
+    "text": "Let's just split evenly, it's easier."
+   },
+   {
+    "sender": "60",
+    "text": "Fine. 1812.50."
+   },
+   {
+    "sender": "70",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "₹1812",
+  "_facts": {
+   "total_value": 14500,
+   "total_text": "Rs 14,500",
+   "currency": "INR",
+   "headcount": 8,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned then ignored",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The taxi from the airport was €56 total. Split 4 ways?"
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I also paid for the train tickets, that was €30."
+   },
+   {
+    "sender": "40",
+    "text": "Let's deal with the taxi first."
+   },
+   {
+    "sender": "50",
+    "text": "Who was in the taxi? Me, 20, 30, and 10?"
+   },
+   {
+    "sender": "20",
+    "text": "Yes, 4 of us. So €14 each."
+   },
+   {
+    "sender": "30",
+    "text": "Ok but then we need to sort the train too."
+   },
+   {
+    "sender": "40",
+    "text": "Later. Sending taxi share now."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "€14",
+  "_facts": {
+   "total_value": 56,
+   "total_text": "€56",
+   "currency": "EUR",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount never given, total is per-person",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, the escape room was $25 per person. Can everyone send me $25?"
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were there?"
+   },
+   {
+    "sender": "30",
+    "text": "I don't remember exactly, maybe 6 or 7?"
+   },
+   {
+    "sender": "40",
+    "text": "It was definitely more than 5."
+   },
+   {
+    "sender": "50",
+    "text": "Just send the $25, it's per person anyway."
+   },
+   {
+    "sender": "60",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill corrected downward, someone already paid",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Groceries for the BBQ were $235 total. Split between 5 of us?"
+   },
+   {
+    "sender": "30",
+    "text": "I already sent you $47 for my share."
+   },
+   {
+    "sender": "20",
+    "text": "Oh wait, I found the receipt, it was actually $210."
+   },
+   {
+    "sender": "40",
+    "text": "So $42 each then."
+   },
+   {
+    "sender": "30",
+    "text": "I overpaid, can you refund $5?"
+   },
+   {
+    "sender": "20",
+    "text": "Yes I'll adjust."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$42",
+  "_facts": {
+   "total_value": 210,
+   "total_text": "$210",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount changes due to plus-ones, no final count",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The Airbnb was $320 total for the weekend. Let's split it."
+   },
+   {
+    "sender": "20",
+    "text": "How many people stayed? I brought my partner."
+   },
+   {
+    "sender": "30",
+    "text": "I thought it was just the original 6 of us."
+   },
+   {
+    "sender": "40",
+    "text": "No, 50 brought a friend too."
+   },
+   {
+    "sender": "50",
+    "text": "They only stayed one night though."
+   },
+   {
+    "sender": "10",
+    "text": "Ugh, let's just figure it out later. Send what you think is fair."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 320,
+   "total_text": "$320",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill in bare currency, no symbol",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "Snacks were 12 total. Split three ways?"
+   },
+   {
+    "sender": "10",
+    "text": "Wait, 12 what? Dollars?"
+   },
+   {
+    "sender": "30",
+    "text": "Yeah dollars, sorry."
+   },
+   {
+    "sender": "20",
+    "text": "So 4 each."
+   },
+   {
+    "sender": "10",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$4",
+  "_facts": {
+   "total_value": 12,
+   "total_text": "12",
+   "currency": "bare",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill, one person drops out after headcount",
+  "participants": 12,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The party bus was $1,440 total. We said 12 people would split it."
+   },
+   {
+    "sender": "20",
+    "text": "But 30 said they can't come anymore."
+   },
+   {
+    "sender": "30",
+    "text": "Yeah I'm out, sorry."
+   },
+   {
+    "sender": "40",
+    "text": "So 11 people? That's $130.91 each, roughly."
+   },
+   {
+    "sender": "50",
+    "text": "Can we just do $131 and someone covers the extra?"
+   },
+   {
+    "sender": "10",
+    "text": "Fine, $131 each."
+   },
+   {
+    "sender": "60",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$130.91",
+  "_facts": {
+   "total_value": 1440,
+   "total_text": "$1,440",
+   "currency": "USD",
+   "headcount": 11,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount Clarified late in thread",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey guys, I covered the team dinner last night. Total came to $450."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, who all were there? I thought it was 6 of us including me."
+   },
+   {
+    "sender": "10",
+    "text": "Actually, Sarah left early and didn't eat, so 5 of us."
+   },
+   {
+    "sender": "30",
+    "text": "I only had a salad, can I pay less?"
+   },
+   {
+    "sender": "10",
+    "text": "Nah, let's just split equally. $450 / 5 = $90 each."
+   },
+   {
+    "sender": "40",
+    "text": "Fine with me."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$90",
+  "_facts": {
+   "total_value": 450,
+   "total_text": "$450",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague headcount no resolution",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "I paid 280 for the Airbnb cleaning fee and supplies."
+   },
+   {
+    "sender": "10",
+    "text": "How many of us are splitting that? I lost count."
+   },
+   {
+    "sender": "20",
+    "text": "I think 4 or 5 of us stayed the whole week, but some came late."
+   },
+   {
+    "sender": "30",
+    "text": "Let's just figure it out later."
+   },
+   {
+    "sender": "40",
+    "text": "I'll pay whatever, just tell me the amount."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 280,
+   "total_text": "280",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill corrected after initial statement",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The concert tickets were $300 total."
+   },
+   {
+    "sender": "40",
+    "text": "Actually, I checked the receipt, it was $312 with fees."
+   },
+   {
+    "sender": "30",
+    "text": "Oh right, my bad. So $312."
+   },
+   {
+    "sender": "10",
+    "text": "For 4 of us, that's $78 each."
+   },
+   {
+    "sender": "20",
+    "text": "Sounds good."
+   },
+   {
+    "sender": "40",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$78",
+  "_facts": {
+   "total_value": 312,
+   "total_text": "$312",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Someone refuses to pay full share",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "I covered the pizza and drinks last night. Total was 175.50."
+   },
+   {
+    "sender": "10",
+    "text": "I only had one slice, I'm not paying full."
+   },
+   {
+    "sender": "50",
+    "text": "Come on, we agreed to split evenly."
+   },
+   {
+    "sender": "20",
+    "text": "Just pay your share, man."
+   },
+   {
+    "sender": "10",
+    "text": "Fine, but I'm only paying $20."
+   },
+   {
+    "sender": "50",
+    "text": "Whatever, $175.50 / 5 = $35.10 each. I'll cover the rest."
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$35.10",
+  "_facts": {
+   "total_value": 175.5,
+   "total_text": "175.50",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with INR currency",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Auto fare was Rs 90 total."
+   },
+   {
+    "sender": "20",
+    "text": "3 of us, so Rs 30 each."
+   },
+   {
+    "sender": "30",
+    "text": "I don't have change, can I pay later?"
+   },
+   {
+    "sender": "10",
+    "text": "No worries, just send whenever."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "₹30",
+  "_facts": {
+   "total_value": 90,
+   "total_text": "Rs 90",
+   "currency": "INR",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Dinner was €240 total."
+   },
+   {
+    "sender": "30",
+    "text": "Also, who owes for the taxi? That was €30."
+   },
+   {
+    "sender": "20",
+    "text": "Let's deal with dinner first. 6 of us, so €40 each."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, I thought it was 7 people."
+   },
+   {
+    "sender": "20",
+    "text": "No, Mike left before the bill."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "€40",
+  "_facts": {
+   "total_value": 240,
+   "total_text": "€240",
+   "currency": "EUR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill with decimals and late headcount",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The hotel suite total was $1,234.56."
+   },
+   {
+    "sender": "40",
+    "text": "That's a lot. How many are splitting?"
+   },
+   {
+    "sender": "30",
+    "text": "Well, 7 of us stayed there."
+   },
+   {
+    "sender": "50",
+    "text": "I only stayed one night, not the whole time."
+   },
+   {
+    "sender": "30",
+    "text": "Too bad, we're splitting evenly."
+   },
+   {
+    "sender": "10",
+    "text": "So $176.37 each? Let me calculate."
+   },
+   {
+    "sender": "30",
+    "text": "Yes, roughly $176.37."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$176.37",
+  "_facts": {
+   "total_value": 1234.56,
+   "total_text": "$1,234.56",
+   "currency": "USD",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure with unknown headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The escape room is $25 per person."
+   },
+   {
+    "sender": "20",
+    "text": "How many are we?"
+   },
+   {
+    "sender": "10",
+    "text": "Not sure yet, some people haven't confirmed."
+   },
+   {
+    "sender": "30",
+    "text": "Just let me know the total when we know."
+   },
+   {
+    "sender": "10",
+    "text": "Will do."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after several messages",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "I paid 80 for the group gift."
+   },
+   {
+    "sender": "10",
+    "text": "Nice, what did we get?"
+   },
+   {
+    "sender": "40",
+    "text": "A gift card to that restaurant."
+   },
+   {
+    "sender": "20",
+    "text": "How many are chipping in?"
+   },
+   {
+    "sender": "40",
+    "text": "4 of us, since John already gave cash."
+   },
+   {
+    "sender": "30",
+    "text": "Cool, 20 each."
+   },
+   {
+    "sender": "10",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$20",
+  "_facts": {
+   "total_value": 80,
+   "total_text": "80",
+   "currency": "bare",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill in bare currency with uneven split discussion",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "The party supplies came to 200."
+   },
+   {
+    "sender": "10",
+    "text": "Didn't Emma also contribute? So only 5 of us?"
+   },
+   {
+    "sender": "50",
+    "text": "Yes, 5 of us split it."
+   },
+   {
+    "sender": "20",
+    "text": "That's 40 each."
+   },
+   {
+    "sender": "30",
+    "text": "I thought it was 6 people including Emma."
+   },
+   {
+    "sender": "50",
+    "text": "No, she brought her own stuff."
+   },
+   {
+    "sender": "40",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$40",
+  "_facts": {
+   "total_value": 200,
+   "total_text": "200",
+   "currency": "bare",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill stated, headcount corrected later, someone refuses",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey all, dinner at Luigi's last night came to $240 total, split 5 ways it's $48 each"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought Priya didn't have the pasta? She only had a salad"
+   },
+   {
+    "sender": "30",
+    "text": "Yeah I'm not paying $48 for a salad and water. Count me out"
+   },
+   {
+    "sender": "10",
+    "text": "Ugh fine. So then it's $240 split 4 ways = $60 each for the rest of us"
+   },
+   {
+    "sender": "40",
+    "text": "That's steep but okay. Send me your Venmo"
+   },
+   {
+    "sender": "10",
+    "text": "@40 @20 @50 it's $60 each. My venmo is @mike-pays"
+   },
+   {
+    "sender": "50",
+    "text": "Wait why am I paying $60? I was there but I only had an appetizer"
+   },
+   {
+    "sender": "10",
+    "text": "Because Priya dropped out and we still owe the full $240. Sorry, should've said something earlier"
+   },
+   {
+    "sender": "20",
+    "text": "Fine, sending my share now"
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": "$60",
+  "_facts": {
+   "total_value": 240,
+   "total_text": "$240",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill, headcount never stated, vague",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Got the coffee run earlier, total was 9.50"
+   },
+   {
+    "sender": "20",
+    "text": "How many people was that for?"
+   },
+   {
+    "sender": "10",
+    "text": "Just a few of us, I'll figure it out later. Just send me what you owe"
+   },
+   {
+    "sender": "30",
+    "text": "K, sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Same, sending now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 9.5,
+   "total_text": "9.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large INR bill, headcount arrives several messages later",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Team lunch at Barbeque Nation was Rs 8500 total. Please split and send"
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were there again? I lost count"
+   },
+   {
+    "sender": "30",
+    "text": "I think 8? But two people left early before the bill came"
+   },
+   {
+    "sender": "10",
+    "text": "Actually only 6 of us ate the full buffet. The other two just had drinks and paid separately"
+   },
+   {
+    "sender": "40",
+    "text": "So 8500 / 6 = 1416.67 each? That's awkward"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah just round to 1417 or send 1416.67, I don't care"
+   },
+   {
+    "sender": "50",
+    "text": "Wait I thought it was 7 people? Did someone not pay?"
+   },
+   {
+    "sender": "10",
+    "text": "No, 6. Me, you, 20, 30, 40, and 50. That's 6"
+   },
+   {
+    "sender": "50",
+    "text": "Oh right. Sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": "₹1417",
+  "_facts": {
+   "total_value": 8500,
+   "total_text": "Rs 8500",
+   "currency": "INR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned, confusing totals",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The Airbnb cleaning fee was €120 total, split 4 ways = €30 each"
+   },
+   {
+    "sender": "20",
+    "text": "Wait I thought we already paid that? Or was that the other booking?"
+   },
+   {
+    "sender": "10",
+    "text": "No, that was the deposit. This is the cleaning fee. Different thing"
+   },
+   {
+    "sender": "30",
+    "text": "Also I still owe you for the groceries from Tuesday, that was €45 total"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah but let's just do the €120 cleaning fee for now. €30 each"
+   },
+   {
+    "sender": "40",
+    "text": "Fine. Sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Sending now"
+   }
+  ],
+  "expected": "€30",
+  "_facts": {
+   "total_value": 120,
+   "total_text": "€120",
+   "currency": "EUR",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure given, headcount impossible to know",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Auto fare was 45 rupees per person, please send me that"
+   },
+   {
+    "sender": "20",
+    "text": "How many people were in the auto? I thought it was just three of us"
+   },
+   {
+    "sender": "10",
+    "text": "There were a few others who hopped in later, I'll just collect from whoever was there"
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Sending now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 45,
+   "total_text": "45 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill total corrected after someone finds receipt",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Okay the group gift for Sarah was $280 total, split 6 ways = $46.67 each"
+   },
+   {
+    "sender": "20",
+    "text": "Wait I found the receipt, it was actually $310 because we added the card and wrapping"
+   },
+   {
+    "sender": "30",
+    "text": "So $310 / 6 = $51.67 each? That's more than I thought"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah my bad, I forgot the extras. So $51.67 per person"
+   },
+   {
+    "sender": "40",
+    "text": "Can we just do $52 each and you keep the change?"
+   },
+   {
+    "sender": "10",
+    "text": "Sure, $52 each works"
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share now"
+   },
+   {
+    "sender": "60",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": "$51.67",
+  "_facts": {
+   "total_value": 310,
+   "total_text": "$310",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill for two separate items, one person pays both",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I covered the Uber ($45) and the parking ($30) so $75 total for the three of us"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, parking was $30? I thought it was $20"
+   },
+   {
+    "sender": "10",
+    "text": "No, $30. I have the receipt. So $25 each for the $75 total"
+   },
+   {
+    "sender": "30",
+    "text": "But I wasn't in the Uber, I drove separately. Should I pay for that?"
+   },
+   {
+    "sender": "10",
+    "text": "Oh right. Then just the parking, $10 each for you and 20? But I already paid both"
+   },
+   {
+    "sender": "20",
+    "text": "This is getting complicated. Just tell me what to send"
+   },
+   {
+    "sender": "10",
+    "text": "Okay, 20 send $25, 30 send $10. I'm covering my own share too"
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Sending now"
+   }
+  ],
+  "expected": "$50",
+  "_facts": {
+   "total_value": 75,
+   "total_text": "$75",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 2
+  }
+ },
+ {
+  "name": "llm: Headcount given as vague range, never clarified",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The cab to the airport was 200 total, split between us"
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were in the cab? I thought 4 or 5"
+   },
+   {
+    "sender": "30",
+    "text": "I think 4 of us plus the driver, but someone might have paid already"
+   },
+   {
+    "sender": "10",
+    "text": "I don't remember exactly, just send me what you think is fair"
+   },
+   {
+    "sender": "40",
+    "text": "That's not helpful. Just tell us the amount"
+   },
+   {
+    "sender": "10",
+    "text": "Okay fine, just send 50 each if there were 4 of us. If 5, then 40"
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now"
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 200,
+   "total_text": "200",
+   "currency": "bare",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Someone refuses to pay, bill remains total for rest",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Concert tickets were $500 total for the group, split 5 ways = $100 each"
+   },
+   {
+    "sender": "20",
+    "text": "I never confirmed I was going. I'm not paying"
+   },
+   {
+    "sender": "10",
+    "text": "But I bought the ticket for you already. You said you were in"
+   },
+   {
+    "sender": "30",
+    "text": "Drama. Just tell me my share, I'm not getting involved"
+   },
+   {
+    "sender": "10",
+    "text": "Fine, 20 is out. So the rest of us owe $125 each to cover the $500"
+   },
+   {
+    "sender": "40",
+    "text": "That's not fair, why should we pay more because he bailed?"
+   },
+   {
+    "sender": "50",
+    "text": "I'll just pay my original $100 and you deal with him"
+   },
+   {
+    "sender": "10",
+    "text": "Okay whatever, just send what you think you owe. I'm out $500 either way"
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share now"
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": "$100",
+  "_facts": {
+   "total_value": 500,
+   "total_text": "$500",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill in euros, headcount arrives after chit-chat",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hotel room was €245.50 total for the night, please everyone send me their part"
+   },
+   {
+    "sender": "20",
+    "text": "How many people stayed? I thought it was just me and you"
+   },
+   {
+    "sender": "30",
+    "text": "No, there were like 7 of us in that big room. Remember the mattress on the floor?"
+   },
+   {
+    "sender": "40",
+    "text": "Oh right, that was cramped. So €245.50 / 7 = €35.07 each?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah €35.07, just round to €35"
+   },
+   {
+    "sender": "50",
+    "text": "Wait, did the couple pay separately? Because that would change things"
+   },
+   {
+    "sender": "10",
+    "text": "No, they're paying as one share. So still 7 shares"
+   },
+   {
+    "sender": "60",
+    "text": "I wasn't there for the whole night, I left at 2am. Do I pay full?"
+   },
+   {
+    "sender": "10",
+    "text": "Ugh, just pay what you want. I'm not chasing everyone"
+   },
+   {
+    "sender": "70",
+    "text": "Sending my share now"
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending"
+   }
+  ],
+  "expected": "€35.07",
+  "_facts": {
+   "total_value": 245.5,
+   "total_text": "€245.50",
+   "currency": "EUR",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Room size unknown, total arrives late",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey guys, I covered the Airbnb for next weekend. Just need everyone to chip in."
+   },
+   {
+    "sender": "20",
+    "text": "Cool, how much was it?"
+   },
+   {
+    "sender": "10",
+    "text": "Total was $480 for both nights."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, who all is coming? I thought it was just 4 of us."
+   },
+   {
+    "sender": "10",
+    "text": "No, Mike and Sarah are joining too. So 6 total."
+   },
+   {
+    "sender": "40",
+    "text": "I might not make it, my flight got messed up."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, let me know by tomorrow."
+   },
+   {
+    "sender": "20",
+    "text": "So is it $480 split 6 ways or 5?"
+   },
+   {
+    "sender": "10",
+    "text": "Let's just do 6 for now, we'll adjust if 40 bails."
+   },
+   {
+    "sender": "50",
+    "text": "I'm down. Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 480,
+   "total_text": "$480",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person amount, no headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Ordered pizza for the group. Your share is $37.50 each."
+   },
+   {
+    "sender": "30",
+    "text": "Whoa, that's a lot for pizza. What did you get?"
+   },
+   {
+    "sender": "20",
+    "text": "Three large specialties and wings. It was $150 total."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, I'll send it."
+   },
+   {
+    "sender": "40",
+    "text": "Can I pay you tomorrow?"
+   },
+   {
+    "sender": "20",
+    "text": "Sure, no rush."
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending now."
+   },
+   {
+    "sender": "50",
+    "text": "Wait, I didn't order any."
+   },
+   {
+    "sender": "20",
+    "text": "You said you wanted in."
+   },
+   {
+    "sender": "50",
+    "text": "I'll just pay, whatever. Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 37.5,
+   "total_text": "$37.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large INR bill, headcount corrected later",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I paid the caterer for the party. Total was Rs 12,500."
+   },
+   {
+    "sender": "20",
+    "text": "How many people are splitting this?"
+   },
+   {
+    "sender": "10",
+    "text": "I think 10 of us said yes."
+   },
+   {
+    "sender": "30",
+    "text": "Actually two dropped out last minute, so 8."
+   },
+   {
+    "sender": "10",
+    "text": "Right, 8 confirmed."
+   },
+   {
+    "sender": "40",
+    "text": "What about the drinks? That was separate."
+   },
+   {
+    "sender": "10",
+    "text": "No, drinks included in this."
+   },
+   {
+    "sender": "50",
+    "text": "Okay, so 12500/8 = 1562.5 each."
+   },
+   {
+    "sender": "20",
+    "text": "Fine. Sending my share now."
+   }
+  ],
+  "expected": "₹1562",
+  "_facts": {
+   "total_value": 12500,
+   "total_text": "Rs 12,500",
+   "currency": "INR",
+   "headcount": 8,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague headcount and second bill",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "Guys, I got the team lunch today. $95 total."
+   },
+   {
+    "sender": "40",
+    "text": "How many of us were there? Like 5 or 6?"
+   },
+   {
+    "sender": "30",
+    "text": "I think 5, but maybe some left early."
+   },
+   {
+    "sender": "50",
+    "text": "Also I paid for coffee earlier, that was $14."
+   },
+   {
+    "sender": "30",
+    "text": "Let's just do lunch for now."
+   },
+   {
+    "sender": "40",
+    "text": "So $95 split by 5?"
+   },
+   {
+    "sender": "30",
+    "text": "If it was 5, yeah. But not everyone ate."
+   },
+   {
+    "sender": "50",
+    "text": "I'll send $20 to cover mine and the coffee."
+   },
+   {
+    "sender": "40",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 95,
+   "total_text": "$95",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected after someone refuses",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Concert tickets were $200 total, plus fees. My card was charged $208.75."
+   },
+   {
+    "sender": "20",
+    "text": "I thought it was $200 even."
+   },
+   {
+    "sender": "10",
+    "text": "Fees were $8.75. So $208.75."
+   },
+   {
+    "sender": "30",
+    "text": "I'm not paying the fees, that's on you."
+   },
+   {
+    "sender": "10",
+    "text": "Fine, I'll cover the fees. So just $200 split 4 ways."
+   },
+   {
+    "sender": "40",
+    "text": "That's $50 each then."
+   },
+   {
+    "sender": "20",
+    "text": "Actually I already paid you $50 last week."
+   },
+   {
+    "sender": "10",
+    "text": "Oh right. So 3 of you owe."
+   },
+   {
+    "sender": "30",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$52.19",
+  "_facts": {
+   "total_value": 208.75,
+   "total_text": "$208.75",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals, headcount arrives late",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Bought baguettes for the picnic. Total was €6.30."
+   },
+   {
+    "sender": "30",
+    "text": "How many of us are chipping in?"
+   },
+   {
+    "sender": "40",
+    "text": "I brought my own lunch."
+   },
+   {
+    "sender": "20",
+    "text": "Only 3 of us ate the baguettes."
+   },
+   {
+    "sender": "50",
+    "text": "That's 2.10 each."
+   },
+   {
+    "sender": "30",
+    "text": "Ok, sending my share now."
+   }
+  ],
+  "expected": "€2.10",
+  "_facts": {
+   "total_value": 6.3,
+   "total_text": "€6.30",
+   "currency": "EUR",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill in bare number, multiple currencies",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The group gift for Sarah was 60. I put it on my card."
+   },
+   {
+    "sender": "20",
+    "text": "60 what? Dollars?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, dollars. Sorry."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I thought we agreed on 50."
+   },
+   {
+    "sender": "10",
+    "text": "The card was charged 60 because of shipping."
+   },
+   {
+    "sender": "40",
+    "text": "There are 6 of us, so 10 each."
+   },
+   {
+    "sender": "50",
+    "text": "I didn't sign the card but I'll pay."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$10",
+  "_facts": {
+   "total_value": 60,
+   "total_text": "60",
+   "currency": "bare",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount never specified, large bill",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "I covered the hotel suite for the bachelor party. Total was $1,024.50."
+   },
+   {
+    "sender": "40",
+    "text": "How many guys are splitting that?"
+   },
+   {
+    "sender": "30",
+    "text": "Not sure yet, some are still deciding."
+   },
+   {
+    "sender": "50",
+    "text": "I'm in for sure."
+   },
+   {
+    "sender": "40",
+    "text": "Me too."
+   },
+   {
+    "sender": "30",
+    "text": "Let's wait till Friday to finalize the list."
+   },
+   {
+    "sender": "50",
+    "text": "Ok, I'll send my share once we know the number."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 1024.5,
+   "total_text": "$1,024.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill split unevenly, some pay more",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Dinner was $300 total. But we didn't split evenly because of drinks."
+   },
+   {
+    "sender": "20",
+    "text": "So what do I owe?"
+   },
+   {
+    "sender": "10",
+    "text": "You had two cocktails, so $70. Others $50, $60, $60, and $60."
+   },
+   {
+    "sender": "30",
+    "text": "That adds up to $300."
+   },
+   {
+    "sender": "40",
+    "text": "I only had one drink, can I do $55?"
+   },
+   {
+    "sender": "10",
+    "text": "Fine, then someone else covers the extra $5."
+   },
+   {
+    "sender": "50",
+    "text": "I'll cover it. So I owe $65."
+   },
+   {
+    "sender": "20",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$60",
+  "_facts": {
+   "total_value": 300,
+   "total_text": "$300",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Multiple corrections and dropouts",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "I paid for the escape room. Total was $245.99 with tax."
+   },
+   {
+    "sender": "50",
+    "text": "I thought it was $200."
+   },
+   {
+    "sender": "40",
+    "text": "That was before tax. $245.99 final."
+   },
+   {
+    "sender": "10",
+    "text": "How many played? We had 8 originally."
+   },
+   {
+    "sender": "40",
+    "text": "Only 5 showed up. Three bailed."
+   },
+   {
+    "sender": "20",
+    "text": "So 245.99 / 5 = 49.198."
+   },
+   {
+    "sender": "30",
+    "text": "Let's just do $50 each and you keep the change."
+   },
+   {
+    "sender": "40",
+    "text": "Works for me."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$49.20",
+  "_facts": {
+   "total_value": 245.99,
+   "total_text": "$245.99",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total arrives after initial ask with dropouts",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey team, just paid for the Airbnb, will send details soon."
+   },
+   {
+    "sender": "20",
+    "text": "Awesome, thanks!"
+   },
+   {
+    "sender": "30",
+    "text": "How much was it?"
+   },
+   {
+    "sender": "10",
+    "text": "Total came to $240 for the weekend."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, I thought Mike was joining? He bailed."
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, so it's just the 4 of us now."
+   },
+   {
+    "sender": "50",
+    "text": "Sounds good. Sending my share."
+   }
+  ],
+  "expected": "$60",
+  "_facts": {
+   "total_value": 240,
+   "total_text": "$240",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives late with vague initial count",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Dinner was great! I covered it, total €180."
+   },
+   {
+    "sender": "30",
+    "text": "How many of us were there?"
+   },
+   {
+    "sender": "20",
+    "text": "Not sure exactly, some of us left early."
+   },
+   {
+    "sender": "40",
+    "text": "I think 6 of us stayed till the end."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, so €30 each."
+   },
+   {
+    "sender": "50",
+    "text": "Sending now."
+   }
+  ],
+  "expected": "€30",
+  "_facts": {
+   "total_value": 180,
+   "total_text": "€180",
+   "currency": "EUR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Corrected total after clarification and second bill",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "I got the groceries, it was $85.50."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, I thought we also got the drinks?"
+   },
+   {
+    "sender": "30",
+    "text": "Oh right, the wine was separate. That was $10."
+   },
+   {
+    "sender": "30",
+    "text": "So total for groceries and wine is $95.50."
+   },
+   {
+    "sender": "50",
+    "text": "Cool, split three ways?"
+   },
+   {
+    "sender": "30",
+    "text": "Yes, $31.83 each."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "$31.83",
+  "_facts": {
+   "total_value": 95.5,
+   "total_text": "$95.50",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague headcount initially, then clarified",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "Paid for the cab, total Rs 2100."
+   },
+   {
+    "sender": "50",
+    "text": "How many people were in the cab?"
+   },
+   {
+    "sender": "40",
+    "text": "I think 7 of us."
+   },
+   {
+    "sender": "20",
+    "text": "Are we splitting equally?"
+   },
+   {
+    "sender": "40",
+    "text": "Yes, Rs 300 each."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "₹300",
+  "_facts": {
+   "total_value": 2100,
+   "total_text": "Rs 2100",
+   "currency": "INR",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Someone refuses to pay, others cover",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "I paid $80 for the tickets."
+   },
+   {
+    "sender": "10",
+    "text": "I'm not paying, I didn't even go."
+   },
+   {
+    "sender": "50",
+    "text": "Fine, so it's $80 split between the rest of us."
+   },
+   {
+    "sender": "20",
+    "text": "That's $26.67 each."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "$26.67",
+  "_facts": {
+   "total_value": 80,
+   "total_text": "$80",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure with unknown headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The entrance fee is $25 per person."
+   },
+   {
+    "sender": "30",
+    "text": "How many are we?"
+   },
+   {
+    "sender": "20",
+    "text": "Not sure yet, people are still deciding."
+   },
+   {
+    "sender": "40",
+    "text": "Just tell me my share."
+   },
+   {
+    "sender": "20",
+    "text": "It's $25 each."
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill, uneven split, headcount late",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I booked the villa, total $1250."
+   },
+   {
+    "sender": "20",
+    "text": "How many people are splitting?"
+   },
+   {
+    "sender": "10",
+    "text": "Only 5 of us confirmed."
+   },
+   {
+    "sender": "30",
+    "text": "But some of us have smaller rooms."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, we can adjust. Base share is $250."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$250",
+  "_facts": {
+   "total_value": 1250,
+   "total_text": "$1250",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals, headcount arrives late",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "Bought coffee for us, $3.75 total."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, who was there?"
+   },
+   {
+    "sender": "30",
+    "text": "Just me, you, and Sarah."
+   },
+   {
+    "sender": "50",
+    "text": "So $1.25 each."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "$1.25",
+  "_facts": {
+   "total_value": 3.75,
+   "total_text": "$3.75",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "I paid $60 for the team lunch."
+   },
+   {
+    "sender": "50",
+    "text": "Also, I paid $20 for parking earlier."
+   },
+   {
+    "sender": "40",
+    "text": "Let's deal with lunch first. $60 split 4 ways."
+   },
+   {
+    "sender": "20",
+    "text": "That's $15 each."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$15",
+  "_facts": {
+   "total_value": 60,
+   "total_text": "$60",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount never made knowable",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "I covered the bill, total 500."
+   },
+   {
+    "sender": "10",
+    "text": "How many people were there?"
+   },
+   {
+    "sender": "50",
+    "text": "I lost count, just send whatever you think is fair."
+   },
+   {
+    "sender": "20",
+    "text": "Can you give us a number?"
+   },
+   {
+    "sender": "50",
+    "text": "Just send 100 each."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 500,
+   "total_text": "500",
+   "currency": "bare",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Flatmate dinner with late headcount confirmation",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, just paid for our Thai takeout. Total was $187.50."
+   },
+   {
+    "sender": "20",
+    "text": "Oh nice, how many of us was that for again? I thought it was 5 but maybe not."
+   },
+   {
+    "sender": "30",
+    "text": "I think it was me, you, Sarah, and Mike. So 4? Sarah couldn't make it last minute."
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, 4 of us. So that's 187.50 / 4 = 46.875 each."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, did we get the extra spring rolls? I didn't have any."
+   },
+   {
+    "sender": "10",
+    "text": "No, that was separate. This is just the mains and drinks."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, I'm fine with splitting evenly."
+   },
+   {
+    "sender": "30",
+    "text": "Same here."
+   },
+   {
+    "sender": "40",
+    "text": "Alright, sending my share."
+   }
+  ],
+  "expected": "$46.88",
+  "_facts": {
+   "total_value": 187.5,
+   "total_text": "$187.50",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Office lunch with one person refusing to split",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Lunch was 95.50 euros total. I covered it."
+   },
+   {
+    "sender": "30",
+    "text": "Thanks! How many people? I see 6 of us here but maybe not everyone ate."
+   },
+   {
+    "sender": "20",
+    "text": "Only 5 ate. Tom just had water."
+   },
+   {
+    "sender": "40",
+    "text": "I only had a salad, can I pay less?"
+   },
+   {
+    "sender": "20",
+    "text": "We agreed to split evenly, remember? But fine, if you want to be that way."
+   },
+   {
+    "sender": "50",
+    "text": "Let's just do 95.50 / 5 = 19.10 each."
+   },
+   {
+    "sender": "30",
+    "text": "Works for me."
+   },
+   {
+    "sender": "40",
+    "text": "Ugh, fine. Sending my share."
+   }
+  ],
+  "expected": "19.10 euros",
+  "_facts": {
+   "total_value": 95.5,
+   "total_text": "95.50 euros",
+   "currency": "EUR",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague count with per-person figure only",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Concert tickets were 32 dollars each. I paid for the group."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us total? I lost track."
+   },
+   {
+    "sender": "10",
+    "text": "I think it was like 6 or 7 of us, but I need to check my receipt."
+   },
+   {
+    "sender": "30",
+    "text": "Let me know, I'll send whatever."
+   },
+   {
+    "sender": "10",
+    "text": "Actually the receipt says 7 tickets, but some of you may have paid me back already? I'm confused."
+   },
+   {
+    "sender": "20",
+    "text": "I haven't paid yet."
+   },
+   {
+    "sender": "30",
+    "text": "Me neither."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, just send 32 each for now."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 32,
+   "total_text": "32 dollars each",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill with decimal and two dropouts",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "Just paid the Airbnb. Total was $1240.75 for the weekend."
+   },
+   {
+    "sender": "40",
+    "text": "How many people are splitting? I thought 8 of us confirmed."
+   },
+   {
+    "sender": "30",
+    "text": "Yeah but Jess and Alex dropped out last night. So 6."
+   },
+   {
+    "sender": "50",
+    "text": "Wait, I thought we had 7? Did someone else cancel?"
+   },
+   {
+    "sender": "30",
+    "text": "No, just those two. So 6."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, 1240.75 / 6 = 206.7916..."
+   },
+   {
+    "sender": "40",
+    "text": "Let's just round to 206.80 each?"
+   },
+   {
+    "sender": "30",
+    "text": "Fine by me."
+   },
+   {
+    "sender": "50",
+    "text": "Alright, sending my share."
+   }
+  ],
+  "expected": "$206.79",
+  "_facts": {
+   "total_value": 1240.75,
+   "total_text": "$1240.75",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with INR and late correction",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Chai and snacks were Rs 500 total. I paid."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us? I see 4 here."
+   },
+   {
+    "sender": "10",
+    "text": "It was 5 actually, Ravi joined later."
+   },
+   {
+    "sender": "30",
+    "text": "Oh right, he did."
+   },
+   {
+    "sender": "40",
+    "text": "So 100 each."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, 500/5 is 100. Yes."
+   },
+   {
+    "sender": "10",
+    "text": "Cool."
+   },
+   {
+    "sender": "30",
+    "text": "Sending now."
+   }
+  ],
+  "expected": "₹100",
+  "_facts": {
+   "total_value": 500,
+   "total_text": "Rs 500",
+   "currency": "INR",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill causes confusion",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "I paid 60 bucks for the pizza last night."
+   },
+   {
+    "sender": "30",
+    "text": "Was that the one with the extra toppings? I thought it was 75."
+   },
+   {
+    "sender": "20",
+    "text": "No, that was a different order. This is just the 60."
+   },
+   {
+    "sender": "40",
+    "text": "How many of us shared? I wasn't there."
+   },
+   {
+    "sender": "20",
+    "text": "Me, Sarah, and Tom. So 3."
+   },
+   {
+    "sender": "50",
+    "text": "Also, I paid for the Uber earlier, but that's separate."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, 20 each for pizza."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "20 bucks",
+  "_facts": {
+   "total_value": 60,
+   "total_text": "60 bucks",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after multiple questions",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I covered the group dinner. Total was $210."
+   },
+   {
+    "sender": "20",
+    "text": "How many people? I need to know my share."
+   },
+   {
+    "sender": "10",
+    "text": "Let me count... I think 7 of us."
+   },
+   {
+    "sender": "30",
+    "text": "Wasn't it 8? I remember seeing 8 chairs."
+   },
+   {
+    "sender": "10",
+    "text": "No, one person left early. So 7."
+   },
+   {
+    "sender": "40",
+    "text": "Okay, 210/7 = 30 each."
+   },
+   {
+    "sender": "20",
+    "text": "That's easy."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$30",
+  "_facts": {
+   "total_value": 210,
+   "total_text": "$210",
+   "currency": "USD",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Small bill with one person paying for two",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "Coffee run total was $48.50. I got drinks for me and Jake."
+   },
+   {
+    "sender": "10",
+    "text": "So how many shares is that? 4 people?"
+   },
+   {
+    "sender": "50",
+    "text": "Yeah, 4 of us total. But I'm covering Jake's too, so I'll send 2 shares."
+   },
+   {
+    "sender": "20",
+    "text": "Got it. So 48.50 / 4 = 12.125 each."
+   },
+   {
+    "sender": "30",
+    "text": "Let's do 12.13."
+   },
+   {
+    "sender": "50",
+    "text": "Fine."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$24.24",
+  "_facts": {
+   "total_value": 48.5,
+   "total_text": "$48.50",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 2
+  }
+ },
+ {
+  "name": "llm: Bill corrected twice before settlement",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "I paid 90 dollars for the tickets."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I thought it was 78?"
+   },
+   {
+    "sender": "20",
+    "text": "Oh, you're right. The total was 78 dollars. I misread."
+   },
+   {
+    "sender": "40",
+    "text": "How many tickets? 3?"
+   },
+   {
+    "sender": "20",
+    "text": "Yes, 3 of us."
+   },
+   {
+    "sender": "50",
+    "text": "So 26 each."
+   },
+   {
+    "sender": "30",
+    "text": "Okay."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "26 dollars",
+  "_facts": {
+   "total_value": 78,
+   "total_text": "78 dollars",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person bill with vague group size",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Bowling was 15 each. I paid for everyone."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us? I don't remember."
+   },
+   {
+    "sender": "10",
+    "text": "Like 5 or 6? Not sure."
+   },
+   {
+    "sender": "30",
+    "text": "I'll just send 15."
+   },
+   {
+    "sender": "40",
+    "text": "Same."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 15,
+   "total_text": "15 each",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total as range then corrected later",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey guys, dinner last night was awesome! Bill came to like $160-$170 total."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought it was less. Can you check the receipt?"
+   },
+   {
+    "sender": "10",
+    "text": "Just looked, it was $169 total. We split it 4 ways, so $42.25 each."
+   },
+   {
+    "sender": "30",
+    "text": "Actually I only had a salad, can I pay less?"
+   },
+   {
+    "sender": "10",
+    "text": "Nah, we agreed to split evenly. But fine, you pay $30 and I'll cover the rest."
+   },
+   {
+    "sender": "40",
+    "text": "So what do I owe?"
+   },
+   {
+    "sender": "10",
+    "text": "You owe $35. Just send it to me."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, I thought it was 4 ways? Who else is paying?"
+   },
+   {
+    "sender": "10",
+    "text": "It was me, you, 30, and 50. But 30 is paying less, so it's uneven."
+   },
+   {
+    "sender": "50",
+    "text": "I'm not paying full either, I only had drinks."
+   },
+   {
+    "sender": "10",
+    "text": "Ugh, okay. Let's just do this: 40 pays $35, 50 pays $20, 30 pays $30, and I cover the rest. Total still $169."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, what about me? I was there too."
+   },
+   {
+    "sender": "10",
+    "text": "Oh right, you left early. You owe $25. So now: 40 $35, 50 $20, 30 $30, 20 $25, and I pay $59."
+   },
+   {
+    "sender": "30",
+    "text": "Fine, sending my share now."
+   }
+  ],
+  "expected": "$42.25 total",
+  "_facts": {
+   "total_value": 84.5,
+   "total_text": "$169 total",
+   "currency": "USD",
+   "headcount": 2,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after ask, vague count",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "That Airbnb was €210 total for the weekend. Can everyone send me their part?"
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were there again? I lost count."
+   },
+   {
+    "sender": "30",
+    "text": "I think it was 6 or 7?"
+   },
+   {
+    "sender": "10",
+    "text": "Let me check the group photo... okay, 7 of us."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, 7? I thought 50 didn't stay over."
+   },
+   {
+    "sender": "50",
+    "text": "I did stay, just left early Sunday."
+   },
+   {
+    "sender": "10",
+    "text": "So €210 / 7 = €30 each."
+   },
+   {
+    "sender": "20",
+    "text": "That seems low. Did we include cleaning fee?"
+   },
+   {
+    "sender": "10",
+    "text": "Yes, €210 includes everything."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, sending my share now."
+   }
+  ],
+  "expected": "€30",
+  "_facts": {
+   "total_value": 210,
+   "total_text": "€210",
+   "currency": "EUR",
+   "headcount": 7,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill appears mid-thread",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, the pizza last night was $45.75 total. Split 3 ways? That's $15.25 each."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, who else was there? I thought it was just me and you."
+   },
+   {
+    "sender": "10",
+    "text": "No, 30 was there too. So 3 people."
+   },
+   {
+    "sender": "30",
+    "text": "Actually I only had one slice, can I pay $5?"
+   },
+   {
+    "sender": "10",
+    "text": "No, we agreed to split evenly."
+   },
+   {
+    "sender": "40",
+    "text": "Also, can someone pay me back for the Uber? It was $22.50."
+   },
+   {
+    "sender": "20",
+    "text": "Not now, let's finish the pizza thing first."
+   },
+   {
+    "sender": "10",
+    "text": "Okay so $45.75 / 3 = $15.25 each. 20 and 30, please send."
+   },
+   {
+    "sender": "30",
+    "text": "Fine, sending now."
+   }
+  ],
+  "expected": "$15.25",
+  "_facts": {
+   "total_value": 45.75,
+   "total_text": "$45.75",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount is null, no room size given",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The team lunch came to Rs 5000 total. Please send your share."
+   },
+   {
+    "sender": "20",
+    "text": "How many people are we splitting between?"
+   },
+   {
+    "sender": "10",
+    "text": "I don't have the exact count, just send what you think is fair."
+   },
+   {
+    "sender": "30",
+    "text": "That's not helpful. Can you check the bill?"
+   },
+   {
+    "sender": "10",
+    "text": "The bill just says Rs 5000, no headcount."
+   },
+   {
+    "sender": "40",
+    "text": "I'll just send Rs 500."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, whatever works."
+   },
+   {
+    "sender": "50",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 5000,
+   "total_text": "Rs 5000",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals and refusal",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I bought a six-pack for $9.99. Split three ways? That's $3.33 each."
+   },
+   {
+    "sender": "20",
+    "text": "I didn't drink any, so I'm not paying."
+   },
+   {
+    "sender": "10",
+    "text": "You were there and had one."
+   },
+   {
+    "sender": "20",
+    "text": "Okay fine, but I'm only paying $3."
+   },
+   {
+    "sender": "30",
+    "text": "I'll pay $3.33, no problem."
+   },
+   {
+    "sender": "10",
+    "text": "So 30 pays $3.33, 20 pays $3, and I cover the rest."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$3.33",
+  "_facts": {
+   "total_value": 9.99,
+   "total_text": "$9.99",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected after someone questions it",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The concert tickets were $260 total. Split 6 ways = $43.33 each."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought they were $240?"
+   },
+   {
+    "sender": "10",
+    "text": "Let me check... you're right, it was $240. So $40 each."
+   },
+   {
+    "sender": "30",
+    "text": "I paid for parking, can we deduct that?"
+   },
+   {
+    "sender": "10",
+    "text": "No, that's separate. Just send $40."
+   },
+   {
+    "sender": "40",
+    "text": "I'm not paying until 50 pays me back for dinner."
+   },
+   {
+    "sender": "50",
+    "text": "I'll pay you later. Just send the ticket money."
+   },
+   {
+    "sender": "40",
+    "text": "Fine, sending my share now."
+   }
+  ],
+  "expected": "$40",
+  "_facts": {
+   "total_value": 240,
+   "total_text": "$240",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after ask, explicit count later",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The cottage rental was £350 total. Can everyone chip in?"
+   },
+   {
+    "sender": "20",
+    "text": "How many people stayed?"
+   },
+   {
+    "sender": "30",
+    "text": "I think 5 of us."
+   },
+   {
+    "sender": "40",
+    "text": "No, it was 6. 50 stayed too."
+   },
+   {
+    "sender": "50",
+    "text": "I left after one night, so I shouldn't pay full."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, let's just say 5 people pay full: me, 20, 30, 40, and 50 pays half. So £350 / 5.5 = £63.64 each."
+   },
+   {
+    "sender": "20",
+    "text": "This is getting complicated. Can we just do £70 each for 5 people?"
+   },
+   {
+    "sender": "10",
+    "text": "Fine, £70 each from me, 20, 30, 40, and 50 pays £35."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$70",
+  "_facts": {
+   "total_value": 350,
+   "total_text": "£350",
+   "currency": "bare",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill with uneven division and dropout",
+  "participants": 10,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The party bus was $1200 total. We had 10 people RSVP but only 8 showed. So $150 each."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, I thought it was $1000?"
+   },
+   {
+    "sender": "10",
+    "text": "No, $1200 with tip."
+   },
+   {
+    "sender": "30",
+    "text": "I wasn't there, so I'm not paying."
+   },
+   {
+    "sender": "40",
+    "text": "Me neither."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, so only 8 of us. $1200 / 8 = $150 each."
+   },
+   {
+    "sender": "20",
+    "text": "That's steep. Can we split by those who drank?"
+   },
+   {
+    "sender": "10",
+    "text": "No, everyone pays equally. Just send $150."
+   },
+   {
+    "sender": "50",
+    "text": "I'll send $150, but I'm not happy about it."
+   },
+   {
+    "sender": "10",
+    "text": "Noted. Sending my share now."
+   }
+  ],
+  "expected": "$150",
+  "_facts": {
+   "total_value": 1200,
+   "total_text": "$1200",
+   "currency": "USD",
+   "headcount": 8,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure stated as total",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The escape room was $25 per person. Everyone owes me that."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were there?"
+   },
+   {
+    "sender": "10",
+    "text": "Doesn't matter, just send $25 each."
+   },
+   {
+    "sender": "30",
+    "text": "But I paid for parking, so I'm deducting $5."
+   },
+   {
+    "sender": "10",
+    "text": "Fine, send $20."
+   },
+   {
+    "sender": "40",
+    "text": "I'll send $25."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25 per person",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with no headcount and vague split",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I bought a snack for $3.50. Can you guys split it?"
+   },
+   {
+    "sender": "20",
+    "text": "How many of us?"
+   },
+   {
+    "sender": "10",
+    "text": "Just a few of us. Send whatever."
+   },
+   {
+    "sender": "30",
+    "text": "I'll send $1."
+   },
+   {
+    "sender": "20",
+    "text": "Me too."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, that covers it."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 3.5,
+   "total_text": "$3.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total in rupees with late correction and null headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The auto fare was Rs 1500 total. Please send your share."
+   },
+   {
+    "sender": "20",
+    "text": "Wait, was it Rs 1500 or Rs 1200?"
+   },
+   {
+    "sender": "10",
+    "text": "Oh, it was Rs 1200. My mistake."
+   },
+   {
+    "sender": "30",
+    "text": "How many people?"
+   },
+   {
+    "sender": "10",
+    "text": "I don't know, just send something."
+   },
+   {
+    "sender": "40",
+    "text": "I'll send Rs 300."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 1500,
+   "total_text": "Rs 1500",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount revealed after bill with two dropouts",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, I covered the pizza and drinks last night. Total came to $180."
+   },
+   {
+    "sender": "20",
+    "text": "Oh nice, thanks for grabbing that!"
+   },
+   {
+    "sender": "30",
+    "text": "Was that for everyone who was there?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, but two people left before we ordered the second round, so they shouldn't chip in."
+   },
+   {
+    "sender": "40",
+    "text": "So it's just the four of us then?"
+   },
+   {
+    "sender": "10",
+    "text": "Yep, just us four. $45 each."
+   },
+   {
+    "sender": "20",
+    "text": "Works for me."
+   },
+   {
+    "sender": "30",
+    "text": "Cool, sending my share now."
+   }
+  ],
+  "expected": "$45",
+  "_facts": {
+   "total_value": 180,
+   "total_text": "$180",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill corrected twice and headcount still vague",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Guys, I paid 120 rupees for the auto ride."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, wasn't it 90?"
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, it was 90 rupees. My bad."
+   },
+   {
+    "sender": "40",
+    "text": "How many of us were in it? Like 4 or 5?"
+   },
+   {
+    "sender": "20",
+    "text": "Some of us got off early, so just split it among whoever was there the whole time."
+   },
+   {
+    "sender": "50",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 90,
+   "total_text": "90 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimal and one person refuses",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "I bought a coffee for the group earlier, it was $7.50."
+   },
+   {
+    "sender": "10",
+    "text": "I didn't have any, so I'm not paying."
+   },
+   {
+    "sender": "20",
+    "text": "That's fair. So just the two of us?"
+   },
+   {
+    "sender": "30",
+    "text": "Actually, three of us had some. You, me, and 40."
+   },
+   {
+    "sender": "40",
+    "text": "Fine with me."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, sending my share now."
+   }
+  ],
+  "expected": "$2.50",
+  "_facts": {
+   "total_value": 7.5,
+   "total_text": "$7.50",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large euro bill with unrelated second bill",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "The dinner last night was €480 total."
+   },
+   {
+    "sender": "50",
+    "text": "That's a lot. How many people?"
+   },
+   {
+    "sender": "40",
+    "text": "Six of us, since two couldn't make it."
+   },
+   {
+    "sender": "10",
+    "text": "Also, I paid €20 for the taxi earlier, but that's separate."
+   },
+   {
+    "sender": "20",
+    "text": "Let's just handle the dinner first."
+   },
+   {
+    "sender": "30",
+    "text": "So €80 each for the dinner?"
+   },
+   {
+    "sender": "40",
+    "text": "Yes, €80 each."
+   },
+   {
+    "sender": "50",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "€80",
+  "_facts": {
+   "total_value": 480,
+   "total_text": "€480",
+   "currency": "EUR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per person figure with unknown room size",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, the entry fee was $25 per person. I covered it for everyone."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us were there again?"
+   },
+   {
+    "sender": "10",
+    "text": "I don't remember exactly, but just send me $25 if you were there."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 25,
+   "total_text": "$25",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill arrives after multiple unrelated messages",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "Did anyone watch the game last night?"
+   },
+   {
+    "sender": "30",
+    "text": "Yeah, it was wild!"
+   },
+   {
+    "sender": "40",
+    "text": "I missed it, had to work late."
+   },
+   {
+    "sender": "10",
+    "text": "By the way, I paid for the group streaming subscription, it was $64 for the month."
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, forgot about that."
+   },
+   {
+    "sender": "30",
+    "text": "So $16 each for the four of us?"
+   },
+   {
+    "sender": "10",
+    "text": "Yep, $16 each."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$16",
+  "_facts": {
+   "total_value": 64,
+   "total_text": "$64",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount changes after someone drops out",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "I paid $150 for the concert tickets."
+   },
+   {
+    "sender": "10",
+    "text": "For all five of us?"
+   },
+   {
+    "sender": "50",
+    "text": "Yeah, five tickets."
+   },
+   {
+    "sender": "20",
+    "text": "Actually, I can't go anymore. My bad."
+   },
+   {
+    "sender": "50",
+    "text": "Okay, so four of us then. That's $37.50 each."
+   },
+   {
+    "sender": "30",
+    "text": "Got it."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$37.50",
+  "_facts": {
+   "total_value": 150,
+   "total_text": "$150",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Ambiguous total with decimals and request for clarification",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "I got the groceries, it was $47.25."
+   },
+   {
+    "sender": "10",
+    "text": "Is that including tax?"
+   },
+   {
+    "sender": "30",
+    "text": "Yes, total with tax."
+   },
+   {
+    "sender": "20",
+    "text": "And it's for the three of us?"
+   },
+   {
+    "sender": "30",
+    "text": "Yep."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, sending my share."
+   }
+  ],
+  "expected": "$15.75",
+  "_facts": {
+   "total_value": 47.25,
+   "total_text": "$47.25",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Small bill with two payers each paying one share",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "I paid $12 for the snacks."
+   },
+   {
+    "sender": "30",
+    "text": "I also paid $12 for drinks."
+   },
+   {
+    "sender": "40",
+    "text": "So we owe you both?"
+   },
+   {
+    "sender": "20",
+    "text": "Yeah, $6 each for snacks and $6 each for drinks, so $12 total per person."
+   },
+   {
+    "sender": "10",
+    "text": "Got it."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share."
+   }
+  ],
+  "expected": "$6",
+  "_facts": {
+   "total_value": 12,
+   "total_text": "$12",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 2
+  }
+ },
+ {
+  "name": "llm: Vague headcount with bill stated as total for some",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The Airbnb was $200 for the weekend."
+   },
+   {
+    "sender": "20",
+    "text": "How many people stayed?"
+   },
+   {
+    "sender": "10",
+    "text": "A bunch of us, just split it evenly among whoever was there."
+   },
+   {
+    "sender": "30",
+    "text": "Okay, sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 200,
+   "total_text": "$200",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: headcount arrives after goa trip bill",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "ok so the goa villa is booked, total came to Rs 8400 for the weekend"
+   },
+   {
+    "sender": "20",
+    "text": "wait did you include the cleaning fee"
+   },
+   {
+    "sender": "10",
+    "text": "yes everything, deposit, cleaning, all of it"
+   },
+   {
+    "sender": "30",
+    "text": "who all is actually staying? i thought rhea bailed"
+   },
+   {
+    "sender": "10",
+    "text": "rhea bailed yeah. so it's me, you two, and arjun and sana. five of us"
+   },
+   {
+    "sender": "20",
+    "text": "sana is only coming saturday night does she count"
+   },
+   {
+    "sender": "10",
+    "text": "she's paying a full share, she said so herself"
+   },
+   {
+    "sender": "30",
+    "text": "arjun and sana are one couple though, do they pay two shares or one"
+   },
+   {
+    "sender": "10",
+    "text": "ugh. fine. four of us, they count as one. 2100 each"
+   },
+   {
+    "sender": "20",
+    "text": "2100 works. sending my share now"
+   }
+  ],
+  "expected": "₹2100",
+  "_facts": {
+   "total_value": 8400,
+   "total_text": "Rs 8400",
+   "currency": "INR",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: tiny coffee bill vague room size",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "grabbed coffee for whoever wanted it, receipt says $11.50 total"
+   },
+   {
+    "sender": "50",
+    "text": "was that the oat milk one"
+   },
+   {
+    "sender": "10",
+    "text": "yes the oat milk one lol"
+   },
+   {
+    "sender": "50",
+    "text": "bless. sending my share now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 11.5,
+   "total_text": "$11.50",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: birthday dinner with a refusal",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "birthday dinner total was 312.40 on my card"
+   },
+   {
+    "sender": "20",
+    "text": "why is it 312, i thought we said the set menu"
+   },
+   {
+    "sender": "10",
+    "text": "marco ordered the tasting menu plus two bottles of wine, that's on top"
+   },
+   {
+    "sender": "30",
+    "text": "i'm not paying for marco's wine, i had one glass of the house stuff"
+   },
+   {
+    "sender": "10",
+    "text": "fine, marco covers the wine. so 312.40 minus 96 for wine, that's 216.40 for five of us"
+   },
+   {
+    "sender": "40",
+    "text": "43.28 each then"
+   },
+   {
+    "sender": "10",
+    "text": "yeah 43.28"
+   },
+   {
+    "sender": "30",
+    "text": "that i can do. sending my share now"
+   }
+  ],
+  "expected": "$62.48",
+  "_facts": {
+   "total_value": 312.4,
+   "total_text": "312.40",
+   "currency": "EUR",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: per person figure no headcount ever given",
+  "participants": 8,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "hey the escape room was 42 per person, i covered everyone"
+   },
+   {
+    "sender": "10",
+    "text": "how many of us were there again"
+   },
+   {
+    "sender": "20",
+    "text": "doesn't matter, just send 42"
+   },
+   {
+    "sender": "30",
+    "text": "42 is what i owe? ok"
+   },
+   {
+    "sender": "10",
+    "text": "i'll check my splitwise later, just want to be sure"
+   },
+   {
+    "sender": "20",
+    "text": "it's 42 flat. that's it."
+   },
+   {
+    "sender": "30",
+    "text": "alright. sending my share now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 42,
+   "total_text": "42",
+   "currency": "bare",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: bill corrected downward then someone drops",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "uber from the airport was $120, splitting 4 ways = 30 each"
+   },
+   {
+    "sender": "20",
+    "text": "i already paid for my own uber home, i wasn't in that one"
+   },
+   {
+    "sender": "10",
+    "text": "you were in the one to the hotel"
+   },
+   {
+    "sender": "20",
+    "text": "right. ok yeah i was"
+   },
+   {
+    "sender": "30",
+    "text": "wait the receipt, wasn't it 95.50? there was a promo"
+   },
+   {
+    "sender": "10",
+    "text": "oh you're right, promo applied, $95.50 total"
+   },
+   {
+    "sender": "40",
+    "text": "so who's in on this, 3 of us?"
+   },
+   {
+    "sender": "10",
+    "text": "3 of us yeah, call it 31.83 each"
+   },
+   {
+    "sender": "30",
+    "text": "fine by me. sending my share now"
+   }
+  ],
+  "expected": "$31.83",
+  "_facts": {
+   "total_value": 95.5,
+   "total_text": "$95.50",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: large group second unrelated bill mixed in",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "airbnb for the ski weekend came out to $1,450 total"
+   },
+   {
+    "sender": "20",
+    "text": "hold on before we do that, did anyone pay me back for the groceries from last time"
+   },
+   {
+    "sender": "30",
+    "text": "that was like a month ago, weren't those like 60 bucks"
+   },
+   {
+    "sender": "20",
+    "text": "yeah 62.40 but whatever"
+   },
+   {
+    "sender": "10",
+    "text": "not our problem right now, the airbnb is the thing"
+   },
+   {
+    "sender": "40",
+    "text": "how many of us are even confirmed for ski weekend"
+   },
+   {
+    "sender": "10",
+    "text": "you know i can't answer that yet, dan and his girlfriend might come"
+   },
+   {
+    "sender": "50",
+    "text": "i'm confirmed regardless, just tell me what to send"
+   },
+   {
+    "sender": "10",
+    "text": "same split as last time works"
+   },
+   {
+    "sender": "50",
+    "text": "ok. sending my share now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 1450,
+   "total_text": "$1,450",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: decimal bill corrected upward mid thread",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "dinner was 190.25, my card, we were 4"
+   },
+   {
+    "sender": "30",
+    "text": "wait i thought we were 5, what about luca"
+   },
+   {
+    "sender": "20",
+    "text": "luca left before the mains, he didn't eat"
+   },
+   {
+    "sender": "10",
+    "text": "actually the bill was 208.75, they charged us for the bread basket twice"
+   },
+   {
+    "sender": "20",
+    "text": "oh god you're right. 208.75"
+   },
+   {
+    "sender": "30",
+    "text": "so 52.19 each for 4 of us"
+   },
+   {
+    "sender": "10",
+    "text": "that's ugly but ok"
+   },
+   {
+    "sender": "20",
+    "text": "i'll round down, 52 each is fine"
+   },
+   {
+    "sender": "10",
+    "text": "works. sending my share now"
+   }
+  ],
+  "expected": "$52.19",
+  "_facts": {
+   "total_value": 208.75,
+   "total_text": "208.75",
+   "currency": "EUR",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: two people chipping in one share",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "the marquee deposit was £275 on my card"
+   },
+   {
+    "sender": "10",
+    "text": "is this the wedding thing or the party thing"
+   },
+   {
+    "sender": "30",
+    "text": "party thing. bonfire night"
+   },
+   {
+    "sender": "10",
+    "text": "me and jen will split a share between us if that's ok"
+   },
+   {
+    "sender": "30",
+    "text": "fine but i need to know the total headcount to even say a number"
+   },
+   {
+    "sender": "40",
+    "text": "can we just do 275 divided by however many rsvp yes"
+   },
+   {
+    "sender": "30",
+    "text": "i'll count the rsvps tonight and message here"
+   },
+   {
+    "sender": "10",
+    "text": "whatever it lands at, me and jen are good for it"
+   },
+   {
+    "sender": "10",
+    "text": "sending my share now"
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 275,
+   "total_text": "£275",
+   "currency": "bare",
+   "headcount": null,
+   "payer_shares": 2
+  }
+ },
+ {
+  "name": "llm: bill stated as total for two then split revealed",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "canteen run was 90 rupees for the three trays"
+   },
+   {
+    "sender": "10",
+    "text": "three trays but weren't some of us sharing"
+   },
+   {
+    "sender": "50",
+    "text": "no, three separate trays. 90 total, so 30 each for the three of us"
+   },
+   {
+    "sender": "20",
+    "text": "i only had the small one though, mine was 20"
+   },
+   {
+    "sender": "50",
+    "text": "tough, i'm not recalculating, 30 each"
+   },
+   {
+    "sender": "20",
+    "text": "fine whatever"
+   },
+   {
+    "sender": "20",
+    "text": "sending my share now"
+   }
+  ],
+  "expected": "30 rupees",
+  "_facts": {
+   "total_value": 90,
+   "total_text": "90 rupees",
+   "currency": "INR",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: vague count of five or six and a late headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "cabin rental was $540 for the weekend"
+   },
+   {
+    "sender": "10",
+    "text": "how many of us does that cover, five or six?"
+   },
+   {
+    "sender": "40",
+    "text": "i think six but sam might not stay the friday"
+   },
+   {
+    "sender": "20",
+    "text": "sam is definitely coming friday, he booked the time off"
+   },
+   {
+    "sender": "10",
+    "text": "then it's six, right?"
+   },
+   {
+    "sender": "40",
+    "text": "yeah six confirmed, so 90 each"
+   },
+   {
+    "sender": "20",
+    "text": "90 is clean, i like it"
+   },
+   {
+    "sender": "10",
+    "text": "90 each works for me. sending my share now"
+   }
+  ],
+  "expected": "$90",
+  "_facts": {
+   "total_value": 540,
+   "total_text": "$540",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill arrives after multiple chat messages",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, did you guys see the game last night?"
+   },
+   {
+    "sender": "20",
+    "text": "Yeah, what a finish! By the way, I covered the pizza for us."
+   },
+   {
+    "sender": "30",
+    "text": "Oh nice, how much was it?"
+   },
+   {
+    "sender": "20",
+    "text": "It was $120 total for the four of us."
+   },
+   {
+    "sender": "40",
+    "text": "Cool, so $30 each then?"
+   },
+   {
+    "sender": "20",
+    "text": "Yep."
+   },
+   {
+    "sender": "30",
+    "text": "I'll get you later."
+   },
+   {
+    "sender": "10",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$30",
+  "_facts": {
+   "total_value": 120,
+   "total_text": "$120",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected twice, headcount unclear",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I picked up the tab for dinner last night."
+   },
+   {
+    "sender": "20",
+    "text": "How much was it?"
+   },
+   {
+    "sender": "10",
+    "text": "It was €85.50 initially, but I forgot the tip, so the total was €95.50."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, who all was there? I thought it was just us three."
+   },
+   {
+    "sender": "10",
+    "text": "No, a couple others joined later."
+   },
+   {
+    "sender": "40",
+    "text": "I wasn't there, so don't count me in."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, so split among those who were there."
+   },
+   {
+    "sender": "50",
+    "text": "Just tell me my part."
+   },
+   {
+    "sender": "10",
+    "text": "I'll figure it out and let you know."
+   },
+   {
+    "sender": "20",
+    "text": "Alright, sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 95.5,
+   "total_text": "€95.50",
+   "currency": "EUR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person figure with no headcount",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The auto fare was 15 rupees per person."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, I'll send you 15."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I thought we were splitting the total. What was the total?"
+   },
+   {
+    "sender": "10",
+    "text": "It doesn't matter, just send 15 each."
+   },
+   {
+    "sender": "30",
+    "text": "But how many of us are paying?"
+   },
+   {
+    "sender": "10",
+    "text": "Just the three of us, but don't worry about it."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 15,
+   "total_text": "15 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Someone refuses to pay, bill is large",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I covered the concert tickets for all of us. Total was $420."
+   },
+   {
+    "sender": "20",
+    "text": "Nice! So $70 each for 6 of us."
+   },
+   {
+    "sender": "30",
+    "text": "Actually, I didn't go, so I shouldn't pay."
+   },
+   {
+    "sender": "10",
+    "text": "But I bought the ticket for you anyway."
+   },
+   {
+    "sender": "30",
+    "text": "That's on you."
+   },
+   {
+    "sender": "40",
+    "text": "I'll pay my share."
+   },
+   {
+    "sender": "50",
+    "text": "Me too, but can I pay you next week?"
+   },
+   {
+    "sender": "10",
+    "text": "Sure."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$70",
+  "_facts": {
+   "total_value": 420,
+   "total_text": "$420",
+   "currency": "USD",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with decimals and chit-chat",
+  "participants": 3,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I got coffee for us earlier. It was $7.50 total."
+   },
+   {
+    "sender": "20",
+    "text": "Oh, thanks! I owe you $2.50."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I only had water. Do I still owe?"
+   },
+   {
+    "sender": "10",
+    "text": "Nah, you're good."
+   },
+   {
+    "sender": "20",
+    "text": "So just the two of us then?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, $3.75 each."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, sending my share now."
+   }
+  ],
+  "expected": "$2.50",
+  "_facts": {
+   "total_value": 7.5,
+   "total_text": "$7.50",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount given several messages later",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The group gift cost 1800 rupees."
+   },
+   {
+    "sender": "20",
+    "text": "How many of us are chipping in?"
+   },
+   {
+    "sender": "30",
+    "text": "I'm in."
+   },
+   {
+    "sender": "40",
+    "text": "Me too."
+   },
+   {
+    "sender": "50",
+    "text": "Count me in as well."
+   },
+   {
+    "sender": "20",
+    "text": "That's 4 of us so far."
+   },
+   {
+    "sender": "10",
+    "text": "Actually, 5 including me."
+   },
+   {
+    "sender": "30",
+    "text": "So 360 each."
+   },
+   {
+    "sender": "40",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "36 rupees",
+  "_facts": {
+   "total_value": 180,
+   "total_text": "1800 rupees",
+   "currency": "INR",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague count and second unrelated bill",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I paid $60 for the team lunch."
+   },
+   {
+    "sender": "20",
+    "text": "Thanks! How many of us were there?"
+   },
+   {
+    "sender": "10",
+    "text": "About 4 or 5 of us."
+   },
+   {
+    "sender": "30",
+    "text": "I also paid $20 for parking earlier, but that's separate."
+   },
+   {
+    "sender": "20",
+    "text": "Let's just split the lunch evenly."
+   },
+   {
+    "sender": "40",
+    "text": "Fine by me."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, I'll send a request."
+   },
+   {
+    "sender": "30",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 60,
+   "total_text": "$60",
+   "currency": "USD",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Bill changes after correction and headcount",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The hotel room was $140 for the night."
+   },
+   {
+    "sender": "20",
+    "text": "Cool, $35 each for 4 of us."
+   },
+   {
+    "sender": "30",
+    "text": "Actually, there was a $10 resort fee, so total is $150."
+   },
+   {
+    "sender": "10",
+    "text": "Right, I forgot. So $37.50 each."
+   },
+   {
+    "sender": "40",
+    "text": "I'll pay you when I get paid."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "$37.50",
+  "_facts": {
+   "total_value": 150,
+   "total_text": "$150",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large EUR bill with someone dropping out",
+  "participants": 7,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I booked the villa for the weekend. Total was €630."
+   },
+   {
+    "sender": "20",
+    "text": "Awesome! How many of us are splitting?"
+   },
+   {
+    "sender": "30",
+    "text": "I thought it was 7 of us."
+   },
+   {
+    "sender": "40",
+    "text": "I can't make it anymore, so don't include me."
+   },
+   {
+    "sender": "10",
+    "text": "Okay, so 6 of us then. That's €105 each."
+   },
+   {
+    "sender": "50",
+    "text": "Works for me."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": "€105",
+  "_facts": {
+   "total_value": 630,
+   "total_text": "€630",
+   "currency": "EUR",
+   "headcount": 6,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny INR bill with no headcount",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "I paid 50 rupees for the snacks."
+   },
+   {
+    "sender": "20",
+    "text": "Okay, how many of us?"
+   },
+   {
+    "sender": "10",
+    "text": "Just a few of us."
+   },
+   {
+    "sender": "30",
+    "text": "I'll send something."
+   },
+   {
+    "sender": "40",
+    "text": "Me too."
+   },
+   {
+    "sender": "20",
+    "text": "Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 50,
+   "total_text": "50 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount clarified after initial bill",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "Hey, the pizza and drinks from last night came to $164.50 total. Can everyone send their share?"
+   },
+   {
+    "sender": "20",
+    "text": "Wait, who all was there? I thought it was just us three."
+   },
+   {
+    "sender": "30",
+    "text": "No, Jake was there too. So 4 of us."
+   },
+   {
+    "sender": "40",
+    "text": "Right, 4 people. So $41.13 each?"
+   },
+   {
+    "sender": "10",
+    "text": "Yeah, just under $41.13 each. Sending my share now."
+   }
+  ],
+  "expected": "$41.12",
+  "_facts": {
+   "total_value": 164.5,
+   "total_text": "$164.50",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Vague count and later correction of total",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The group dinner last night was €88. Please everyone send your share."
+   },
+   {
+    "sender": "30",
+    "text": "How many of us were there? I lost count."
+   },
+   {
+    "sender": "20",
+    "text": "I think like 5 or 6 of us? Not sure exactly."
+   },
+   {
+    "sender": "40",
+    "text": "Actually the bill was €88? I thought it was €92 after tip."
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, €88 was before tip. Total with tip is €92. Let's just split that."
+   },
+   {
+    "sender": "50",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 88,
+   "total_text": "€88",
+   "currency": "EUR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Per-person amount with unknown headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The cab from the airport was 35 rupees per person. Please send me your share."
+   },
+   {
+    "sender": "40",
+    "text": "How many people were in the cab?"
+   },
+   {
+    "sender": "30",
+    "text": "I don't remember, maybe 4? Just send 35."
+   },
+   {
+    "sender": "50",
+    "text": "I'll send 35. Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 35,
+   "total_text": "35 rupees",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Someone refuses then agrees, small bill",
+  "participants": 5,
+  "messages": [
+   {
+    "sender": "40",
+    "text": "The coffee run this morning was $9.75 total for all five of us. Can you each send $1.95?"
+   },
+   {
+    "sender": "50",
+    "text": "I didn't even get coffee. I'm not paying."
+   },
+   {
+    "sender": "40",
+    "text": "You got a tea, remember? That was part of the $9.75."
+   },
+   {
+    "sender": "50",
+    "text": "Oh right. Fine, I'll send it."
+   },
+   {
+    "sender": "10",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$1.95",
+  "_facts": {
+   "total_value": 9.75,
+   "total_text": "$9.75",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Total corrected after someone drops out",
+  "participants": 6,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The Airbnb cleaning fee was $210 total. Split between the 6 of us, that's $35 each."
+   },
+   {
+    "sender": "30",
+    "text": "Actually, Sam left early and didn't stay the last night. Should he still pay?"
+   },
+   {
+    "sender": "40",
+    "text": "Yeah, he should. He made the mess."
+   },
+   {
+    "sender": "50",
+    "text": "Let's just split between 5 of us. That's $42 each."
+   },
+   {
+    "sender": "10",
+    "text": "Ok, $42 each. Sending my share now."
+   }
+  ],
+  "expected": "$42",
+  "_facts": {
+   "total_value": 210,
+   "total_text": "$210",
+   "currency": "USD",
+   "headcount": 5,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Second unrelated bill mentioned and ignored",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "30",
+    "text": "The concert tickets were $156 total for the three of us. Please send $52 each."
+   },
+   {
+    "sender": "40",
+    "text": "Wait, I also paid for parking. That was $15."
+   },
+   {
+    "sender": "30",
+    "text": "Let's deal with parking later. Just the tickets for now."
+   },
+   {
+    "sender": "50",
+    "text": "Ok, $52. Sending my share now."
+   }
+  ],
+  "expected": "$52",
+  "_facts": {
+   "total_value": 156,
+   "total_text": "$156",
+   "currency": "USD",
+   "headcount": 3,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Large bill with decimal and late headcount",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "50",
+    "text": "The group hotel room was $1,247.83 total for the weekend. Everyone owe me their share."
+   },
+   {
+    "sender": "10",
+    "text": "How many people are splitting this?"
+   },
+   {
+    "sender": "50",
+    "text": "I think 7 or 8."
+   },
+   {
+    "sender": "20",
+    "text": "There were 8 of us in the end. So $155.98 each."
+   },
+   {
+    "sender": "30",
+    "text": "Let me check my calculator. 1247.83 / 8 = 155.97875. So $155.98."
+   },
+   {
+    "sender": "40",
+    "text": "Ok sending my share now."
+   }
+  ],
+  "expected": "$155.98",
+  "_facts": {
+   "total_value": 1247.83,
+   "total_text": "$1,247.83",
+   "currency": "USD",
+   "headcount": 8,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Tiny bill with uneven split request",
+  "participants": 4,
+  "messages": [
+   {
+    "sender": "10",
+    "text": "The parking meter was $2.50 total for the four of us. Can you each send 63 cents?"
+   },
+   {
+    "sender": "20",
+    "text": "63 cents? Let's just do 62 or 63."
+   },
+   {
+    "sender": "30",
+    "text": "Just round up to 65 each, it's fine."
+   },
+   {
+    "sender": "10",
+    "text": "Ok, 65 cents each. Sending my share now."
+   }
+  ],
+  "expected": "$0.62",
+  "_facts": {
+   "total_value": 2.5,
+   "total_text": "$2.50",
+   "currency": "USD",
+   "headcount": 4,
+   "payer_shares": 1
+  }
+ },
+ {
+  "name": "llm: Headcount arrives after chit-chat, total changes",
+  "participants": null,
+  "messages": [
+   {
+    "sender": "20",
+    "text": "The snacks from the roadside stall were Rs 85 total. Send me your share."
+   },
+   {
+    "sender": "30",
+    "text": "Wait, I thought we also got drinks? That was another Rs 30."
+   },
+   {
+    "sender": "40",
+    "text": "Yeah, total should be Rs 115 then."
+   },
+   {
+    "sender": "20",
+    "text": "Oh right, Rs 115 total. How many of us shared?"
+   },
+   {
+    "sender": "50",
+    "text": "There were like 4 or 5 of us munching."
+   },
+   {
+    "sender": "30",
+    "text": "Let's just split evenly among whoever pays. Sending my share now."
+   }
+  ],
+  "expected": null,
+  "_facts": {
+   "total_value": 85,
+   "total_text": "Rs 85",
+   "currency": "INR",
+   "headcount": null,
+   "payer_shares": 1
+  }
+ }
+]

@@ -344,6 +344,112 @@ DM the headcount is known to be two, so nothing is ever blank there.
 `lets split it` with no number is the commonest phrasing of all and must be treated as
 a split — for a while it was not, and the full total went onto the sheet.
 
+### 5a1. An uneven split rounds — Akash, 2026-10-07
+
+An uneven share used to blank, on the same "rather nothing than wrong" grounds as the
+table above. In a real group that is not an edge case, it is the **normal** case: the
+live room has 9 members, so only multiples of 9 divided, and both the $208 and the $200
+dinner came back empty. Roughly 8 bills in 9 showed no amount at all.
+
+Round it, the way every split app does. 9 × $23.11 is $207.99; the asker is a cent short,
+nobody minds, and the field is editable.
+
+| the message says | prompt shows |
+|---|---|
+| `$208 total, send me your shares` + `participants: 9` | `$23.11` |
+| `₹1000 total, send me your shares` + `participants: 7` | `₹143` — rupees round to the rupee, nobody splits paise |
+| `50 rupees total, send me your shares` + `participants: 3` | `17 rupees` — a word-form currency keeps its side |
+| a share that rounds away to zero | **blank** — still nothing rather than `0` |
+
+### 5a2. The split is a thread, not a sentence — 2026-10-07
+
+Whether a figure is a divisible total is read off the **whole thread since the last
+fire**, not off the one message that matched. A clarification or a correction becomes the
+newest open request, and neither sentence *alone* says it is a split — so the full bill
+went through undivided, and the blank-rather-than-mislead fallback missed it too:
+
+| the thread | prompt shows |
+|---|---|
+| `$90 total, send me your shares` → `how many of us are splitting?` → `just the 3 of us who ate` → `ok sending my share` | `$30` — the latest headcount anyone stated wins |
+| `$90 total, send me your shares` → `sorry it was $120 actually` → `ok sending` | `$24` — the correction is still the same split |
+| `$90 total, everyone send me your share` → `i cant pay` → `rest of you split it 4 ways then` → `sending` | `$22.50` — a stated headcount overrides the roster |
+| `$90, lets split it between 4-5 of us` → `ok sending` | **blank** — a range is an unknown headcount (extends Gowtham, 2026-09-13) |
+
+A range must never resolve to the smaller number: that overstates what each person owes,
+which is the one direction a payment field must not be wrong in.
+
+### 5a2b. What counts as a split, and whose figure is the bill — 2026-10-07
+
+A thread is a split if **any** of these appear since the last fire: a share word
+(`your shares`, `individual shares`, `each`, `per person`), `split` followed by a
+headcount, a figure, `it`/`this`/`the bill`, or `evenly`/`equally`, `chip in`/`pitch in`,
+`everyone send`, `all of you`. Each of those was added because a thread without it put the
+**whole bill** on the sheet:
+
+| the thread said | used to show | now |
+|---|---|---|
+| `$208 for the groceries, lets split it` | $208 | $69.33 |
+| `So we split 120? How many people?` | 120 rupees | blank |
+| `we agreed to split evenly` | $150 | $30 |
+| `how many of us are chipping in?` | 1800 rupees | ₹360 |
+
+`my share` / `my part` / `what you owe` is **not** a split marker on its own — it is also
+how someone answers an ordinary one-to-one ask. Paired with a figure the asker called a
+total it is one, and that pairing is what three separate threads needed (`$60 total` →
+`sending my share` showed $60). An ordinary `can you send me $200` → `sending my share`
+still shows $200.
+
+**Whose figure is the bill:** only the person who asked can restate it. Treating any recent
+number in a split thread as the new total divided a refund request (`I overpaid, can you
+refund $5?` → **$1** on a $210 bill) and a figure from an unrelated side-conversation
+(`weren't those like 60 bucks`, about last month's groceries → **8.57** on a $1,450
+airbnb). Anyone else's number leaves the field blank.
+
+**A per-person figure stated later is the share, not the total.** `The tickets were $260
+total... you're right, it was $240. So $40 each` showed **$240** — six times what the
+person owed — because the per-person guard assumed the figure being held was already the
+share. It now reads the stated share out of the message.
+
+#### Known limitations, measured 2026-10-07
+
+All three are the same open problem — **which of several figures in a thread is the bill** —
+and all three show too LITTLE, never too much:
+
+| thread | shows | should be |
+|---|---|---|
+| `$18 per person` → `I thought it was $15?` → `No, that was the student rate` | $15 | $18 |
+| `$1200 total... $150 each` → `I'll send $150` | $15 | $150 |
+| `$1,450 total` … `weren't those like 60 bucks` (a month-old bill) | 8.57 bucks | blank or $207.14 |
+
+The figure chosen is the most recent one in the window, so a refuted figure, a stated
+share, or an unrelated bill can win. Fixing it means changing amount *selection*, which is
+the counter-offer mechanism (6e) and wants its own gate run — not a patch bolted onto the
+split arithmetic.
+
+Also known: the amount extractor matches `$`, `₹` and the words
+(`dollars`/`bucks`/`rupees`/`rs`/`inr`), but **not `€`** — a euro bill yields no amount and
+the sheet opens blank.
+
+### 5a3. Covering someone else pays their share too — Akash, 2026-10-07
+
+`ill cover me and priya` on a $90/5 split is a commitment to **$36**, not $18. Covering a
+member who is short is ordinary in a group, and the prompt opened at a single share every
+time — leaving the asker short by exactly the covered person's share.
+
+The count is read narrowly, because an error here makes the payment too **large**:
+`both` and `the N of us` state it outright, and a **name counts only when it matches the
+roster the caller sent**. `sending my share and the tip` is one share, and so is a name
+we cannot verify.
+
+**Not yet working:** the `I'll pay / I'll cover / I'll settle for X` family does not fire
+at all — `ill cover me and priya` scores 0.067, `ill pay for both of us` 0.042, while
+`sending for both of us` scores 0.995. Naming a second person collapses the score
+(`ill cover it` 0.994 → `ill cover me and priya` 0.067), and `ill cover both of us` sits
+at 0.980, five thousandths under the bar. This is a training-distribution gap, not a
+pattern that can be written: `I'll pay for both of us` (a commitment) and `I'll pay you
+next week` (a deferral that must stay quiet) are the same surface form. It belongs in the
+next training round, **not** in a rules-based fire.
+
 ## 6. Timing and conversation flow
 
 * **Distance does not matter.** A genuine acceptance ten messages later still fires.

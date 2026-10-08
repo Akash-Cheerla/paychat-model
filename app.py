@@ -17,6 +17,7 @@ Intents: money, ride, food_order, contact, alarm, reminder, calendar, bills, tra
 
 import asyncio
 import json
+import math
 import os
 import re
 import threading
@@ -803,7 +804,13 @@ _REQUEST_OF_OTHER = [
 
 # A request every member owes separately, rather than one debt with one payer.
 _DIVISIBLE = re.compile(
-    r"\b(?:each|per\s+(?:head|person)|your\s+shares?|their\s+shares?|"
+    # An adjective between the pronoun and "shares" used to break this: "pay up your
+    # INDIVIDUAL shares" was not read as a split at all (live, 2026-10-07).
+    # "shares" with no pronoun at all is how it was actually typed: "Total, please pay up
+    # INDIVIDUAL shares" (live, 2026-10-07) came back not-a-split, so that clarification
+    # was recorded as an ordinary request and the whole bill went onto the sheet.
+    r"\b(?:each|per\s+(?:head|person)|(?:your|their|the)\s+(?:\w+\s+){0,2}shares?|"
+    r"(?:individual|respective|own)\s+shares?|"
     r"split\s+(?:it\s+)?(?:\d+\s+ways|between|among)|\d+\s+ways|"
     # A split with NO count stated anywhere — "lets split it", "we'll split the bill".
     # This is how people actually say it, and without it the commonest phrasing was
@@ -812,6 +819,19 @@ _DIVISIBLE = re.compile(
     # someone who owes 1000 is the one direction a payment prompt must never be
     # wrong in. With this, a known headcount divides and an unknown one blanks.
     r"split(?:ting)?\s+(?:it|this|that|the\s+(?:bill|tab|cost|fare|total|check))|"
+    # "who's chipping in?" is a split and nothing else. Without it, "The group gift cost
+    # 1800 rupees" / "how many of us are chipping in?" / "Me too" fired with the whole
+    # 1800 on the sheet, because at that moment no word in the thread said "split"
+    # (generated scenario, 2026-10-07).
+    r"(?:chip|chips|chipping|pitch|pitches|pitching)\s+in|"
+    # "so we split 120?" and "we agreed to split evenly" are both plainly splits, and
+    # neither matched: the pattern above wants "split" followed by it/this/that/the-bill or
+    # a headcount, so a FIGURE or an adverb after it fell through and the whole total went
+    # onto the sheet (generated scenarios, 2026-10-07).
+    # \d+ not \d: the whole alternation below is wrapped in \b...\b, so stopping on the
+    # first digit of "120" leaves no word boundary and the alternative never matches.
+    r"split(?:ting)?\s+(?:up\s+)?(?:the\s+)?[₹$€]?\d+|"
+    r"split(?:ting)?\s+(?:it\s+|this\s+|that\s+)?(?:evenly|equally|fairly|even)|"
     # "everyone please send me the money" - a filler word between "everyone" and the
     # verb hid the commonest group phrasing (dogfood 2026-09-11, group_12).
     r"every(?:one|body)\s+(?:(?:please|pls|plz|kindly|can|could|should|just)\s+)?"
@@ -831,7 +851,18 @@ _AMOUNT_INQUIRY = re.compile(
 
 # "split 5 ways", "between 4 of us", "4 way split" — a headcount stated in the message.
 _WAYS = re.compile(r"\b(?:split\s+)?(\d{1,2})\s*[- ]?(?:way|ways)\b|"
-                   r"\b(?:between|among)\s+(?:the\s+)?(\d{1,2})\b", re.IGNORECASE)
+                   r"\b(?:between|among)\s+(?:the\s+)?(\d{1,2})\b|"
+                   # "just the 3 of us who ate" states the headcount without "between",
+                   # which is how a group narrows a split after the ask (2026-10-07).
+                   r"\bthe\s+(\d{1,2})\s+of\s+us\b", re.IGNORECASE)
+
+# "split between 4-5 of us" is not a headcount, it is two. _WAYS reads the first number
+# it sees, so the range came out as 4 and every share was computed on the SMALLER count -
+# which overstates what each person owes, the one direction a payment field must not be
+# wrong in (live probe, 2026-10-07). Gowtham already ruled (2026-09-13) that an
+# unknown-size split shows a blank amount; a range is an unknown size.
+_WAYS_RANGE = re.compile(r"\b\d{1,2}\s*(?:-|–|—|to|or)\s*\d{1,2}\s*"
+                         r"(?:of\s+(?:us|you|them)|ways|people|persons?|folks)\b", re.IGNORECASE)
 
 _AMT_NUM = re.compile(r"(\d[\d,]*(?:\.\d+)?)")
 
@@ -843,9 +874,158 @@ _PER_PERSON_AMT = re.compile(
 _TOTAL_AMT = re.compile(
     r"\b(?:total|in\s+all|altogether|came\s+to|cost|costs|was|is|bill\s+was)\b", re.IGNORECASE)
 
+# Said of a group, these ALSO mean the figure is the whole bill, even with no "total" in
+# the message. "Can everyone send me $200 for dinner" is one $200 dinner split between
+# them, not $200 from each - reading it the other way put the full bill on every member's
+# sheet (live, 2026-10-07). "N ways" is the same thing with the headcount spelled out.
+#
+# Narrow on purpose: it needs the group address AND a bare figure. "everyone send me $25
+# each" states the share and is caught by _PER_PERSON_AMT before this is consulted.
+_TOTAL_BY_GROUP = re.compile(
+    r"\bevery(?:one|body)\s+(?:(?:please|pls|plz|kindly|can|could|should|just)\s+)?"
+    r"(?:send|sends|pay|pays|transfer|owes?)\b"
+    r"|\ball\s+of\s+(?:you|us)\b"
+    r"|\byou\s+(?:two|three|four|all)\b", re.IGNORECASE)
+
+
+# A count only counts in a PAYING context. The 09-10 log has "So about $100? It was 5 of
+# us right?" - that states a headcount, it is not an offer to pay for five people, and
+# reading it as one would have multiplied the share straight back up to the whole bill.
+# "Both of us are not getting notified" is the same trap with "both".
+_PAY_LEAD = (r"(?:for|cover|covers|covering|pay|pays|paying|send|sends|sending|"
+             r"settle|settles|settling|get|gets|getting)\s+(?:for\s+)?")
+_PAYEES_N_OF_US = re.compile(_PAY_LEAD + r"(?:all\s+)?(?:the\s+)?"
+                             r"(two|three|four|five|six|[2-9])\s+of\s+us\b", re.IGNORECASE)
+_PAYEES_BOTH = re.compile(_PAY_LEAD + r"(?:the\s+)?both\b", re.IGNORECASE)
+
+# Any wording whose number is a count of PEOPLE rather than money. Used to keep a
+# headcount from being read as the amount - see the typed_amount comment.
+_HEADCOUNT_PHRASE = re.compile(r"\b(?:all\s+)?(?:the\s+)?\d{1,2}\s+of\s+(?:us|you|them)\b"
+                               r"|\b\d{1,2}\s*[- ]?ways?\b", re.IGNORECASE)
+_SELF_WORDS = re.compile(r"\b(?:me|my|mine|myself)\b", re.IGNORECASE)
+_ALSO_WORDS = re.compile(r"\b(?:too|also|as\s+well)\b", re.IGNORECASE)
+_NUMWORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def _payee_count(text: str, roster, sender) -> int:
+    """How many shares is this person paying for? 1 unless they say who else they cover.
+
+    Ruled by Akash, 2026-10-07: "ill cover me and priya" is a commitment to pay TWO
+    shares. Covering a member who is short is ordinary in a group, and the prompt opened
+    at a single share every time - leaving the asker short by exactly the share of the
+    person being covered.
+
+    Counting is deliberately narrow, because an error here makes the payment too LARGE.
+    "both" and "the N of us" state the count outright. A NAME counts only when it matches
+    the roster the caller sent, so "sending my share and the tip" can never be read as
+    two people.
+    """
+    t = text or ""
+    m = _PAYEES_N_OF_US.search(t)
+    if m:
+        g = m.group(1).lower()
+        n = _NUMWORDS.get(g) or int(g)
+        return n if 2 <= n <= 20 else 1
+    if _PAYEES_BOTH.search(t):
+        return 2
+    named = set()
+    for e in roster or ():
+        if e.get("id") == sender:
+            continue
+        for label in (e.get("name"), e.get("nickname")):
+            # Three characters minimum, the same floor _roster_fuzzy uses: a two-letter
+            # nickname matches inside ordinary words and would invent a payee.
+            if label and len(label) >= 3 and re.search(
+                    r"\b" + re.escape(label) + r"(?:['’]?s)?\b", t, re.IGNORECASE):
+                named.add(e.get("id"))
+    if not named:
+        return 1
+    # "me and priya" and "priya too" both mean the speaker as well; "ill cover priya"
+    # alone means just her.
+    return len(named) + (1 if _SELF_WORDS.search(t) or _ALSO_WORDS.search(t) else 0)
+
+
+# The per-person figure itself, captured. _PER_PERSON_AMT only answers "is this message
+# stating a share?"; this answers "which number is the share?".
+_PER_PERSON_FIG = re.compile(
+    r"(?:[₹$€]\s*)?(\d[\d,]*(?:\.\d+)?)\s*(?:rs|rupees|dollars|bucks)?\s*"
+    r"(?:each|per\s+(?:head|person)|a\s?piece|apiece)\b"
+    r"|(?:each|per\s+(?:head|person))\s*(?:is|are|=|:)?\s*"
+    r"(?:[₹$€]\s*)?(\d[\d,]*(?:\.\d+)?)", re.IGNORECASE)
+
+
+def _per_person_figure(text: str):
+    """The share this message states, as plain digits, or None."""
+    m = _PER_PERSON_FIG.search(text or "")
+    if not m:
+        return None
+    return (m.group(1) or m.group(2) or "").replace(",", "") or None
+
+
+def _put_number(amount: str, number: str) -> str:
+    """Swap the figure inside an amount string, keeping the currency mark where it was."""
+    m = _AMT_NUM.search(str(amount or ""))
+    if not m:
+        return number
+    return (str(amount).replace(m.group(1), "\x00", 1).replace("\x00", number).strip()
+            or number)
+
+
+def _scale_share(share: str, times: int) -> str:
+    """One share -> the share for `times` people, keeping the currency mark in place.
+
+    Multiplies the ROUNDED share, so covering two people on an uneven bill can be a cent
+    off the exact double ($23.11 x 2 = $46.22, exactly 46.222 rounds the same). The field
+    is editable and the asker is the one a cent short, which is the harmless direction.
+    """
+    m = _AMT_NUM.search(str(share or ""))
+    if not m or times < 2:
+        return share
+    v = float(m.group(1).replace(",", "")) * times
+    txt = str(int(v)) if v == int(v) else f"{v:.2f}"
+    return (str(share).replace(m.group(1), "\x00", 1).replace("\x00", txt).strip()
+            or txt)
+
+
+def _amount_source_text(scoped, amount):
+    """The most recent message in the window that states this figure.
+
+    Returns (text, sender) - the sender matters, see `bill_is_the_askers` at the call site.
+
+    The message that MATCHED is not always the message that named the amount. A
+    clarification ("how many of us are splitting?") or a correction ("sorry it was $120
+    actually") becomes the newest open request, and asking that sentence alone whether
+    the figure is a divisible total answers no - so the full bill went through undivided
+    (live probe, 2026-10-07). The total/per-person test belongs on the message the
+    figure came from.
+    """
+    m = _AMT_NUM.search(str(amount or ""))
+    if not m:
+        return "", None
+    for msg in reversed(scoped or []):
+        if m.group(1) in (msg.get("text") or ""):
+            return (msg.get("text") or ""), msg.get("sender")
+    return "", None
+
+
+# Any per-person wording at all, regardless of where the figure sits. Used as a veto, not
+# as a detector: _PER_PERSON_AMT needs the figure adjacent, and this catches the looser
+# "we each owe 25" so a split thread cannot talk us into dividing a share again.
+_PER_PERSON_WORD = re.compile(r"\b(?:each|per\s+(?:head|person)|a\s?piece|apiece)\b",
+                              re.IGNORECASE)
+
+# "sending my share" is how a payer answers a split, but on its own it is also how someone
+# answers an ordinary one-to-one ask, so it is NOT a split marker by itself. Paired with a
+# figure the asker marked as a GROUP total it is unambiguous, and that pairing is what three
+# separate generated threads needed: "$60 total" / "sending my share" showed $60, and
+# "total was 9.50" / "sending my share now" showed $9.50 (2026-10-07).
+_MY_SHARE = re.compile(r"\bmy\s+(?:share|portion|part|bit|half)\b"
+                       r"|\bwhat\s+(?:i|you)\s+owe\b", re.IGNORECASE)
+
 
 def _per_person_share(text: str, total: str, participants: int = None,
-                      _is_dm_room: bool = False):
+                      _is_dm_room: bool = False, ways_text: str = None,
+                      in_split_thread: bool = False):
     """Turn a stated TOTAL into a per-person figure, or None if we cannot be sure.
 
     "trip was 5000, send me your shares" is 1000 each in a room of five and 2500 in a
@@ -863,7 +1043,21 @@ def _per_person_share(text: str, total: str, participants: int = None,
     # it per-person.
     if _PER_PERSON_AMT.search(text or ""):
         return None
-    if not _TOTAL_AMT.search(text or ""):
+    # A figure counts as the total when the message says so ("dinner was 200"), when it
+    # states the headcount to divide by ("split 8 ways" - _WAYS), or when it asks a group
+    # to send it ("can everyone send me 200"). See _TOTAL_BY_GROUP.
+    # Inside a split thread a bare figure IS the total. "$208 for the groceries, lets
+    # split it" and "actually $150, i forgot the tip" are both plainly splits, and neither
+    # contains a word marking the figure as a total - so the share was not computed AND the
+    # blanking fallback below asked the same question and also said no, which put the whole
+    # bill on the sheet (generated matrix, 2026-10-07).
+    #
+    # Gated on there being no per-person wording anywhere in the message, so "we each owe
+    # 25" is never divided down to 5. That one blanks instead, which is the safe way to be
+    # unsure.
+    if not (_TOTAL_AMT.search(text or "") or _WAYS.search(text or "")
+            or _TOTAL_BY_GROUP.search(text or "")
+            or (in_split_thread and not _PER_PERSON_WORD.search(text or ""))):
         return None
     m = _AMT_NUM.search(str(total))
     if not m:
@@ -873,10 +1067,16 @@ def _per_person_share(text: str, total: str, participants: int = None,
     except ValueError:
         return None
 
+    # The headcount is often stated in a different message than the figure: "$90 total,
+    # send me your shares" ... "just the 3 of us who ate". `ways_text` is the most recent
+    # message in the thread that states one; it falls back to this message.
+    for t in (ways_text, text):
+        if t and _WAYS_RANGE.search(t):
+            return None                  # "4-5 of us" - see _WAYS_RANGE
     n = None
-    w = _WAYS.search(text or "")
+    w = _WAYS.search(ways_text or "") or _WAYS.search(text or "")
     if w:
-        n = int(w.group(1) or w.group(2))
+        n = int(w.group(1) or w.group(2) or w.group(3))
     elif participants and participants > 1:
         n = participants
     elif _is_dm_room:
@@ -888,10 +1088,31 @@ def _per_person_share(text: str, total: str, participants: int = None,
         return None
 
     share = value / n
-    if share != int(share):
-        return None                      # uneven split — let a person decide, not us
-    keep = str(total).replace(m.group(1), "")     # preserve the currency mark
-    return f"{keep.strip()}{int(share)}".strip() or str(int(share))
+    # An uneven split used to return nothing, so the sheet opened blank. In a real group
+    # that is the normal case, not an edge one: group_12 has 9 members, so only multiples
+    # of 9 divided and $208 and $200 both came back empty (live, 2026-10-07). Ruled by
+    # Akash the same day - round it, the way every split app does. 9 x $23.11 is $207.99,
+    # the asker is a cent short, nobody minds, and the field is editable.
+    #
+    # Rupees round to the rupee: nobody splits paise, and "₹23.11" reads as a bug.
+    if share == int(share):
+        text_share = str(int(share))
+    elif _currency_of(total) == "INR":
+        # Half rounds DOWN, deliberately. round() is banker's rounding, so Rs 14,500 split
+        # 8 ways (1812.50) went down to 1812 while 1813.50 would go up to 1814 - the
+        # direction depended on the digit, and half the time it overstated. Rounding a half
+        # down is consistent and leaves the ASKER half a rupee short, which is the harmless
+        # side. Surfaced by a generated scenario, 2026-10-07.
+        text_share = str(math.ceil(share - 0.5))
+    else:
+        text_share = f"{share:.2f}"
+    if not float(text_share):
+        return None                      # rounds away to nothing - better blank than 0
+    # Put the share back exactly where the number was, so the currency mark keeps its
+    # side: "$208" -> "$23.11", but "50 rupees" -> "17 rupees". Substituting a stripped
+    # prefix gave "rupees17" for the suffix form.
+    out = str(total).replace(m.group(1), "\x00", 1).replace("\x00", text_share).strip()
+    return out or text_share
 
 
 def _norm_slot(v) -> str:
@@ -4401,9 +4622,21 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     merged = dict(result.get("slots") or {})
                     # The amount this message literally types, if any. Checked against the
                     # text so an amount the extractor recovered from elsewhere does not count.
+                    #
+                    # A HEADCOUNT is not a payment. "sending for the 3 of us" on a $90 bill
+                    # extracted amount=3, and because 3 is right there in the text it looked
+                    # like a typed figure - which both put $3 on the sheet and skipped the
+                    # split arithmetic entirely (2026-10-07). Mask the headcount phrases
+                    # before asking what this message typed.
+                    _text_nums = {_amount_key(n) for n in _NUMBER.findall(text)}
+                    _real_nums = {_amount_key(n) for n in
+                                  _NUMBER.findall(_HEADCOUNT_PHRASE.sub(" ", text or ""))}
                     _own_amt = _amount_key(merged.get("amount"))
-                    typed_amount = (_own_amt if _own_amt in {_amount_key(n) for n in
-                                                              _NUMBER.findall(text)} else None)
+                    typed_amount = _own_amt if _own_amt in _real_nums else None
+                    if _own_amt and _own_amt in _text_nums and _own_amt not in _real_nums:
+                        # The only figure here was a headcount, so this message named no
+                        # amount at all - let the request's figure merge in below.
+                        merged["amount"] = None
                     for k, v in (src["slots"] or {}).items():
                         if merged.get(k) in (None, "", []):
                             merged[k] = v
@@ -4442,19 +4675,89 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                         # Not when the payer typed the figure: "Sending you 100 now" on a
                         # "$700, everyone send" request is already their share - blanking it
                         # or dividing it by the headcount again would both be wrong.
-                        if src.get("divisible") and merged.get("amount") and not typed_amount:
+                        # A split thread is bigger than the one message that matched.
+                        # "how many of us are splitting?" and "sorry it was $120 actually"
+                        # each became the newest open request in a live probe, and because
+                        # neither sentence ALONE says the figure is a divisible total, the
+                        # whole bill went through undivided - $90 on a 3-way split, $120
+                        # on a 5-way (2026-10-07). Worse than the bug it came from: the
+                        # blank-rather-than-mislead fallback below was reading the same
+                        # one sentence, so it did not catch these either.
+                        #
+                        # So read the decision off the thread: which message marked this a
+                        # split, which message stated the figure, and the latest headcount
+                        # anyone named. All three are scoped to `scoped` already, i.e.
+                        # since the last fire, so a settled bill cannot reach the next one.
+                        split_entry = next((m for m in reversed(scoped)
+                                            if _DIVISIBLE.search(m.get("text") or "")), None)
+                        split_msg = (split_entry or {}).get("text") or ""
+                        amt_text, amt_sender = _amount_source_text(scoped, merged.get("amount"))
+                        if not amt_text:
+                            amt_text, amt_sender = (src.get("text") or ""), src.get("sender")
+                        # Whose figure is it? Treating any recent bare number in a split
+                        # thread as the new bill divided a REFUND request ("I overpaid, can
+                        # you refund $5?" -> $1 on a $210 bill) and a figure from an
+                        # unrelated side-conversation ("weren't those like 60 bucks" about
+                        # last month's groceries -> 8.57 on a $1,450 airbnb). Only the
+                        # person who asked gets to restate the bill; anyone else's number
+                        # leaves the field blank instead (generated scenarios, 2026-10-07).
+                        asker = (split_entry or {}).get("sender") or src.get("sender")
+                        bill_is_the_askers = bool(
+                            amt_sender is not None and asker is not None
+                            and str(amt_sender) == str(asker))
+                        # "sending for the 3 of us" states how many people the PAYER is
+                        # covering, not how many ways the bill splits. Counting it as the
+                        # headcount divided $90 by 3 and then multiplied by 3 again, so the
+                        # payer saw the whole bill. A count in a paying context belongs to
+                        # _payee_count; only the rest can set the headcount.
+                        ways_msg = next((m.get("text") or "" for m in reversed(scoped)
+                                         if (_WAYS.search(m.get("text") or "")
+                                             or _WAYS_RANGE.search(m.get("text") or ""))
+                                         and not _PAYEES_N_OF_US.search(m.get("text") or "")), "")
+                        # "sending my share" against a figure the asker called a TOTAL is a
+                        # split even when no other word in the thread says so. Requiring the
+                        # total marker keeps an ordinary "can you send me $200" / "sending
+                        # my share" from being divided by the room size. See _MY_SHARE.
+                        answers_a_split = bool(_MY_SHARE.search(text or "")
+                                               and _TOTAL_AMT.search(amt_text))
+                        if ((src.get("divisible") or split_msg or answers_a_split)
+                                and merged.get("amount") and not typed_amount):
                             share = _per_person_share(
-                                src.get("text") or "", merged["amount"], participants,
-                                _is_dm_room=bool(room_id and room_id.startswith("dm_")))
+                                amt_text, merged["amount"], participants,
+                                _is_dm_room=bool(room_id and room_id.startswith("dm_")),
+                                ways_text=ways_msg,
+                                in_split_thread=bill_is_the_askers)
                             if share:
-                                merged["amount"] = share
-                            elif (_TOTAL_AMT.search(src.get("text") or "")
-                                  and not _PER_PERSON_AMT.search(src.get("text") or "")):
-                                # Divisible, and the figure we hold is the TOTAL, but the
-                                # headcount is unknown (no `participants`) or the split is
-                                # uneven. Blank the field rather than pre-fill 5000 when
-                                # the person owes 1000 — the whole point of computing a
-                                # share is not to put the wrong number on a payment sheet.
+                                # Covering someone else pays more than one share.
+                                merged["amount"] = _scale_share(
+                                    share, _payee_count(text, roster, sender))
+                            elif _PER_PERSON_AMT.search(amt_text):
+                                # The message states a share, so show THAT figure - not
+                                # whatever total we happen to be holding. The guard used to
+                                # stop here and leave the held amount alone, on the
+                                # assumption that it WAS the share. "The tickets were $260
+                                # total... you're right, it was $240. So $40 each" left
+                                # $240 on the sheet: six times what the person owed
+                                # (generated scenario, 2026-10-07).
+                                fig = _per_person_figure(amt_text)
+                                if fig:
+                                    merged["amount"] = _put_number(merged["amount"], fig)
+                                else:
+                                    # Known to be per-person but unreadable: blank beats
+                                    # showing the total.
+                                    merged["amount"] = None
+                                    blanked.add("amount")
+                            else:
+                                # We are in a split and could not work out the share - the
+                                # headcount is unknown, or it is a range, or the share
+                                # rounds away to nothing. The figure we hold is therefore a
+                                # TOTAL, and showing it would pre-fill 5000 for someone who
+                                # owes 1000. Blank it.
+                                #
+                                # This used to also require a "total" word in the message,
+                                # and a split whose figure had none ("$208 for the
+                                # groceries, lets split it") fell straight through with the
+                                # whole bill - the same failure the branch exists to stop.
                                 merged["amount"] = None
                                 # Setting None is not enough: the triggered_by sync below
                                 # only overwrites with truthy values, so the total would
