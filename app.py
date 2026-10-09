@@ -3188,6 +3188,42 @@ _HOW_MUCH_Q = re.compile(
     r"\bhow\s+much\s+(?:do\s+)?(?:you|u)\s+need\b", re.IGNORECASE)
 
 
+# Someone recalling a figure rather than stating one: "I thought it was $15?". On its own
+# this must NOT disqualify a figure - "can you send me $20?" is a question too, and it is
+# the ask. It only counts alongside _REFUTED below.
+_DOUBTED_AMOUNT = re.compile(
+    r"\b(?:i\s+thought|thought\s+it\s+was|wasn'?t\s+it|was\s+it|isn'?t\s+it|"
+    r"didn'?t\s+(?:you|we)\s+say|you\s+said)\b", re.IGNORECASE)
+
+# ...and being told no. "No, that was the student rate."
+_REFUTED = re.compile(
+    r"^\s*(?:no+|nope|nah|not\s+quite|wrong)\b"
+    r"|\bthat\s+was\s+(?:the\s+)?\w+\s+(?:rate|price|one|quote)\b"
+    r"|\bactually\s+it\s+(?:was|is)\b", re.IGNORECASE)
+
+
+def _amount_refuted(scoped: list, amount) -> bool:
+    """Was this figure questioned and then shot down?
+
+    _latest_amount() applies the same test while scanning, but the amount usually does
+    not come from there: it is inherited from the matched request's own slots, and when
+    that request IS the doubting message ("Wait, I thought it was $15?") the figure
+    arrives without ever passing the scan. End to end that showed $3.75 - the refuted $15
+    divided by four - where $18 was owed (2026-10-08).
+    """
+    text, _ = _amount_source_text(scoped, amount)
+    if not text or not _DOUBTED_AMOUNT.search(text):
+        return False
+    seen = False
+    for m in scoped:
+        if not seen:
+            seen = (m.get("text") or "") == text
+            continue
+        if _REFUTED.search(m.get("text") or ""):
+            return True
+    return False
+
+
 def _latest_amount(hist: list) -> Optional[str]:
     """Most recently stated amount in the window, newest first.
 
@@ -3206,6 +3242,17 @@ def _latest_amount(hist: list) -> Optional[str]:
     for i in range(len(texts) - 1, -1, -1):
         amt = _extract_amount(texts[i])
         if amt:
+            # A figure someone QUESTIONED and was then told no is not the amount. The
+            # newest figure usually wins, and that is right for a correction - but
+            # "$18 per person" / "Wait, I thought it was $15?" / "No, that was the
+            # student rate" put $15 on the sheet, which is neither what was asked for
+            # nor what anyone agreed (dogfood-shaped case, 2026-10-08).
+            #
+            # BOTH halves are required. The doubt alone would disqualify "can you send
+            # me $20?", which is a question and is also the ask.
+            if (_DOUBTED_AMOUNT.search(texts[i])
+                    and any(_REFUTED.search(t or "") for t in texts[i + 1:])):
+                continue
             return amt
         # A bare figure answering "how much?" — "can you send me some money" /
         # "how much" / "450" / "ok sending".
@@ -4655,6 +4702,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                     blanked = set()      # slots deliberately cleared, see below
 
                     if intent == "money":
+                        # Drop an inherited figure that the thread refuted, so the
+                        # fallback below finds the one that still stands.
+                        if merged.get("amount") and _amount_refuted(scoped, merged["amount"]):
+                            merged["amount"] = None
                         latest = None
                         for m in reversed(scoped):
                             a = _negotiated_amount(m["text"])
