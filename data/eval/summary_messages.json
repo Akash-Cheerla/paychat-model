@@ -1,0 +1,1485 @@
+[
+ {
+  "name": "Long bug triage with a buried repro and owner",
+  "text": "Morning all, hope the weekend treated you better than it treated my laptop. I spent most of Friday afternoon and honestly a chunk of Saturday chasing the checkout failure that Priya flagged in the staging build. Turns out it only happens when the cart has more than one item and one of them is a digital good, which is why nobody could reproduce it from a single-item cart. The stack trace points at the tax recalculation service, specifically the rounding step that runs after discounts are applied. Repro is: add a physical item, add a gift card, apply promo SAVE10, then hit continue. You get a 500 about nine times out of ten, and the tenth time it silently drops the promo instead of erroring. I've attached the full log dump to the ticket, it's CHECKOUT-4417 if anyone needs it. Dev is probably a two-line fix in the rounding helper but I don't want to be the one guessing, so can Marco take it since he wrote that module? Honestly this thing has been haunting me and I feel like we keep patching symptoms. Anyway, if we don't have it fixed by Thursday we're going to miss the regression window before the 3.2 freeze, and that's the one I actually care about.",
+  "must_keep": [
+   "CHECKOUT-4417",
+   "can Marco take it since he wrote that module",
+   "by Thursday we're going to miss the regression window",
+   "3.2 freeze"
+  ],
+  "must_drop": [
+   "Morning all, hope the weekend treated you better than it treated my laptop",
+   "honestly",
+   "I feel like we keep patching symptoms",
+   "Anyway"
+  ]
+ },
+ {
+  "name": "Release notes with counts and a hard cutover date",
+  "text": "Quick status on 3.2 since a few people have asked. We closed 47 of the 61 tickets in the milestone, the other 14 are moving to 3.3 with sign-off from Dana. Two of those are actually customer-facing so they'll get a note in the changelog. Build 3.2.0-rc3 passed the full regression suite this morning, first time in three weeks, so that's nice. The one thing I still need is the migration script for the billing table rename, Jun, that's yours and it has to be in the release branch before Friday at noon because ops needs a dry run on the staging clone first. The cutover itself is locked for the 18th at 02:00 UTC, maintenance window is 90 minutes, and Nadia is on call for the rollback if we need it. I'll update the public status page once rc4 is cut. Nothing else is blocking as far as I know, but shout if you're sitting on something I don't know about.",
+  "must_keep": [
+   "closed 47 of the 61 tickets",
+   "the other 14 are moving to 3.3",
+   "before Friday at noon",
+   "cutover itself is locked for the 18th at 02:00 UTC",
+   "maintenance window is 90 minutes"
+  ],
+  "must_drop": [
+   "Quick status on 3.2 since a few people have asked",
+   "so that's nice",
+   "as far as I know",
+   "but shout if you're sitting on something I don't know about"
+  ]
+ },
+ {
+  "name": "Pure venting about lunch and weather, nothing actionable",
+  "text": "Okay I just need to say this somewhere and it's going to be the group chat. The sandwich place downstairs has changed their bread and I am genuinely upset about it. It's like cardboard now. I don't know why they'd do that. Also it's raining again, which means the walk to the other building is going to soak my shoes for the third day in a row. I hope everyone else is having a nicer Tuesday than I am. Anyway I'm going to go stare at the vending machine and think about my choices. Ignore me. Back to your regularly scheduled programming.",
+  "must_keep": [],
+  "must_drop": [
+   "I just need to say this somewhere",
+   "genuinely upset about it",
+   "I hope everyone else is having a nicer Tuesday than I am",
+   "Anyway",
+   "Ignore me"
+  ]
+ },
+ {
+  "name": "Design review feedback buried in small talk",
+  "text": "Hey team, hope the offsite thing went well, sorry I missed it, I was heads-down on the settings redesign. I went through the new onboarding flow mockups this morning and left comments in Figma. Big ones: the progress indicator should show four steps not five, we cut the team-invite step last week and the mockup still has it. The continue button needs to be disabled until the workspace name field has at least three characters, otherwise people just click through with an empty name and we get garbage data, I've seen this in the current build. Also the empty state illustration is way too big on mobile, it's pushing the CTA below the fold, which I feel like we should have caught earlier. Priya, can you update the spec doc with these and re-share before the review on Wednesday? Everything else looks good to me, the color changes are a big improvement. Thanks!",
+  "must_keep": [
+   "progress indicator should show four steps not five",
+   "continue button needs to be disabled until the workspace name field has at least three characters",
+   "empty state illustration is way too big on mobile",
+   "re-share before the review on Wednesday"
+  ],
+  "must_drop": [
+   "hope the offsite thing went well",
+   "sorry I missed it",
+   "I feel like we should have caught earlier",
+   "Thanks!"
+  ]
+ },
+ {
+  "name": "Mostly a list of links with a couple of real asks",
+  "text": "Collected the stuff people sent me this week so it stops living in six different DMs. Perf dashboard is at dash.internal/perf/api-latency, p95 is up 180ms since the cache change so someone should look at that. The postmortem doc for the Tuesday outage is here, draft, still needs an owner for the follow-up actions. Runbook for the deploy is in the wiki under Release/Ops. And the vendor pricing sheet Tom pulled is in the shared drive, the renewal quote came in at $42k which is up from $31k last year, so we probably want to negotiate that before the contract auto-renews in March. If you own one of these can you put your name on it in the doc? I'm not going to chase everyone individually, I don't have the energy. Ping me if a link is broken.",
+  "must_keep": [
+   "p95 is up 180ms since the cache change",
+   "still needs an owner for the follow-up actions",
+   "renewal quote came in at $42k which is up from $31k last year",
+   "before the contract auto-renews in March"
+  ],
+  "must_drop": [
+   "so it stops living in six different DMs",
+   "probably want to negotiate",
+   "I don't have the energy",
+   "Ping me if a link is broken"
+  ]
+ },
+ {
+  "name": "Release blocked by crash and mobile overflow",
+  "text": "Morning everyone, hope the weekend was decent. I spent most of yesterday on staging hammering the new checkout flow and it mostly holds up, but we have two real blockers. The first is a hard crash on iOS 17.2 when you apply a gift card before adding a shipping address — stack trace is in JIRA-4471, and it reproduces about 8 times out of 10. Second, the order summary card overflows on iPhone SE (375px) and pushes the Pay button below the fold, which honestly looks pretty bad. @Priya can you take the gift card crash since you wrote that validator? I think it is a null deref but not 100% sure. @Daniel the layout one is probably yours. My honest feeling is we should push the Friday release to Tuesday rather than ship with a crash, but I want to hear from you both before I tell the PM. Also the staging DB got wiped again this morning which cost me an hour, so please be careful with the migrate script. Not urgent but annoying. Anyway, let me know by EOD today if you can pick those up.",
+  "must_keep": [
+   "hard crash on iOS 17.2 when you apply a gift card before adding a shipping address",
+   "JIRA-4471",
+   "overflows on iPhone SE (375px)",
+   "@Priya can you take the gift card crash",
+   "push the Friday release to Tuesday",
+   "let me know by EOD today"
+  ],
+  "must_drop": [
+   "Morning everyone, hope the weekend was decent",
+   "honestly looks pretty bad",
+   "I think it is a null deref but not 100% sure",
+   "Not urgent but annoying",
+   "Anyway, let me know"
+  ]
+ },
+ {
+  "name": "All chatter no decisions lunch and weather",
+  "text": "Hey team, random one — has anyone else noticed the office coffee machine has been making that gurgling noise since Tuesday? Kind of sounds like it is dying. Also it is absolutely pouring out there, I got soaked walking from the parking garage. Anyway I tried that new ramen place on 5th for lunch and honestly it was just okay, way too salty for the price. Matt says the dumplings are better but I am skeptical. Oh and someone left a blue jacket in meeting room 2, if it is yours it is hanging on the back of my chair now. Hope everyone is having a good week, this weather is really something. Anyway nothing important, just rambling while my build runs.",
+  "must_keep": [],
+  "must_drop": [
+   "has anyone else noticed the office coffee machine has been making that gurgling noise since Tuesday",
+   "I got soaked walking from the parking garage",
+   "honestly it was just okay, way too salty for the price",
+   "nothing important, just rambling while my build runs"
+  ]
+ },
+ {
+  "name": "Deadline chase with vague ask and thanks",
+  "text": "Hi all, quick nudge on the Q4 metrics deck. I know everyone is slammed, truly no stress intended here, but the exec review is Wednesday morning and I still need the conversion numbers from the growth side. @Nina could you get me the weekly cohorts through October by Monday noon? Even a rough cut is fine, I just need something in the slides. Also the design team asked whether we can include the before/after screenshots of the new onboarding, @Kai do you have those handy, ideally in PNG so they do not look fuzzy on the projector. Honestly the deck is 80% there, I am mostly missing the growth section and the appendix. I will do a full read-through Monday night and send it out Tuesday. If anything is going to slip please tell me today so I can cut scope, I would rather drop a slide than miss the review. Thanks so much, you all rock.",
+  "must_keep": [
+   "exec review is Wednesday morning",
+   "@Nina could you get me the weekly cohorts through October by Monday noon",
+   "@Kai do you have those handy, ideally in PNG",
+   "send it out Tuesday",
+   "tell me today so I can cut scope"
+  ],
+  "must_drop": [
+   "I know everyone is slammed, truly no stress intended here",
+   "Even a rough cut is fine",
+   "Honestly the deck is 80% there",
+   "Thanks so much, you all rock"
+  ]
+ },
+ {
+  "name": "Pure chatter, nothing actionable just catching up about lunch and a podcast",
+  "text": "Morning all! Did anyone else see the email about the quarterly all-hands being moved to the big room on the fourth floor? I honestly think the acoustics in there are terrible but whatever, not my call. Also the coffee machine on our floor is broken again, I filed a ticket with facilities but you know how that goes. I've been listening to that podcast about distributed systems everyone keeps recommending and I have to say, it's fine? Like, I don't get the hype. Been trying to eat better so I've been bringing lunch instead of ordering, which is saving me a fortune and also making me sad. Anyway, nothing major from me, just vibes. How's everyone holding up this week?",
+  "must_keep": [],
+  "must_drop": [
+   "Morning all!",
+   "I honestly think the acoustics in there are terrible",
+   "not my call",
+   "I have to say, it's fine?",
+   "I don't get the hype",
+   "Anyway, nothing major from me, just vibes"
+  ]
+ },
+ {
+  "name": "Design review notes with a decision and a hard requirement about contrast",
+  "text": "Notes from the design review this afternoon, quick turnaround requested. We're going with the two-column layout for the settings page, the tabbed version was rejected, people found it too hard to scan. The new color palette fails the contrast check on the secondary buttons, we need at least 4.5:1 against the background, so the designer is going back and picking darker greys. Empty states get illustrations, but they have to be under 40KB each or the load time on mobile gets ugly. The onboarding flow is being cut from five steps to three, we're dropping the team-invite step and folding the notification preferences into the last screen. Sign-off needed by the 18th, the frontend work starts the following Monday. I think the whole thing looks pretty good honestly, it's a much cleaner direction than what we had.",
+  "must_keep": [
+   "We're going with the two-column layout for the settings page",
+   "need at least 4.5:1 against the background",
+   "under 40KB each",
+   "cut from five steps to three",
+   "dropping the team-invite step",
+   "Sign-off needed by the 18th",
+   "the frontend work starts the following Monday"
+  ],
+  "must_drop": [
+   "quick turnaround requested",
+   "people found it too hard to scan",
+   "I think the whole thing looks pretty good honestly"
+  ]
+ },
+ {
+  "name": "Bug report with reproduction steps and deadline mixed with greetings",
+  "text": "Hey team, hope everyone had a good weekend. I found a nasty bug in the checkout flow when using a saved credit card. Steps to reproduce: add any item to cart, proceed to checkout, select saved card, and click 'Place Order' – it throws a 500 error. This is blocking the release scheduled for Friday, April 12. I've assigned it to @dev_mike because he wrote that module. Also, the error logs show 'NullPointerException at PaymentProcessor.java:142'. I think it's probably due to a null token when the card is expired. Can someone take a look today? Thanks! Oh, and by the way, the coffee machine on the 3rd floor is broken again. Anyway, let me know if you need more details. Cheers, Sarah",
+  "must_keep": [
+   "blocking the release scheduled for Friday, April 12",
+   "assigned it to @dev_mike",
+   "NullPointerException at PaymentProcessor.java:142"
+  ],
+  "must_drop": [
+   "hope everyone had a good weekend",
+   "I think it's probably",
+   "Oh, and by the way, the coffee machine on the 3rd floor is broken again",
+   "Thanks!",
+   "Cheers, Sarah"
+  ]
+ },
+ {
+  "name": "Release notes with list of changes and a tangent about lunch",
+  "text": "Alright folks, here are the release notes for v2.3.0 going out tomorrow. New features: dark mode toggle in settings, export to CSV for reports, and bulk delete for admin users. Bug fixes: resolved the login timeout issue on mobile, fixed broken image links in emails, and patched the SQL injection vulnerability reported by security. Known issues: PDF export still fails for files over 10MB, and the search bar doesn't reset after navigation. We need to update the documentation by end of day today. Also, design team wants to change the button color from blue to green – I'm not sure about that, honestly. Let's discuss in the sync at 3 PM. By the way, who ate my sandwich from the fridge? Not cool. Anyway, please review the release notes and add anything I missed. Thanks, Tom",
+  "must_keep": [
+   "v2.3.0 going out tomorrow",
+   "dark mode toggle in settings, export to CSV for reports, and bulk delete for admin users",
+   "resolved the login timeout issue on mobile",
+   "PDF export still fails for files over 10MB",
+   "update the documentation by end of day today",
+   "sync at 3 PM"
+  ],
+  "must_drop": [
+   "I'm not sure about that, honestly",
+   "who ate my sandwich from the fridge? Not cool",
+   "Anyway",
+   "Thanks, Tom"
+  ]
+ },
+ {
+  "name": "QA findings with numbers and a rant about flaky tests",
+  "text": "Hi all, just finished regression testing on build 456. Pass rate is 87%, which is below our target of 95%. Found 12 new bugs, 3 of them critical: crash on startup for Android 11, data loss when syncing offline, and payment gateway timeout. The other 9 are minor UI glitches. I've logged them all in Jira under project 'MOBILE'. We need to fix the critical ones before the beta release on May 1. Also, the automated test suite is super flaky – it failed 5 times today for no reason. I feel like we should invest in better test infrastructure. Can we schedule a meeting to prioritize? Let me know your availability. Oh, and happy birthday to @jess! 🎉 Anyway, that's all from me. – Alex",
+  "must_keep": [
+   "build 456",
+   "Pass rate is 87%",
+   "12 new bugs, 3 of them critical",
+   "crash on startup for Android 11, data loss when syncing offline, and payment gateway timeout",
+   "logged them all in Jira under project 'MOBILE'",
+   "beta release on May 1"
+  ],
+  "must_drop": [
+   "I feel like we should invest in better test infrastructure",
+   "Oh, and happy birthday to @jess! 🎉",
+   "Anyway, that's all from me",
+   "– Alex"
+  ]
+ },
+ {
+  "name": "Design review feedback with decisions and casual chat",
+  "text": "Hey guys, just got out of the design review for the new dashboard. We decided to go with the sidebar layout instead of top navigation. The color palette will be the updated brand colors – blue and grey. Font size for headings should be 24px, body 16px. We need to finalize the mockups by next Wednesday, April 20. Also, the client asked for a dark mode option, so we'll add that to the backlog. I think the current design is a bit cluttered, but overall it's good. Oh, and does anyone know a good place for lunch around here? I'm starving. Anyway, please update your tasks accordingly. Thanks! – Priya",
+  "must_keep": [
+   "decided to go with the sidebar layout instead of top navigation",
+   "Font size for headings should be 24px, body 16px",
+   "finalize the mockups by next Wednesday, April 20",
+   "client asked for a dark mode option, so we'll add that to the backlog"
+  ],
+  "must_drop": [
+   "I think the current design is a bit cluttered, but overall it's good",
+   "does anyone know a good place for lunch around here? I'm starving",
+   "Anyway",
+   "Thanks! – Priya"
+  ]
+ },
+ {
+  "name": "All chatter about weekend and random thoughts, nothing important",
+  "text": "Good morning everyone! Hope you all had a fantastic weekend. I went hiking on Saturday and it was amazing – the weather was perfect. Anyway, nothing major to report today. I'm just catching up on emails. Did anyone watch the game last night? What a finish! Oh, and I tried that new coffee place down the street, it's pretty good. Let me know if you want to grab lunch later. By the way, the office plants need watering – I'll do it this afternoon. Talk soon! – Jamie",
+  "must_keep": [],
+  "must_drop": [
+   "Good morning everyone!",
+   "Hope you all had a fantastic weekend",
+   "I went hiking on Saturday and it was amazing – the weather was perfect",
+   "Anyway, nothing major to report today",
+   "I'm just catching up on emails",
+   "Did anyone watch the game last night? What a finish!",
+   "Oh, and I tried that new coffee place down the street, it's pretty good",
+   "Let me know if you want to grab lunch later",
+   "By the way, the office plants need watering – I'll do it this afternoon",
+   "Talk soon! – Jamie"
+  ]
+ },
+ {
+  "name": "Another all-chatter message with thanks and random links",
+  "text": "Hi team, just wanted to say thanks for all the hard work this sprint. You guys are awesome. I'm feeling pretty good about our progress. Anyway, I found this funny meme about debugging – here's the link: [link]. Also, I'm thinking of changing my profile picture to a cat. What do you think? No rush, just a random thought. Oh, and the vending machine is out of Diet Coke again. Someone should call facilities. I'll be out of office tomorrow afternoon for a dentist appointment. Catch you all later! – Sam",
+  "must_keep": [],
+  "must_drop": [
+   "Hi team, just wanted to say thanks for all the hard work this sprint",
+   "You guys are awesome",
+   "I'm feeling pretty good about our progress",
+   "Anyway, I found this funny meme about debugging – here's the link: [link]",
+   "Also, I'm thinking of changing my profile picture to a cat. What do you think?",
+   "No rush, just a random thought",
+   "Oh, and the vending machine is out of Diet Coke again. Someone should call facilities",
+   "I'll be out of office tomorrow afternoon for a dentist appointment",
+   "Catch you all later! – Sam"
+  ]
+ },
+ {
+  "name": "Release notes mixed with weekend small talk and one blocker",
+  "text": "Morning all, hope the weekend was decent for everyone. I pushed the release candidate for 2.4.0 last night around 11pm, build number 2.4.0-rc3, and it's sitting on the staging server now. Before anyone asks, no, I have not tested the CSV export path yet, that's still on my plate for this afternoon. Quick heads up: the payment retry loop has a nasty edge case where it retries forever if the gateway returns a 502 with an empty body. That one is a release blocker, I've flagged it in Jira as PAY-1174 and assigned it to Priya. Priya, can you take a look before Thursday? We're aiming to cut the final build on Friday morning. Also I finally watched that documentary everyone keeps talking about and honestly it was fine, not sure it deserved the hype. Anyway the changelog is in Confluence under Release Notes / 2.4.0 if you want to add your own items. I'll be offline from 2pm for a dentist appointment, back by 4.",
+  "must_keep": [
+   "release candidate for 2.4.0",
+   "build number 2.4.0-rc3",
+   "payment retry loop has a nasty edge case",
+   "release blocker",
+   "PAY-1174",
+   "assigned it to Priya",
+   "cut the final build on Friday morning",
+   "changelog is in Confluence"
+  ],
+  "must_drop": [
+   "hope the weekend was decent for everyone",
+   "Before anyone asks",
+   "honestly it was fine, not sure it deserved the hype",
+   "Anyway the changelog"
+  ]
+ },
+ {
+  "name": "QA list of findings, mostly bullet-style, one long tangent",
+  "text": "Alright, QA pass on the checkout flow is done, here's what I found. On mobile Safari, the coupon field doesn't accept lowercase letters, everything gets uppercased which breaks codes like summer20. On Chrome desktop the address autocomplete drops the apartment number about one in ten times, I couldn't reproduce it reliably but it happened four times. The confirmation email takes anywhere from 30 seconds to 6 minutes to arrive, which I know is a backend thing but it's worth flagging. Oh and the loading spinner on the payment step never actually spins, it's just a static circle, which looks broken even though it isn't. I ran the full regression suite, 148 tests, 139 passed, 8 failed, 1 skipped. The 8 failures are all in the same test file, checkout_spec.js, and I think they're actually a flaky selector problem rather than real bugs. Honestly the whole suite feels a bit brittle lately and I think we should spend a sprint on it, but that's a conversation for planning. I've attached screenshots to each bug ticket. Let me know if you want me to walk through any of them live.",
+  "must_keep": [
+   "coupon field doesn't accept lowercase letters",
+   "address autocomplete drops the apartment number",
+   "confirmation email takes anywhere from 30 seconds to 6 minutes",
+   "loading spinner on the payment step never actually spins",
+   "148 tests, 139 passed, 8 failed, 1 skipped",
+   "checkout_spec.js",
+   "attached screenshots to each bug ticket"
+  ],
+  "must_drop": [
+   "Oh and the loading spinner",
+   "Honestly the whole suite feels a bit brittle",
+   "that's a conversation for planning",
+   "Let me know if you want me to walk through"
+  ]
+ },
+ {
+  "name": "Pure social chatter, no decisions at all",
+  "text": "Hey everyone, just wanted to say the new office plants look great and whoever picked them has excellent taste. Also, has anyone else noticed that the coffee machine on the third floor makes a weird grinding noise now? It's been going on for like a week. I tried the cold brew place around the corner yesterday and honestly it's overpriced for what you get, but the pastries are good. My cat learned to open the bedroom door this weekend which is both impressive and deeply annoying at 5am. Anyway, hope everyone's having a good Tuesday. I'm around if anyone wants to grab lunch, thinking of that ramen spot near the station. No agenda, just saying hi. Oh, and if you haven't seen the new season of that show, we should definitely talk about it, no spoilers though.",
+  "must_keep": [],
+  "must_drop": [
+   "just wanted to say the new office plants look great",
+   "has anyone else noticed that the coffee machine",
+   "honestly it's overpriced for what you get",
+   "My cat learned to open the bedroom door",
+   "No agenda, just saying hi",
+   "no spoilers though"
+  ]
+ },
+ {
+  "name": "Design review feedback rambling with links",
+  "text": "Okay so I went through the new dashboard designs in Figma this morning and left a bunch of comments. Link here: figma.com/file/dashboard-v3. Overall the layout is cleaner but I have some thoughts. The color contrast on the secondary buttons fails WCAG AA, it's like 3.1:1 and we need 4.5:1, so that has to change before we hand it to engineering. The empty state for the analytics tab is missing entirely, there's just a blank white box, which will look broken to users. I like the new icon set, feels much more modern, though the settings gear is a bit too small in my opinion. Also can we standardize on 8px spacing? I noticed the card padding is 12px in some places and 16px in others and it's driving me a little crazy. Tabbing order needs a pass too, currently it jumps from the header straight to the footer and skips the whole nav. I'm not a designer so take all this with a grain of salt. Let's chat in the design sync on Wednesday. Cheers.",
+  "must_keep": [
+   "figma.com/file/dashboard-v3",
+   "color contrast on the secondary buttons fails WCAG AA",
+   "empty state for the analytics tab is missing",
+   "standardize on 8px spacing",
+   "Tabbing order needs a pass",
+   "design sync on Wednesday"
+  ],
+  "must_drop": [
+   "I have some thoughts",
+   "I like the new icon set, feels much more modern",
+   "in my opinion",
+   "take all this with a grain of salt",
+   "Cheers"
+  ]
+ },
+ {
+  "name": "Post-mortem with action items and a lot of venting",
+  "text": "Post-mortem for yesterday's outage, hope nobody lost too much sleep. Root cause was the config push at 2:14am that set the connection pool size to 5, down from 200, so the API basically choked under normal load. It took us 47 minutes to notice because our alerting was on error rate, not latency, and the latency alert threshold was set way too high at 10 seconds. Total downtime was 2 hours 8 minutes, from 2:14am to 4:22am, affecting roughly 12,000 users. We rolled back at 4:15am and the recovery was quick once we actually found the bad commit. Honestly the whole thing could have been avoided if the config change had gone through review, but it was pushed directly to prod by the deploy bot, so there's a process hole there. Action items: Dan to add a latency alert at 2 seconds by end of week, I'll write the runbook update, and we're disabling direct prod config pushes in the next sprint. We should also probably talk about on-call rotation because four people got paged and nobody was sure who owned what. Anyway, no blame here, this one's on the process not the person.",
+  "must_keep": [
+   "set the connection pool size to 5, down from 200",
+   "Total downtime was 2 hours 8 minutes",
+   "affecting roughly 12,000 users",
+   "Dan to add a latency alert at 2 seconds by end of week",
+   "disabling direct prod config pushes in the next sprint"
+  ],
+  "must_drop": [
+   "hope nobody lost too much sleep",
+   "Honestly the whole thing could have been avoided",
+   "Anyway, no blame here",
+   "this one's on the process not the person"
+  ]
+ },
+ {
+  "name": "Release notes with deadline and ownership mixed into thanks",
+  "text": "Hey everyone, hope the week's been kind. Quick one before I log off for the day. We're cutting the 2.4.0 release on Thursday morning, and Priya owns the release branch this time, so please route any last-minute hotfixes through her and not directly to main. The Android build has been failing on the CI since Tuesday because of that Gradle plugin bump, and honestly I think we should just pin it back to 7.4.2 until we have time to dig in properly. Thanks to Marcus for chasing the crash reports all afternoon, that was above and beyond. Anyway, the changelog draft is in the shared drive under Releases/2.4.0, and I'd love comments on it by end of day Wednesday. Also Sam, can you confirm whether the billing migration is still scheduled for the 18th or if we pushed it? No rush, just want the doc to be accurate. Have a good evening, all.",
+  "must_keep": [
+   "cutting the 2.4.0 release on Thursday morning",
+   "Priya owns the release branch",
+   "pin it back to 7.4.2",
+   "by end of day Wednesday",
+   "is still scheduled for the 18th"
+  ],
+  "must_drop": [
+   "hope the week's been kind",
+   "honestly I think",
+   "Thanks to Marcus",
+   "No rush",
+   "Have a good evening",
+   "Anyway,"
+  ]
+ },
+ {
+  "name": "All-chatter watercooler message with no decisions",
+  "text": "Morning all! That storm last night was wild, I lost power for like three hours and ended up reading by candlelight like it's 1850 or something. Hope everyone's place is okay. I'm still thinking about that ramen place we went to on Friday, that broth was honestly unreal, we should absolutely go back. Also did anyone else see the game? I only caught the last ten minutes but it sounded like chaos from the group chat. I'm probably going to grab coffee in a bit if anyone wants to tag along, thinking the place on the corner. No agenda today, just vibes. Talk later!",
+  "must_keep": [],
+  "must_drop": [
+   "Morning all!",
+   "Hope everyone's place is okay",
+   "honestly unreal",
+   "No agenda today",
+   "Talk later!"
+  ]
+ },
+ {
+  "name": "Bug report buried in a long personal anecdote",
+  "text": "So I was demoing the app to my cousin yesterday (long story, she's a product designer, wanted to show off) and I hit something weird. When you upload a profile photo larger than 5MB on the iOS app, it just spins forever and never shows an error, which is a terrible experience. Reproduced it three times on my iPhone 13, iOS 17.2. The Android app handles the same file fine, by the way, so it seems iOS-specific. I've attached a screen recording to the ticket, it's PROJ-4821 if anyone wants to pick it up. Not a blocker for the release honestly, but it's the kind of thing users will complain about loudly. Can someone on the mobile squad take a look before Friday? Thanks, appreciate it.",
+  "must_keep": [
+   "larger than 5MB on the iOS app",
+   "Reproduced it three times on my iPhone 13, iOS 17.2",
+   "PROJ-4821",
+   "before Friday"
+  ],
+  "must_drop": [
+   "long story",
+   "which is a terrible experience",
+   "honestly",
+   "Thanks, appreciate it"
+  ]
+ },
+ {
+  "name": "Mostly a list with a couple of real decisions",
+  "text": "Alright, quick standup notes from me since I'll miss the call. 1) Auth refactor is done and merged, that was the big one. 2) The staging DB keeps dropping connections under load, I've raised it with ops and it's INFRA-991. 3) We decided to push the dark-mode launch to next sprint because the contrast issues aren't fixed yet. 4) Docs for the new API endpoints are half-written, I'll finish them by Monday. 5) Reminder that the design review is Friday at 2pm, Lina's running it. That's it, back to it.",
+  "must_keep": [
+   "Auth refactor is done and merged",
+   "INFRA-991",
+   "push the dark-mode launch to next sprint",
+   "design review is Friday at 2pm",
+   "I'll finish them by Monday"
+  ],
+  "must_drop": [
+   "Alright,",
+   "quick standup notes from me since I'll miss the call",
+   "That's it, back to it"
+  ]
+ },
+ {
+  "name": "Post-mortem ramble with a real root cause and an action item",
+  "text": "Okay so about yesterday's outage, here's my honest read. Around 14:05 we started seeing 500s spike, and it turned out the cache eviction policy was thrashing because someone (no blame, it was me) lowered the TTL to 30 seconds in a config change that went out with the morning deploy. It took us about 40 minutes to roll back, mostly because the rollback runbook is outdated and points at the wrong dashboard. Sorry for the noise, genuinely. Action items: first, I'm reverting the TTL change today and adding a config review step to the deploy checklist, and second, someone needs to own updating the runbook, I'd suggest Tom since he wrote the original. Let's discuss more at retro on Tuesday. Anyway, we're stable now, monitoring looks fine.",
+  "must_keep": [
+   "lowered the TTL to 30 seconds",
+   "took us about 40 minutes to roll back",
+   "reverting the TTL change today",
+   "own updating the runbook",
+   "retro on Tuesday"
+  ],
+  "must_drop": [
+   "here's my honest read",
+   "no blame",
+   "Sorry for the noise, genuinely",
+   "Anyway,",
+   "monitoring looks fine"
+  ]
+ },
+ {
+  "name": "Rambling post-mortem with buried root cause and action items",
+  "text": "Okay so I finally got through the whole timeline of yesterday's outage, and honestly it was a weird one. Morning everybody, hope the weekend wasn't too brutal for those of you on call. So the short version is the payments queue backed up because the consumer kept crashing on a malformed payload from the partner feed. Not our bug originally, but our validation was basically nonexistent, which I feel like we all knew and just never got around to. Sanjay has the partner on the phone and they're patching their side by Thursday. I've opened PLAT-4471 to add schema validation at the ingest boundary, and I'm putting myself as owner since I wrote most of that consumer anyway. Nobody touch the retry logic until that ships, because a bad retry could double-charge people, which is the one thing we absolutely cannot do. The dashboard was also lying to us the whole time, it showed the queue as healthy, so Mara is going to fix the metric and add an alert when consumer lag crosses five minutes. Retro is Friday at 3, I'll bring coffee. Anyway, that's the whole saga, sorry for the wall of text.",
+  "must_keep": [
+   "payments queue backed up because the consumer kept crashing",
+   "Sanjay has the partner on the phone and they're patching their side by Thursday",
+   "opened PLAT-4471 to add schema validation at the ingest boundary",
+   "Nobody touch the retry logic until that ships",
+   "Mara is going to fix the metric and add an alert when consumer lag crosses five minutes",
+   "Retro is Friday at 3"
+  ],
+  "must_drop": [
+   "Morning everybody, hope the weekend wasn't too brutal for those of you on call",
+   "honestly it was a weird one",
+   "which I feel like we all knew",
+   "Anyway, that's the whole saga, sorry for the wall of text"
+  ]
+ },
+ {
+  "name": "Release notes buried under apologies and tangential chat",
+  "text": "Hey team! Quick one before I forget everything I tested today. So 2.4.0 is basically ready, we're cutting the release candidate tomorrow morning at 10am, and I need sign-off from Priya on the localization strings before that happens or we push to Friday. The CSV export now handles commas inside quoted fields, finally, only took us three sprints and a small piece of my soul. Two things are NOT fixed and I don't want anyone surprised on Friday: the timezone edge case for users in Newfoundland, which is a real place apparently, and the flaky drag-and-drop on Safari. Both are logged, both are punted to 2.4.1. Oh also I broke my coffee machine this morning, unrelated but I'm suffering. Settings page got a full rewrite, so please give it a poke if you have five minutes, especially the notification toggles because those touch the email service. Documentation is updated except the API changelog, Daniel said he'd do it but he's been heads-down on the migration, so someone nudge him. That's everything, have a good one!",
+  "must_keep": [
+   "we're cutting the release candidate tomorrow morning at 10am",
+   "I need sign-off from Priya on the localization strings",
+   "CSV export now handles commas inside quoted fields",
+   "timezone edge case for users in Newfoundland",
+   "flaky drag-and-drop on Safari",
+   "Both are logged, both are punted to 2.4.1",
+   "Settings page got a full rewrite",
+   "Documentation is updated except the API changelog"
+  ],
+  "must_drop": [
+   "Hey team!",
+   "only took us three sprints and a small piece of my soul",
+   "Oh also I broke my coffee machine this morning, unrelated but I'm suffering",
+   "That's everything, have a good one!"
+  ]
+ },
+ {
+  "name": "Pure chatter, weekend and lunch, nothing actionable",
+  "text": "Morning all, how's everyone doing? I'm still recovering from that hike on Saturday, my legs are genuinely angry at me. Did anyone else see the game last night? Absolute chaos in the last ten minutes, I was yelling at my TV like an idiot. Also I tried that ramen place on Fifth that Tom keeps going on about and honestly it was fine, not worth the forty minute wait, sorry Tom. Anyway I don't have anything real for you today, just wanted to say hi and see if anyone's around for lunch. I'm thinking the sandwich place, the one with the terrible playlist but good bread. Let me know in the thread. Oh and the office plants look great, whoever's been watering them, thank you, it's genuinely the nicest part of the floor.",
+  "must_keep": [],
+  "must_drop": [
+   "Morning all, how's everyone doing?",
+   "I'm still recovering from that hike on Saturday, my legs are genuinely angry at me",
+   "honestly it was fine, not worth the forty minute wait",
+   "Anyway I don't have anything real for you today",
+   "the one with the terrible playlist but good bread",
+   "Oh and the office plants look great, whoever's been watering them, thank you"
+  ]
+ },
+ {
+  "name": "Mostly a list of QA findings with one inline instruction",
+  "text": "QA pass on build 812, here's what I found, sorry in advance. Search returns zero results when the query has a leading space, that's the big one, it's affecting anyone who copy-pastes. Date picker in the report filter jumps back a month when you pick the 31st. Login rate limiter is too aggressive, I hit it four times just doing normal testing, so please loosen it before we show this to anyone external. Minor stuff: the tooltip on the export button says 'Export CSV' even when you're exporting PDF, and the empty state illustration is stretched on tablet. The mobile nav overlaps the notification bell at 375px width, screenshot is in the ticket. Everything else passed, dark mode, keyboard nav, the whole accessibility suite came back clean which is a relief. Fix the search bug and the rate limiter for 2.4.0, the rest can wait, but flagging all of it so nothing gets lost.",
+  "must_keep": [
+   "QA pass on build 812",
+   "Search returns zero results when the query has a leading space",
+   "Date picker in the report filter jumps back a month when you pick the 31st",
+   "Login rate limiter is too aggressive, I hit it four times just doing normal testing",
+   "the tooltip on the export button says 'Export CSV' even when you're exporting PDF",
+   "The mobile nav overlaps the notification bell at 375px width",
+   "Fix the search bug and the rate limiter for 2.4.0"
+  ],
+  "must_drop": [
+   "here's what I found, sorry in advance",
+   "that's the big one",
+   "which is a relief",
+   "but flagging all of it so nothing gets lost"
+  ]
+ },
+ {
+  "name": "Deadline chase wrapped in reassurance and small talk",
+  "text": "Hi folks, gentle nudge on the migration checklist, we're three days out and I still only see four of the nine items ticked. Not trying to be that person, I know everyone's slammed, but the freeze starts Wednesday at noon and anything not in by then slips a full cycle. Marco, you mentioned the data backfill script was almost done on Friday, where's that landing? Jess, the rollback plan doc is still a stub as far as I can tell, can you have something rough by end of day Tuesday even if it's not pretty? I'd rather have an ugly draft than nothing. The staging environment will be wiped Thursday so anything you need to keep, pull it down Wednesday. Also I'm out Friday afternoon for a dentist thing, so if it's urgent ping Daniel. Thanks everyone, we're close, I can feel it.",
+  "must_keep": [
+   "we're three days out and I still only see four of the nine items ticked",
+   "the freeze starts Wednesday at noon and anything not in by then slips a full cycle",
+   "Marco, you mentioned the data backfill script was almost done on Friday",
+   "the rollback plan doc is still a stub",
+   "have something rough by end of day Tuesday",
+   "The staging environment will be wiped Thursday",
+   "I'm out Friday afternoon for a dentist thing"
+  ],
+  "must_drop": [
+   "gentle nudge",
+   "Not trying to be that person",
+   "I know everyone's slammed",
+   "I'd rather have an ugly draft than nothing",
+   "Thanks everyone, we're close, I can feel it"
+  ]
+ },
+ {
+  "name": "All vibes, links and off-topic, no decisions",
+  "text": "Good morning everyone, hope you all had a good weekend! I stumbled onto this blog post about weird pagination patterns and I can't stop thinking about it, linked below, no action needed I just think you'll enjoy it: https://example.com/pagination-weirdness. Also someone left a birthday cake in the kitchen, it's carrot, I don't know whose birthday it is but the cake is excellent and I've had two slices already. Weather's supposed to be gorgeous all week which is nice because my commute is a bike ride and I'm not built for rain. The new standing desks arrived, they're in the hallway, I assume facilities will figure out where they go. I keep meaning to reorganize my bookmarks and never do. Anyway, that's my whole update, it's a slow morning and I'm enjoying it while it lasts.",
+  "must_keep": [],
+  "must_drop": [
+   "Good morning everyone, hope you all had a good weekend!",
+   "no action needed I just think you'll enjoy it",
+   "it's carrot, I don't know whose birthday it is",
+   "I'm not built for rain",
+   "I assume facilities will figure out where they go",
+   "I keep meaning to reorganize my bookmarks and never do",
+   "Anyway, that's my whole update, it's a slow morning and I'm enjoying it while it lasts"
+  ]
+ },
+ {
+  "name": "release go/no-go with deadline and blocker buried in small talk",
+  "text": "Morning everyone, hope the weekend treated you all well. Quick one before standup — I've been staring at the release board since 7am and honestly my brain is mush. Bottom line: we are still targeting Thursday the 14th for the 3.2 cut, but the CSV export bug is a hard blocker. Priya, can you take the export fix and have it on staging by Wednesday EOD? That's the only thing standing between us and shipping. Everything else is cosmetic, I think. Also heads up, the analytics service was flaky again last night, saw about 40 failed jobs between 2am and 4am. Not release-blocking in my opinion but worth a look next sprint. I feel like we keep pushing this stuff down the road and then it bites us. Anyway, let me know if Thursday slips. Thanks!",
+  "must_keep": [
+   "targeting Thursday the 14th for the 3.2 cut",
+   "CSV export bug is a hard blocker",
+   "Priya, can you take the export fix and have it on staging by Wednesday EOD",
+   "about 40 failed jobs between 2am and 4am"
+  ],
+  "must_drop": [
+   "Morning everyone, hope the weekend treated you all well",
+   "honestly my brain is mush",
+   "Everything else is cosmetic, I think",
+   "Not release-blocking in my opinion",
+   "I feel like we keep pushing this stuff down the road",
+   "Anyway, let me know if Thursday slips. Thanks!"
+  ]
+ },
+ {
+  "name": "pure chatter about lunch, weather and a dog",
+  "text": "Okay so completely unrelated to work but the ramen place on 5th has reopened and it is somehow better than before? I went there yesterday and got the spicy tonkotsu and I'm still thinking about it. Also my dog figured out how to open the back gate, which is a problem I did not anticipate. The weather has been so weird this week, like 80 degrees then hailing two hours later. Anyway no real point to this message, just wanted to share. Oh and someone left a really nice mug in the kitchen with a little cactus on it, if it's yours it's still there. Hope everyone's having a decent Tuesday, this week feels endless already.",
+  "must_keep": [],
+  "must_drop": [
+   "completely unrelated to work",
+   "my dog figured out how to open the back gate",
+   "The weather has been so weird this week",
+   "no real point to this message, just wanted to share",
+   "Hope everyone's having a decent Tuesday"
+  ]
+ },
+ {
+  "name": "bug report wrapped in apologies and tangents",
+  "text": "Hey, sorry to bother you on a Friday, I know everyone's trying to wrap up. I was poking around the billing page and hit something odd. Steps: log in as a trial user, go to Settings > Billing, click 'Upgrade', and then hit the browser back button twice. The page ends up in a weird half state where it still shows the free plan but the button says 'Manage subscription'. I reproduced it three times on Chrome, and once on Safari, so it's not a one-off. Console is throwing a 403 on the /api/entitlements call right after that. Severity-wise I'd call it medium, it's not corrupting data but it's confusing as hell for users. I don't think it's new, I have a feeling it's been there since the 3.1 refactor, but I only noticed today. Could someone from the billing squad take a look next week? No rush honestly. Thanks!",
+  "must_keep": [
+   "go to Settings > Billing, click 'Upgrade', and then hit the browser back button twice",
+   "reproduced it three times on Chrome, and once on Safari",
+   "Console is throwing a 403 on the /api/entitlements call",
+   "I'd call it medium",
+   "been there since the 3.1 refactor"
+  ],
+  "must_drop": [
+   "sorry to bother you on a Friday",
+   "I know everyone's trying to wrap up",
+   "it's confusing as hell for users",
+   "No rush honestly. Thanks!"
+  ]
+ },
+ {
+  "name": "deadline chase with strong opinions and a decision request",
+  "text": "Following up on the API migration — we agreed last Tuesday it would be done by the end of this month, and I'm seeing very little movement. I'm not trying to be annoying but we've now pushed this twice and the old endpoints are getting harder to maintain every week. Here's what I need: a real estimate from the platform team by Monday, and a decision on whether we keep the v1 compatibility shim or rip it out. My strong opinion is we rip it out, it's dead weight and only 3 customers still use it. Ravi, you mentioned those 3 might be on annual contracts, can you confirm before we decide? If they're locked in till Q3 then fine, we keep it, but I want that written down somewhere. Otherwise I'm going to keep assuming we're sunrise-ing it in April. Sorry for the wall of text, this has been bugging me. Let's talk Monday at 10 if that works.",
+  "must_keep": [
+   "agreed last Tuesday it would be done by the end of this month",
+   "a real estimate from the platform team by Monday",
+   "keep the v1 compatibility shim or rip it out",
+   "only 3 customers still use it",
+   "Ravi, you mentioned those 3 might be on annual contracts",
+   "Let's talk Monday at 10"
+  ],
+  "must_drop": [
+   "I'm not trying to be annoying",
+   "My strong opinion is we rip it out, it's dead weight",
+   "Sorry for the wall of text, this has been bugging me"
+  ]
+ },
+ {
+  "name": "post-mortem ramble with a real follow-up action at the end",
+  "text": "Okay, writing this down before I forget the details. So the outage yesterday: it started at 09:14 UTC, lasted 47 minutes, affected roughly 18% of requests. Root cause was the connection pool on the reporting service maxing out after the Monday batch job left a bunch of idle transactions open. Not a new bug exactly, more like a configuration landmine that had been sitting there for months. The on-call rotation handled it well honestly, Theo spotted it in 4 minutes and we had a rollback going by 09:30. The real fix is bumping the pool size and adding a timeout, ticket is INF-2041. I'm also proposing we add an alert on idle transaction count above 200, because right now we're blind to it. Long-term I'd love to actually fix the batch job but that's a bigger thing. Anyway, retro is scheduled for Thursday 2pm, please add notes to the doc before then. Thanks everyone for jumping in, genuinely appreciated.",
+  "must_keep": [
+   "started at 09:14 UTC, lasted 47 minutes, affected roughly 18% of requests",
+   "Root cause was the connection pool on the reporting service maxing out",
+   "Theo spotted it in 4 minutes and we had a rollback going by 09:30",
+   "ticket is INF-2041",
+   "add an alert on idle transaction count above 200",
+   "retro is scheduled for Thursday 2pm"
+  ],
+  "must_drop": [
+   "writing this down before I forget the details",
+   "Not a new bug exactly, more like a configuration landmine",
+   "The on-call rotation handled it well honestly",
+   "Long-term I'd love to actually fix the batch job",
+   "Thanks everyone for jumping in, genuinely appreciated"
+  ]
+ },
+ {
+  "name": "Bug report mixed with casual chat",
+  "text": "Hey team, hope everyone's having a good week. I was testing the new login flow earlier and ran into a nasty bug. When you enter an email with a plus sign, the form throws a 500 error. I think it's probably related to the validation regex we updated last week. This is blocking the release, so we need to fix it before Friday. Also, I noticed the error message is super generic, which won't help users. Can someone from the backend team take a look? We should also add a test case for this scenario. Thanks!",
+  "must_keep": [
+   "blocking the release",
+   "before Friday",
+   "backend team take a look",
+   "add a test case for this scenario"
+  ],
+  "must_drop": [
+   "hope everyone's having a good week",
+   "I think it's probably",
+   "Also, I noticed",
+   "Thanks!"
+  ]
+ },
+ {
+  "name": "Release notes with deadlines and owners",
+  "text": "Alright, here's the plan for the 2.3 release. Code freeze is on Wednesday at 5 PM. Sarah will handle the changelog and update the docs. Mike, you're on deployment, make sure the staging environment is ready by Tuesday. We also need to bump the version number in package.json. I know we've been going back and forth on the feature list, but let's stick to what we have. The analytics dashboard is still not ready, so we're pushing it to 2.4. Any questions?",
+  "must_keep": [
+   "Code freeze is on Wednesday at 5 PM",
+   "Sarah will handle the changelog",
+   "Mike, you're on deployment",
+   "pushing it to 2.4"
+  ],
+  "must_drop": [
+   "Alright",
+   "I know we've been going back and forth",
+   "Any questions?"
+  ]
+ },
+ {
+  "name": "QA findings with a tangent",
+  "text": "Just finished a round of regression testing on the payment module. Found three issues: (1) the currency dropdown defaults to USD even when the user's locale is set to EUR, (2) the 'Pay Now' button is disabled after a failed transaction until you refresh, and (3) the receipt email doesn't include the last four digits of the card. The first two are medium priority, but the third one is a security concern and should be fixed ASAP. Oh, and by the way, did anyone else notice the new design mockups look a bit off? Anyway, let me know if you need more details.",
+  "must_keep": [
+   "Found three issues",
+   "defaults to USD",
+   "disabled after a failed transaction",
+   "security concern and should be fixed ASAP"
+  ],
+  "must_drop": [
+   "Oh, and by the way",
+   "did anyone else notice",
+   "Anyway",
+   "let me know if you need more details"
+  ]
+ },
+ {
+  "name": "Design review with opinions and decisions",
+  "text": "So I reviewed the latest design for the settings page. Honestly, I'm not a fan of the new color scheme—it feels too washed out. But the layout is much better than the previous version. We decided to move the 'Save' button to the top right, and that's final. Also, we need to make sure the page is responsive down to 320px width. The font size for the headers should be 24px instead of 20px. I think we should run this by the accessibility team before implementing. Let's aim to have the final design by next Monday.",
+  "must_keep": [
+   "move the 'Save' button to the top right",
+   "responsive down to 320px width",
+   "font size for the headers should be 24px",
+   "final design by next Monday"
+  ],
+  "must_drop": [
+   "Honestly, I'm not a fan",
+   "I think we should",
+   "So I reviewed"
+  ]
+ },
+ {
+  "name": "Deadline chase with thanks and filler",
+  "text": "Hi all, just a quick reminder that the API documentation is due tomorrow. I haven't seen any updates yet, so please make sure to push your changes by end of day. If you're blocked, let me know. Also, the client demo is scheduled for next Thursday at 10 AM. We need to have a working prototype by then. Thanks for all your hard work! Oh, and don't forget to update your JIRA tickets.",
+  "must_keep": [
+   "API documentation is due tomorrow",
+   "push your changes by end of day",
+   "client demo is scheduled for next Thursday at 10 AM",
+   "update your JIRA tickets"
+  ],
+  "must_drop": [
+   "Hi all",
+   "Thanks for all your hard work!",
+   "Oh, and don't forget"
+  ]
+ },
+ {
+  "name": "Pure chatter about lunch and weather",
+  "text": "Hey everyone, hope you're all doing well. Did you see the weather today? It's been raining non-stop. I'm thinking of grabbing lunch from that new place down the street. Anyone want to join? Also, I finally watched that show we talked about—it was amazing. We should have a team outing soon. Anyway, just wanted to say hi and see how you're all doing.",
+  "must_keep": [],
+  "must_drop": [
+   "hope you're all doing well",
+   "Did you see the weather today?",
+   "I'm thinking of grabbing lunch",
+   "We should have a team outing soon",
+   "Anyway, just wanted to say hi"
+  ]
+ },
+ {
+  "name": "Bug report with logs and deadline",
+  "text": "Hey team, quick update from testing the new payment flow. The good news is the happy path works fine on iOS, but I found a blocker on Android: when you tap 'Pay Now' after adding a new card, the app crashes with a null pointer exception in PaymentProcessor.java line 142. I've attached the stack trace in the ticket PAY-456. This is critical because we're supposed to demo this to the client on Thursday, so we need a fix by Wednesday EOD. Also, Sarah, can you double-check the API response for the card validation endpoint? I suspect it's returning a 500 instead of a proper error message. Honestly, I feel like we rushed this feature and didn't test enough edge cases. Let's sync tomorrow at 10 AM to go over the fix. Thanks!",
+  "must_keep": [
+   "crashes with a null pointer exception in PaymentProcessor.java line 142",
+   "ticket PAY-456",
+   "demo this to the client on Thursday",
+   "fix by Wednesday EOD",
+   "sync tomorrow at 10 AM"
+  ],
+  "must_drop": [
+   "Hey team, quick update from testing the new payment flow.",
+   "Honestly, I feel like we rushed this feature and didn't test enough edge cases.",
+   "Thanks!"
+  ]
+ },
+ {
+  "name": "Release notes with feature list and known issues",
+  "text": "Alright folks, here's the release notes draft for v2.3.0. New features: dark mode toggle, CSV export for reports, and a revamped onboarding wizard. Bug fixes: fixed the login timeout issue, resolved the duplicate notification problem, and patched the XSS vulnerability in the comment section. Known issues: on Safari, the date picker sometimes doesn't close; we're tracking that as BUG-789. Also, the performance on low-end devices is still not great, but we've improved the initial load time by 40%. Please review and add anything I missed. I think we should cut the release on Friday, but let me know if that's too soon. Thanks all!",
+  "must_keep": [
+   "v2.3.0",
+   "dark mode toggle, CSV export for reports, and a revamped onboarding wizard",
+   "fixed the login timeout issue, resolved the duplicate notification problem, and patched the XSS vulnerability in the comment section",
+   "BUG-789",
+   "initial load time by 40%",
+   "cut the release on Friday"
+  ],
+  "must_drop": [
+   "Alright folks, here's the release notes draft",
+   "I think we should",
+   "Thanks all!"
+  ]
+ },
+ {
+  "name": "QA findings with links and tangents",
+  "text": "Hi everyone, just finished the QA pass on the new dashboard. I found a few things: 1) The charts don't render on Firefox version 89, which is a big deal because 15% of our users are on Firefox. 2) The filter dropdown is misaligned on mobile, specifically on iPhone 12. Here's a screenshot: https://imgur.com/abc123. 3) The data refresh rate is slower than expected; it takes 5 seconds to load, but the spec says 2 seconds. I've logged all of these in JIRA under QA-101, QA-102, and QA-103. Also, have we considered adding a loading spinner? That would improve UX. Anyway, let me know if you need more details. I'll be offline for the rest of the day, but back tomorrow morning.",
+  "must_keep": [
+   "Firefox version 89",
+   "iPhone 12",
+   "https://imgur.com/abc123",
+   "takes 5 seconds to load, but the spec says 2 seconds",
+   "QA-101, QA-102, and QA-103"
+  ],
+  "must_drop": [
+   "Hi everyone, just finished the QA pass on the new dashboard.",
+   "Also, have we considered adding a loading spinner? That would improve UX.",
+   "Anyway, let me know if you need more details."
+  ]
+ },
+ {
+  "name": "Design review with opinions and action items",
+  "text": "Ok, so I reviewed the new mockups for the profile page. Overall, I think they look clean, but there are a few things that bother me. First, the font size for the bio text is too small on desktop; it should be at least 16px. Second, the 'Edit' button is hidden behind a hamburger menu, which is not intuitive. Third, the color contrast between the text and background fails WCAG AA standards. Can we fix these before the next sprint? Also, I noticed the spacing between sections is inconsistent; it should be 24px everywhere. I've left comments in Figma. Let's aim to finalize by next Tuesday. And hey, great job on the illustrations, they really add personality!",
+  "must_keep": [
+   "font size for the bio text is too small on desktop; it should be at least 16px",
+   "'Edit' button is hidden behind a hamburger menu",
+   "fails WCAG AA standards",
+   "spacing between sections is inconsistent; it should be 24px everywhere",
+   "finalize by next Tuesday"
+  ],
+  "must_drop": [
+   "Ok, so I reviewed the new mockups for the profile page.",
+   "Overall, I think they look clean, but there are a few things that bother me.",
+   "And hey, great job on the illustrations, they really add personality!"
+  ]
+ },
+ {
+  "name": "Chatter about weekend and coffee",
+  "text": "Hey everyone, hope you're all having a great Monday! I just wanted to share that I finally tried that new coffee shop down the street, and their cold brew is amazing. Also, did you see the game last night? What a comeback! Anyway, nothing major from me today, just catching up on emails. Oh, and my cat walked across my keyboard and somehow opened 50 tabs, so if you see weird messages from me, that's why. Let's grab lunch sometime this week? I'm free Wednesday or Thursday. No rush, just thought I'd say hi!",
+  "must_keep": [],
+  "must_drop": [
+   "Hey everyone, hope you're all having a great Monday!",
+   "I just wanted to share that I finally tried that new coffee shop down the street, and their cold brew is amazing.",
+   "did you see the game last night? What a comeback!",
+   "Anyway, nothing major from me today, just catching up on emails.",
+   "Oh, and my cat walked across my keyboard and somehow opened 50 tabs, so if you see weird messages from me, that's why.",
+   "Let's grab lunch sometime this week? I'm free Wednesday or Thursday.",
+   "No rush, just thought I'd say hi!"
+  ]
+ },
+ {
+  "name": "Post-mortem with timeline and action items",
+  "text": "Alright, here's the post-mortem for yesterday's outage. Timeline: at 09:15 UTC, the database CPU spiked to 100%, causing a cascade of timeouts. We rolled back the deployment at 09:45, and service was restored by 10:00. Root cause: a missing index on the orders table introduced in the last release. Action items: 1) Add the index and test on staging (owner: Mike, due: tomorrow). 2) Implement a canary deployment process to catch such issues earlier (owner: Lisa, due: end of sprint). 3) Update the runbook to include this scenario (owner: me, due: Friday). We also need to improve our monitoring alerts; the current threshold is too high. Let's discuss in our next retro. Thanks for the quick responses, everyone.",
+  "must_keep": [
+   "at 09:15 UTC, the database CPU spiked to 100%",
+   "rolled back the deployment at 09:45, and service was restored by 10:00",
+   "missing index on the orders table",
+   "Add the index and test on staging (owner: Mike, due: tomorrow)",
+   "Implement a canary deployment process to catch such issues earlier (owner: Lisa, due: end of sprint)",
+   "Update the runbook to include this scenario (owner: me, due: Friday)"
+  ],
+  "must_drop": [
+   "Alright, here's the post-mortem for yesterday's outage.",
+   "Thanks for the quick responses, everyone."
+  ]
+ },
+ {
+  "name": "Entirely chatter about weekend plans and weather",
+  "text": "Hey everyone! Hope you're all having a great week. I just wanted to share that I finally tried that new taco place down the street and it was amazing. The weather has been so nice lately, hasn't it? I'm thinking of going hiking this weekend if anyone wants to join. Also, my cat learned a new trick, she can now open the door by herself. Anyway, just wanted to say hi and see how you're all doing. Let me know if you're up for tacos or hiking!",
+  "must_keep": [],
+  "must_drop": [
+   "Hope you're all having a great week.",
+   "I just wanted to share that I finally tried that new taco place down the street and it was amazing.",
+   "The weather has been so nice lately, hasn't it?",
+   "I'm thinking of going hiking this weekend if anyone wants to join.",
+   "Also, my cat learned a new trick, she can now open the door by herself.",
+   "Anyway, just wanted to say hi and see how you're all doing.",
+   "Let me know if you're up for tacos or hiking!"
+  ]
+ },
+ {
+  "name": "Release notes with deadlines and owners",
+  "text": "Team, quick update on the v2.3 release. We are still on track to ship by Friday, March 15th. Sarah, can you please make sure the API documentation is updated by Wednesday? Also, we need to fix the login bug that was reported yesterday - it's critical. John, you're assigned to that. The new dashboard feature is ready for QA, so Mike, please start testing it tomorrow. We also decided to postpone the dark mode feature to v2.4. Let's aim to have all code frozen by Thursday 5 PM. Thanks!",
+  "must_keep": [
+   "ship by Friday, March 15th",
+   "Sarah, can you please make sure the API documentation is updated by Wednesday?",
+   "fix the login bug that was reported yesterday - it's critical",
+   "John, you're assigned to that",
+   "Mike, please start testing it tomorrow",
+   "postpone the dark mode feature to v2.4",
+   "code frozen by Thursday 5 PM"
+  ],
+  "must_drop": [
+   "Team, quick update on the v2.3 release.",
+   "Thanks!"
+  ]
+ },
+ {
+  "name": "Bug report with detailed steps and environment",
+  "text": "Hey, I found a nasty bug in the checkout flow. Steps to reproduce: 1) Add any item to cart, 2) Go to checkout, 3) Apply coupon code 'SAVE10', 4) The discount is applied but the total doesn't update until you refresh. This happens on Chrome and Firefox on Windows 10. The coupon code is supposed to take 10% off. Also, if you try to apply a second coupon, it crashes the page. I think this is related to the recent update to the pricing service. We need to fix this before the Black Friday sale on November 29th. Let me know if you need more details.",
+  "must_keep": [
+   "Add any item to cart",
+   "Apply coupon code 'SAVE10'",
+   "discount is applied but the total doesn't update until you refresh",
+   "Chrome and Firefox on Windows 10",
+   "if you try to apply a second coupon, it crashes the page",
+   "fix this before the Black Friday sale on November 29th"
+  ],
+  "must_drop": [
+   "Hey, I found a nasty bug in the checkout flow.",
+   "I think this is related to the recent update to the pricing service.",
+   "Let me know if you need more details."
+  ]
+ },
+ {
+  "name": "Deadline chase with multiple reminders and thanks",
+  "text": "Hey, just a reminder that the design review for the new landing page is tomorrow at 10 AM. Please make sure you've uploaded your mockups to Figma by end of day today. I know we're all busy, but we really need to finalize the copy by Thursday. Also, don't forget to fill out the team survey - it's due Friday. And if anyone has time, could you review the pull request for the header fix? It's been open for three days. Thanks a lot, appreciate it! Let's make this sprint great.",
+  "must_keep": [
+   "design review for the new landing page is tomorrow at 10 AM",
+   "uploaded your mockups to Figma by end of day today",
+   "finalize the copy by Thursday",
+   "fill out the team survey - it's due Friday",
+   "review the pull request for the header fix"
+  ],
+  "must_drop": [
+   "Hey, just a reminder",
+   "I know we're all busy, but",
+   "Thanks a lot, appreciate it!",
+   "Let's make this sprint great."
+  ]
+ },
+ {
+  "name": "Release notes with a buried rollback decision and a vague thank-you tangent",
+  "text": "Morning all, hope the weekend treated everyone well. Quick summary of where 4.2 stands as of this morning. We froze the branch last night, and the build is up on staging now. QA signed off on the payments flow but flagged the export-to-CSV path as flaky under load, so that one is still open. Decision from yesterday's call: we are shipping without the new dashboard filters, they slip to 4.3. Also we agreed that if the migration fails twice in a row we roll back to 4.1.5 rather than patch forward. Deployment window is Thursday 2am to 4am UTC, and Priya is on point for the rollout. Honestly I think the timing is tight but the team has done this before. Anyway, thanks everyone for pushing through the crunch last week, it genuinely made a difference. I'll keep this thread updated as we go.",
+  "must_keep": [
+   "build is up on staging now",
+   "flagged the export-to-CSV path as flaky under load",
+   "we are shipping without the new dashboard filters",
+   "Deployment window is Thursday 2am to 4am UTC",
+   "Priya is on point for the rollout"
+  ],
+  "must_drop": [
+   "hope the weekend treated everyone well",
+   "Honestly I think the timing is tight",
+   "thanks everyone for pushing through the crunch last week"
+  ]
+ },
+ {
+  "name": "Bug report buried in a rambling story about coffee and the office",
+  "text": "So I finally got around to testing the new invite flow this afternoon, and, wow. Okay so first, small thing, the office coffee machine is broken again, someone please tell facilities. Anyway here's what I found. If you paste an email with a plus sign in it, like name+test@example.com, the validation rejects it and says invalid address. That's on the staging build from yesterday. Also the invite email itself goes to spam on Gmail, I tested with two accounts. The link inside expires after 10 minutes which feels way too short, most people won't click that fast. I'd say bump it to at least an hour. Not a huge deal but worth fixing before we tell customers. I can open the tickets if that helps. Let me know what you think, I'm around all afternoon.",
+  "must_keep": [
+   "the validation rejects it and says invalid address",
+   "the invite email itself goes to spam on Gmail",
+   "The link inside expires after 10 minutes",
+   "bump it to at least an hour"
+  ],
+  "must_drop": [
+   "the office coffee machine is broken again",
+   "which feels way too short",
+   "I can open the tickets if that helps",
+   "I'm around all afternoon"
+  ]
+ },
+ {
+  "name": "All chatter about lunch and a movie, nothing actionable at all",
+  "text": "Hey team, just got back from lunch and I have to say that new ramen place on 5th is unreal. Highly recommend the spicy miso. Also did anyone else watch the finale last night? No spoilers but I have thoughts. I'm still not over it honestly. Anyway, I'm probably going to be heads down this afternoon so ping me if anything explodes. Oh and happy birthday to Marcus, hope you have a great one! Catch you all at standup tomorrow.",
+  "must_keep": [],
+  "must_drop": [
+   "new ramen place on 5th is unreal",
+   "did anyone else watch the finale last night",
+   "I'm still not over it honestly",
+   "happy birthday to Marcus"
+  ]
+ },
+ {
+  "name": "Incident post-mortem with real numbers wrapped in apologies and hedging",
+  "text": "Okay so about last night's outage. First off, sorry to everyone who got paged at 3am, that was rough. Here's roughly what happened. At 02:14 UTC the primary database hit max connections and started refusing reads. The connection pool was set to 100 but the new batch job opens 80 of them on its own, so it starved everything else. Error rate peaked at 34 percent for about 22 minutes. We failed over to the replica at 02:41 and things recovered by 02:50. Root cause was the batch job config, not the database itself, I'm fairly sure of that. Action items: I'm capping the batch job at 20 connections, Dana is adding alerting on connection pool usage, and we're moving the batch job to its own pool by end of week. I think the main lesson is we need better staging traffic. Let me know if I missed anything.",
+  "must_keep": [
+   "the primary database hit max connections and started refusing reads",
+   "the new batch job opens 80 of them on its own",
+   "Error rate peaked at 34 percent for about 22 minutes",
+   "We failed over to the replica at 02:41",
+   "I'm capping the batch job at 20 connections",
+   "Dana is adding alerting on connection pool usage"
+  ],
+  "must_drop": [
+   "sorry to everyone who got paged at 3am",
+   "I'm fairly sure of that",
+   "I think the main lesson is we need better staging traffic",
+   "Let me know if I missed anything"
+  ]
+ },
+ {
+  "name": "Design review notes as a messy bullet list with opinions sprinkled in",
+  "text": "Design review notes from this morning, typing them up before I forget. Nav bar: approved as-is, no changes. Color contrast: the grey-on-grey on the settings page fails WCAG AA, needs to go to at least 4.5 to 1, Marcus is fixing that this sprint. Empty states: we need illustrations for three screens, dashboard, search, and notifications. Sophia is taking the dashboard one, the other two are unassigned. Mobile: the modal on small screens overflows and cuts off the close button, that's a blocker for the mobile launch. Typography: team voted to stick with Inter, no change. I personally still think the header is too big on desktop but I'm outvoted. Copy: legal wants the pricing page disclaimer to say 'starting at' instead of 'from', minor but do it. Next review is a week from Tuesday. Overall solid work everyone.",
+  "must_keep": [
+   "the grey-on-grey on the settings page fails WCAG AA",
+   "needs to go to at least 4.5 to 1",
+   "the modal on small screens overflows and cuts off the close button",
+   "team voted to stick with Inter",
+   "legal wants the pricing page disclaimer to say 'starting at'",
+   "Next review is a week from Tuesday"
+  ],
+  "must_drop": [
+   "typing them up before I forget",
+   "I personally still think the header is too big on desktop",
+   "minor but do it",
+   "Overall solid work everyone"
+  ]
+ },
+ {
+  "name": "Deadline chase that turns into a tangent about the office move",
+  "text": "Hi all, quick check on the API integration work. Where are we against the Friday deadline? I haven't seen a PR from the auth side yet. Also, is the staging environment still broken for everyone else or just me? I keep getting a 502 on the /health endpoint. Separately, and I know this is off-topic, does anyone know when we're supposed to move desks for the renovation? I heard it's the 15th but nobody confirmed. Back to the integration: if we can't hit Friday, I need to know by Wednesday so I can tell the client. The client demo is currently booked for the 22nd and I'd really rather not move it. Let me know where things stand.",
+  "must_keep": [
+   "Where are we against the Friday deadline",
+   "I keep getting a 502 on the /health endpoint",
+   "I need to know by Wednesday so I can tell the client",
+   "The client demo is currently booked for the 22nd"
+  ],
+  "must_drop": [
+   "I know this is off-topic",
+   "I heard it's the 15th but nobody confirmed",
+   "I'd really rather not move it",
+   "Hi all"
+  ]
+ },
+ {
+  "name": "Release deadline chase with blocker buried in rambling",
+  "text": "Hey team, hope the week's been kind to everyone. I wanted to circle back on the 2.7 release — we're still aiming for Thursday EOD, but honestly I'm not sure that's realistic given where QA is. Priya flagged that the login flow breaks when the session token expires mid-request, which is a blocker. She's got a repro, it's in JIRA-4821. Marcus, can you take that one? You're closest to the auth code. Also the migration script still needs a dry run on staging before we ship — nobody's done that yet and I really don't want a repeat of last quarter. If we can't get both of those closed by Wednesday noon, I think we push to Monday. No shame in it, better than a hotfix at midnight. Anyway, let me know your thoughts. Thanks all!",
+  "must_keep": [
+   "aiming for Thursday EOD",
+   "login flow breaks when the session token expires mid-request",
+   "JIRA-4821",
+   "Marcus, can you take that one",
+   "migration script still needs a dry run on staging",
+   "by Wednesday noon",
+   "we push to Monday"
+  ],
+  "must_drop": [
+   "hope the week's been kind to everyone",
+   "honestly",
+   "I really don't want a repeat of last quarter",
+   "No shame in it",
+   "Anyway, let me know your thoughts",
+   "Thanks all"
+  ]
+ },
+ {
+  "name": "Design review tangent about icons that goes nowhere",
+  "text": "Okay so the design review yesterday was... a lot. I don't know about you guys but I feel like we spent forty minutes arguing about the shade of blue on the primary button and then ran out of time for the actual checkout flow. Not blaming anyone, it's just how these go. My hot take: the new nav is fine, the icons are a bit chunky but whatever. Oh and someone's dog was barking through the whole call, which was honestly the highlight. Anyway, no action items came out of it, so I guess we're meeting again Friday same time. If you have strong feelings about the empty state illustration, bring them then. I'll probably skip, I have a dentist appointment. Wish me luck.",
+  "must_keep": [],
+  "must_drop": [
+   "I don't know about you guys",
+   "I feel like we spent forty minutes arguing",
+   "Not blaming anyone, it's just how these go",
+   "My hot take",
+   "the icons are a bit chunky but whatever",
+   "honestly the highlight",
+   "Anyway, no action items came out of it",
+   "I'll probably skip",
+   "Wish me luck"
+  ]
+ },
+ {
+  "name": "QA findings with counts, a link, and an aside about coffee",
+  "text": "Morning! Ran the full regression suite on the payment service overnight — 342 tests, 9 failures, all in the refund path. Not great, not terrible. The big one: refunds over $500 are silently failing with a 200 response, so the UI thinks it worked. That's PAY-1198. There's a smaller issue where the currency symbol is wrong for JPY, ticket is PAY-1199, low priority. I also noticed the nightly job didn't run on Tuesday, no idea why, worth a look. Full log is here: https://ci.internal/runs/8812. Also unrelated, the coffee machine on floor 3 is broken again, someone please file a facilities ticket because I refuse. Oh and @Dana can you confirm whether the staging DB got the new index? I think it did but I don't want to assume.",
+  "must_keep": [
+   "342 tests, 9 failures, all in the refund path",
+   "refunds over $500 are silently failing with a 200 response",
+   "PAY-1198",
+   "currency symbol is wrong for JPY",
+   "PAY-1199",
+   "nightly job didn't run on Tuesday",
+   "https://ci.internal/runs/8812",
+   "@Dana can you confirm whether the staging DB got the new index"
+  ],
+  "must_drop": [
+   "Morning!",
+   "Not great, not terrible",
+   "no idea why, worth a look",
+   "Also unrelated",
+   "someone please file a facilities ticket because I refuse",
+   "I think it did but I don't want to assume"
+  ]
+ },
+ {
+  "name": "Postmortem summary with decisions and a lot of hedging",
+  "text": "So, the incident postmortem doc is up, link in the channel. Short version: the outage on the 14th lasted 47 minutes, root cause was a config push that skipped the canary step. We've decided to make the canary stage mandatory in the deploy pipeline, and Sam is owning that by next Friday. We're also adding an alert on config changes — no owner yet, someone should volunteer. I think the comms during the incident were actually pretty good, all things considered, though the status page update took 20 minutes to go out which is longer than I'd like. Action items are in the doc, please read it before Thursday's retro. I know postmortems are a drag but this one's short, I promise. Thanks to everyone who jumped on the call, genuinely.",
+  "must_keep": [
+   "outage on the 14th lasted 47 minutes",
+   "a config push that skipped the canary step",
+   "make the canary stage mandatory in the deploy pipeline",
+   "Sam is owning that by next Friday",
+   "adding an alert on config changes",
+   "status page update took 20 minutes",
+   "before Thursday's retro"
+  ],
+  "must_drop": [
+   "Short version",
+   "I think the comms during the incident were actually pretty good",
+   "all things considered",
+   "I know postmortems are a drag",
+   "I promise",
+   "Thanks to everyone who jumped on the call, genuinely"
+  ]
+ },
+ {
+  "name": "Mostly a list with owner names and dates",
+  "text": "Quick status roundup for the sprint, since standup got cancelled. Backend: auth refactor is done and merged, rate limiting is 80% there, ETA Wednesday. Frontend: new dashboard is in review, blocked on the API contract for the metrics endpoint — needs @Leo to publish the schema. Infra: DB upgrade went fine over the weekend, no issues. Docs: still nothing, I'll bug people next week. QA: waiting on the dashboard, will start as soon as it's unblocked. Design: final mocks for settings shipped Friday. Reminder that the sprint ends the 28th and we have a demo on the 29th at 2pm. Please update your tickets before then. That's it, nothing else to report.",
+  "must_keep": [
+   "auth refactor is done and merged",
+   "rate limiting is 80% there, ETA Wednesday",
+   "blocked on the API contract for the metrics endpoint",
+   "@Leo to publish the schema",
+   "DB upgrade went fine over the weekend",
+   "sprint ends the 28th",
+   "demo on the 29th at 2pm"
+  ],
+  "must_drop": [
+   "Quick status roundup",
+   "since standup got cancelled",
+   "no issues",
+   "still nothing, I'll bug people next week",
+   "That's it, nothing else to report"
+  ]
+ },
+ {
+  "name": "Pure chatter about lunch and a movie, no work content",
+  "text": "Okay completely non-work message but did anyone else watch that new space documentary on Netflix? I'm two episodes in and I have questions. Also I'm thinking of ordering Thai for lunch, does anyone want in? I'll probably do it around 12:30. The place on 5th if that matters. Honestly I've been craving pad see ew for a week. If nobody responds I'll just get it myself, no pressure. Also RIP to my houseplant, it did not survive the heat wave. Anyway back to your regularly scheduled programming.",
+  "must_keep": [],
+  "must_drop": [
+   "completely non-work message",
+   "I'm two episodes in and I have questions",
+   "I'll probably do it around 12:30",
+   "Honestly I've been craving pad see ew for a week",
+   "no pressure",
+   "RIP to my houseplant",
+   "Anyway back to your regularly scheduled programming"
+  ]
+ },
+ {
+  "name": "Release blocker with two owners and a timeline",
+  "text": "Morning everyone. Just got out of the sync with the payments team and I'm honestly a bit fried. The short version: the refund webhook is still dropping about 3% of events in prod, and we can't ship 2.4.0 with that in it. @Priya is taking the handler fix and she says she needs until Thursday EOD. @Marcus is on the retry queue rewrite but that's not landing before Friday at the earliest. I feel like we keep having this exact fight every release, but whatever, here we are. Decision from the meeting: we freeze the branch today and tag a release candidate Friday morning regardless, and if the fix isn't in we ship 2.4.0 without refunds and patch it in 2.4.1. Nobody loved that but it's the call. Can someone post the RC checklist in #release by end of day? Also the staging DB is down again, second time this week, I opened INF-2291 for it. Anyway, coffee.",
+  "must_keep": [
+   "the refund webhook is still dropping about 3% of events in prod",
+   "@Priya is taking the handler fix",
+   "until Thursday EOD",
+   "we freeze the branch today",
+   "tag a release candidate Friday morning",
+   "we ship 2.4.0 without refunds and patch it in 2.4.1",
+   "post the RC checklist in #release by end of day",
+   "the staging DB is down again",
+   "INF-2291"
+  ],
+  "must_drop": [
+   "Morning everyone.",
+   "I'm honestly a bit fried",
+   "I feel like we keep having this exact fight every release",
+   "Anyway, coffee."
+  ]
+ },
+ {
+  "name": "Pure hallway chatter about lunch and weekend",
+  "text": "Okay so completely unrelated to work but has anyone actually tried the new ramen place on 5th? I walked past it twice this week and the line was out the door both times. I'm thinking Thursday lunch if anyone's in. Also I still have that book you lent me, sorry, I keep forgetting to bring it in, I'll stick it in my bag tonight, promise. Did you all see the game last night? Unreal finish. I'm still not over it. Anyway nothing important from me today, my calendar is basically empty after 2, might finally clear out my inbox which is at like 1400 unread and yes I know that's a crime. Happy Tuesday everyone.",
+  "must_keep": [],
+  "must_drop": [
+   "completely unrelated to work",
+   "if anyone's in",
+   "I'll stick it in my bag tonight, promise",
+   "Anyway nothing important from me today",
+   "Happy Tuesday everyone."
+  ]
+ },
+ {
+  "name": "Bug report buried in a long backstory",
+  "text": "So this is going to be a long one, apologies in advance. I was reproducing the CSV export thing for the third time this week because QA keeps reopening it, and I finally figured out what's actually happening. If a customer's account has more than 10,000 rows and the export runs while the nightly job is still going, the file comes back truncated at exactly 9,999 rows. No error, just quietly missing a row. I've seen it on three separate accounts now: 10234, 11789, and one with 15k rows that lost over 5000. Steps to repro are in the ticket, ENG-8871. My guess is it's the cursor timeout in the export worker, but I haven't proved it, so don't quote me. This is blocking two enterprise renewals according to sales, so it's genuinely urgent, not the fake urgent we usually get. @Sam can you take a look tomorrow morning? I'll be offline from 1pm for a dentist thing. Thanks, and sorry for the wall of text.",
+  "must_keep": [
+   "more than 10,000 rows",
+   "truncated at exactly 9,999 rows",
+   "No error, just quietly missing a row.",
+   "10234, 11789, and one with 15k rows",
+   "ENG-8871",
+   "blocking two enterprise renewals",
+   "@Sam can you take a look tomorrow morning"
+  ],
+  "must_drop": [
+   "apologies in advance",
+   "I'll be offline from 1pm for a dentist thing",
+   "Thanks, and sorry for the wall of text.",
+   "I was reproducing the CSV export thing for the third time this week because QA keeps reopening it"
+  ]
+ },
+ {
+  "name": "Deadline chase with a lot of politeness and hedging",
+  "text": "Hey, hope you're having a good week. Just circling back on the API docs, I know things have been busy. The partner integration is supposed to go live on the 15th and they're asking for the finalized endpoints doc before their devs start. I think we said last week that you'd have a draft by Tuesday? Not trying to be annoying, I just need something to send them, even if it's rough. If Tuesday is too tight, could we do Thursday instead and I'll tell them it's coming. Also small thing, the changelog page still has the 2021 entries on top, someone should fix that at some point. Sorry to chase, I know you've got a lot on. Let me know either way and I'll stop bugging you.",
+  "must_keep": [
+   "partner integration is supposed to go live on the 15th",
+   "you'd have a draft by Tuesday",
+   "could we do Thursday instead",
+   "the changelog page still has the 2021 entries on top"
+  ],
+  "must_drop": [
+   "hope you're having a good week",
+   "I know things have been busy",
+   "Not trying to be annoying",
+   "Sorry to chase, I know you've got a lot on."
+  ]
+ },
+ {
+  "name": "Post-mortem confession with numbers and no real outcome",
+  "text": "Alright, incident post-mortem for last night's outage, the honest version. At 2:14am the primary DB hit 100% CPU and stayed there for 47 minutes. Total customer-facing downtime was about 40 minutes, roughly 12,000 requests failed, no data loss as far as we can tell. Root cause was a missing index on the events table, the query planner decided to do a full scan on a table that's now 80 million rows. I added the index manually at 3:01am and everything recovered. We should have caught this when the table crossed 10 million rows, that's on me, I set up the alerts and set the threshold way too high. Action items: add the index via migration (ENG-9002), lower the slow query alert to 2 seconds, and write a runbook for DB incidents. I'll own the first two, @Dana volunteered for the runbook. Also I'm tired. That's it, sorry for the ramble.",
+  "must_keep": [
+   "At 2:14am the primary DB hit 100% CPU",
+   "47 minutes",
+   "roughly 12,000 requests failed",
+   "no data loss",
+   "missing index on the events table",
+   "80 million rows",
+   "ENG-9002",
+   "lower the slow query alert to 2 seconds",
+   "@Dana volunteered for the runbook"
+  ],
+  "must_drop": [
+   "the honest version",
+   "that's on me",
+   "Also I'm tired.",
+   "sorry for the ramble"
+  ]
+ },
+ {
+  "name": "Bug report mixed with weekend chat",
+  "text": "Hey team, hope everyone had a good weekend! I spent most of Saturday digging into that login timeout issue and finally found the root cause. The auth service is holding sessions for 30 minutes even after the token expires, so users get stuck in a loop. I think it's probably the cache invalidation logic in the middleware. We need to patch this before the demo on Thursday because it's blocking the sales team. Also, did anyone watch the game last night? Anyway, I've created a ticket with all the logs, it's OPS-4471. Let me know if you want to pair on it tomorrow morning. Thanks!",
+  "must_keep": [
+   "login timeout issue",
+   "sessions for 30 minutes",
+   "cache invalidation logic",
+   "before the demo on Thursday",
+   "OPS-4471"
+  ],
+  "must_drop": [
+   "hope everyone had a good weekend!",
+   "I think it's probably",
+   "did anyone watch the game last night?",
+   "Anyway",
+   "Thanks!"
+  ]
+ },
+ {
+  "name": "Release notes with casual tangents",
+  "text": "Morning all! Quick update on the release: version 2.3.0 is going out Friday at 10am PT. We're including the new dashboard widgets, the performance fix for large datasets, and the updated API docs. Sarah, can you make sure the changelog is updated by Wednesday? Also, we still have that open issue with the CSV export where commas in fields break the formatting. That's marked as a known issue for now. Honestly, I'm not thrilled about shipping with that, but it's low priority. Oh, and the office coffee machine is fixed, thank God. Please test the staging build and report any blockers by Thursday EOD.",
+  "must_keep": [
+   "version 2.3.0 is going out Friday at 10am PT",
+   "new dashboard widgets",
+   "changelog is updated by Wednesday",
+   "CSV export where commas in fields break the formatting",
+   "report any blockers by Thursday EOD"
+  ],
+  "must_drop": [
+   "Morning all!",
+   "Honestly, I'm not thrilled",
+   "Oh, and the office coffee machine is fixed, thank God.",
+   "Please test"
+  ]
+ },
+ {
+  "name": "QA findings with personal opinion",
+  "text": "So I ran the regression suite on the new checkout flow and it's a mess. 12 out of 50 tests failed, mostly around the payment step. The biggest problem is that when you apply a discount code, the total doesn't update until you refresh. Also, the 'Continue' button is grayed out on mobile for some reason. I feel like we rushed this without proper testing. We should probably delay the launch by a week to fix these. Mike, can you look at the discount code logic? And Jen, the mobile issue might be CSS. Let's sync tomorrow at 2pm to triage. I'm honestly exhausted from this, but we'll get through it.",
+  "must_keep": [
+   "12 out of 50 tests failed",
+   "discount code, the total doesn't update until you refresh",
+   "'Continue' button is grayed out on mobile",
+   "delay the launch by a week",
+   "sync tomorrow at 2pm"
+  ],
+  "must_drop": [
+   "it's a mess",
+   "I feel like we rushed this",
+   "I'm honestly exhausted",
+   "but we'll get through it"
+  ]
+ },
+ {
+  "name": "All chatter about lunch and weather",
+  "text": "Hey everyone! Just wanted to say that the new Thai place around the corner is amazing. I went there yesterday and the pad see ew was incredible. Also, did you see the rain this morning? I got completely soaked walking from the parking lot. Oh, and my cat learned how to open the fridge, which is both impressive and terrifying. Anyway, hope you all have a great day! Let me know if you want to grab lunch there sometime. I'm free most days except Wednesday because I have a dentist appointment. TTYL!",
+  "must_keep": [],
+  "must_drop": [
+   "Hey everyone!",
+   "the new Thai place around the corner is amazing",
+   "did you see the rain this morning?",
+   "my cat learned how to open the fridge",
+   "Anyway, hope you all have a great day!",
+   "TTYL!"
+  ]
+ },
+ {
+  "name": "Post-mortem with links and blame avoidance",
+  "text": "Okay, here's the post-mortem for yesterday's outage. The root cause was a misconfigured load balancer health check that caused all instances to be marked unhealthy. Downtime was 47 minutes, from 3:12 to 3:59 PM. The fix was to revert the health check interval from 5s to 30s. I've attached the incident report here: https://wiki.example.com/incidents/2025-03-12. We need to add better monitoring for health check flapping, and also update the runbook. Tom, can you own the monitoring change? Lisa, the runbook update is on you. No blame here, this could happen to anyone. Let's aim to have both done by next Tuesday. Thanks for everyone's quick response during the incident.",
+  "must_keep": [
+   "misconfigured load balancer health check",
+   "Downtime was 47 minutes, from 3:12 to 3:59 PM",
+   "revert the health check interval from 5s to 30s",
+   "Tom, can you own the monitoring change?",
+   "Lisa, the runbook update is on you",
+   "by next Tuesday"
+  ],
+  "must_drop": [
+   "Okay, here's the post-mortem",
+   "No blame here, this could happen to anyone.",
+   "Thanks for everyone's quick response"
+  ]
+ },
+ {
+  "name": "Design review with vague deadlines and tangent",
+  "text": "Hi all, just a few notes from the design review this morning. The new onboarding screens look great, but the color contrast on the 'Skip' button fails accessibility. We need to change it to a darker blue. Also, the font size on the tooltips is too small, should be at least 14px. I think we can get these changes done by end of next week. Oh, and the client asked for a dark mode option, but that's out of scope for this sprint. Let's discuss in the next planning meeting on Monday. By the way, the snacks in the kitchen are stale, whoever bought them should be ashamed. OK, that's all from me. Cheers!",
+  "must_keep": [
+   "color contrast on the 'Skip' button fails accessibility",
+   "change it to a darker blue",
+   "font size on the tooltips is too small, should be at least 14px",
+   "client asked for a dark mode option, but that's out of scope",
+   "next planning meeting on Monday"
+  ],
+  "must_drop": [
+   "Hi all, just a few notes",
+   "I think we can get these changes done",
+   "By the way, the snacks in the kitchen are stale",
+   "OK, that's all from me. Cheers!"
+  ]
+ },
+ {
+  "name": "Bug report mixed with office coffee complaint",
+  "text": "Morning all. The login page is throwing a 500 for any user whose email contains a plus sign, like john+test@gmail.com. I hit it on staging about ten minutes ago and it's blocking the whole onboarding test suite. Steps: go to /login, enter an email with a + in it, hit submit, watch it die. Honestly I feel like we've broken this exact thing twice already. Also the coffee machine on floor 3 is out of beans again, not that anyone asked. Can someone from the auth team take a look before lunch? I think the regex in the validator is too greedy but I haven't confirmed. Assigning to Priya unless she's already swamped. Anyway, that's my morning so far.",
+  "must_keep": [
+   "login page is throwing a 500",
+   "email contains a plus sign",
+   "blocking the whole onboarding test suite",
+   "someone from the auth team take a look before lunch"
+  ],
+  "must_drop": [
+   "Morning all",
+   "Honestly I feel like",
+   "not that anyone asked",
+   "Anyway, that's my morning so far"
+  ]
+ },
+ {
+  "name": "Rambling status update with one real deadline buried",
+  "text": "Hey team, hope everyone had a good weekend. I spent most of Friday chasing the CSV import issue and I'm still not fully convinced it's fixed, but I think it's at least better than it was. The change to the parser is in and it handles the quoted fields now, though I haven't tested the encoding edge cases. Oh and did you see the game last night? Unreal finish. Right, back to work stuff: the stakeholder review for the payments redesign is locked in for Thursday at 2pm, and we need the clickable prototype done by Wednesday EOD or Maria will present static mockups, which she has already told me she doesn't want to do. I'll take the prototype, Tom can handle the copy, and whoever has bandwidth should review the error states. I might be overthinking the flow but let me know what you all think.",
+  "must_keep": [
+   "stakeholder review for the payments redesign is locked in for Thursday at 2pm",
+   "clickable prototype done by Wednesday EOD",
+   "I'll take the prototype, Tom can handle the copy",
+   "review the error states"
+  ],
+  "must_drop": [
+   "hope everyone had a good weekend",
+   "did you see the game last night",
+   "I might be overthinking",
+   "let me know what you all think"
+  ]
+ },
+ {
+  "name": "Release notes list with links and one blocking bug",
+  "text": "Release v2.4.0 is going out Friday unless someone objects. Here's what's in it: the new dashboard filters, faster search indexing, and the dark mode fixes for Safari. The full changelog is at https://wiki.internal/releases/240 and the QA sign-off sheet is at https://docs.internal/qa/240 if you want to check anything. One thing that's not in it: the billing export bug, which is still open and currently blocking the finance team from closing December. That needs an owner by tomorrow or I'm escalating it. Also we bumped the Node version to 20.11.1 and dropped support for IE, finally. Please read the notes and reply with objections before Thursday noon. Thanks.",
+  "must_keep": [
+   "Release v2.4.0 is going out Friday",
+   "billing export bug, which is still open and currently blocking the finance team from closing December",
+   "needs an owner by tomorrow",
+   "Node version to 20.11.1",
+   "reply with objections before Thursday noon"
+  ],
+  "must_drop": [
+   "unless someone objects",
+   "if you want to check anything",
+   "finally",
+   "Thanks"
+  ]
+ },
+ {
+  "name": "Pure chatter, no decisions",
+  "text": "Ha, that standup ran long today. Did anyone else see the new standing desks arrive? They're enormous. I'm not sure they fit the aesthetic of the room but I'm not going to complain about not sitting all day. Also, whoever left the half-eaten bagel in the meeting room, we need to talk. I'm joking, mostly. Anyway I'm grabbing lunch, back in an hour. Hope the afternoon is calmer for everyone. Oh and happy birthday to Sam, forgot to say it earlier! I think there's cake somewhere if it hasn't been demolished already.",
+  "must_keep": [],
+  "must_drop": [
+   "that standup ran long today",
+   "I'm not going to complain",
+   "we need to talk",
+   "I'm joking, mostly",
+   "I'm grabbing lunch, back in an hour",
+   "happy birthday to Sam"
+  ]
+ },
+ {
+  "name": "Post-mortem with numbers and owners buried in apology",
+  "text": "Okay, the post-mortem doc for last Tuesday's outage is up, sorry it took so long to write. Short version: the cache invalidation logic was removing keys it shouldn't have, which caused 17 minutes of elevated 500s for about 4% of requests. Root cause was a one-line condition introduced in PR #8841 that nobody caught in review. Action items: Dana to add regression tests by end of next week, Marcus to audit the other cache rules by the 15th, and I'll update the runbook. We're also adding a staging check that runs before deploy, because clearly we can't trust ourselves. I know some of you are annoyed and honestly you're right to be. Let's treat this as a learning thing and not a blame thing.",
+  "must_keep": [
+   "17 minutes of elevated 500s for about 4% of requests",
+   "PR #8841",
+   "Dana to add regression tests by end of next week",
+   "Marcus to audit the other cache rules by the 15th",
+   "adding a staging check that runs before deploy"
+  ],
+  "must_drop": [
+   "sorry it took so long to write",
+   "clearly we can't trust ourselves",
+   "honestly you're right to be",
+   "Let's treat this as a learning thing and not a blame thing"
+  ]
+ },
+ {
+  "name": "Design review with vague opinions and one hard requirement",
+  "text": "Wrapping up the design review from this morning. General vibe in the room was that the new settings page is too dense, especially on tablet, but nobody could agree on exactly what to cut so I'm leaving that open. The one hard requirement from legal is that the consent checkbox has to appear before any data collection, no exceptions, and it must be a separate opt-in, not bundled. I'll rework the spacing and bring two options Thursday. Color contrast failed on the secondary buttons, need to hit 4.5:1, that's a must-fix. I think the iconography is fine but happy to revisit if people feel strongly. Also, can we please stop using lorem ipsum in shared files, it's chaos.",
+  "must_keep": [
+   "consent checkbox has to appear before any data collection, no exceptions",
+   "must be a separate opt-in, not bundled",
+   "bring two options Thursday",
+   "contrast failed on the secondary buttons, need to hit 4.5:1"
+  ],
+  "must_drop": [
+   "General vibe in the room was that",
+   "nobody could agree",
+   "I think the iconography is fine",
+   "it's chaos"
+  ]
+ },
+ {
+  "name": "Design review ramble with decisions buried in tangents",
+  "text": "Hey team, just got out of the design review. We decided to go with the two-column layout for the settings page, not the tabs, because the tabs tested poorly with users over 50. Mia will update the Figma by tomorrow. Also, we need to add a confirmation modal for the delete account button, and that should have the red destructive style. I know we talked about a toast notification instead, but the consensus was that it's too easy to miss. On a side note, the new font is great, but we should probably bump the line height a bit. Oh, and the accessibility audit is scheduled for next Tuesday, so all designs need to be final by Monday EOD. That's the main thing. I'll post the notes in Confluence later.",
+  "must_keep": [
+   "two-column layout for the settings page",
+   "Mia will update the Figma by tomorrow",
+   "confirmation modal for the delete account button",
+   "red destructive style",
+   "accessibility audit is scheduled for next Tuesday",
+   "final by Monday EOD"
+  ],
+  "must_drop": [
+   "Hey team, just got out of the design review",
+   "I know we talked about a toast notification instead, but the consensus was that it's too easy to miss",
+   "On a side note, the new font is great",
+   "I'll post the notes in Confluence later"
+  ]
+ },
+ {
+  "name": "Post-mortem recap with technical details and a tangential opinion",
+  "text": "Alright, post-mortem for yesterday's outage. Root cause was a misconfigured nginx rate limit that was set to 5 requests per second instead of 500. That caused the API to start returning 429s, which then cascaded into the frontend showing the error page for about 20 minutes. We've reverted the change and added a validation check in the deploy pipeline. Action items: Sam will add a test for the rate limit config by Wednesday, and I'll update the runbook with the rollback steps. Also, we should probably review all the other nginx configs for similar mistakes. I was honestly surprised nobody caught this in code review, but it happens. Let's not make it a blame game. The incident report is in the shared drive.",
+  "must_keep": [
+   "Root cause was a misconfigured nginx rate limit that was set to 5 requests per second instead of 500",
+   "429s",
+   "error page for about 20 minutes",
+   "Sam will add a test for the rate limit config by Wednesday",
+   "update the runbook with the rollback steps",
+   "incident report is in the shared drive"
+  ],
+  "must_drop": [
+   "Alright, post-mortem for yesterday's outage",
+   "I was honestly surprised nobody caught this in code review, but it happens",
+   "Let's not make it a blame game"
+  ]
+ },
+ {
+  "name": "Pure chatter about lunch and weekend, no actionable content",
+  "text": "Hey folks, anyone else think the office coffee machine is possessed? It made a sound like a dying whale this morning. Anyway, I'm thinking of trying that new ramen place for lunch, the one near the station. Anyone been? Also, did you see the game last night? Absolute chaos in the last minute. I'm still recovering. Nothing important from me today, just procrastinating before I start on the bug list. Oh, and happy birthday to Dave for yesterday, forgot to say it in the standup. Catch you all later!",
+  "must_keep": [],
+  "must_drop": [
+   "Hey folks, anyone else think the office coffee machine is possessed?",
+   "I'm thinking of trying that new ramen place for lunch",
+   "did you see the game last night?",
+   "Nothing important from me today, just procrastinating before I start on the bug list",
+   "happy birthday to Dave for yesterday",
+   "Catch you all later!"
+  ]
+ },
+ {
+  "name": "Release-day blocker with owners and dates buried in venting",
+  "text": "Morning everyone. So I've been on the staging box since about 7:30 and honestly the checkout flow is still falling over on iOS 16, which is fun. Realistically we are not shipping tomorrow unless someone picks up the token refresh bug today. Ravi, can you take the refresh loop? It's ticking-4471, I think it's in the auth middleware. Also the copy on the empty-cart screen still says 'Coming soon' which Marta flagged in review on Tuesday. Not a blocker but it looks bad. Anyway QA signed off on search last night, so that's something. If we slip, we slip, but I'd rather tell Priya by end of day so she can warn the support team. Sorry for the wall of text, I've been staring at logs for two hours. Ping me if you want the crash dump.",
+  "must_keep": [
+   "we are not shipping tomorrow unless someone picks up the token refresh bug today",
+   "Ravi, can you take the refresh loop?",
+   "It's ticking-4471",
+   "QA signed off on search last night",
+   "tell Priya by end of day"
+  ],
+  "must_drop": [
+   "Morning everyone.",
+   "honestly",
+   "which is fun",
+   "Not a blocker but it looks bad",
+   "Sorry for the wall of text, I've been staring at logs for two hours"
+  ]
+ },
+ {
+  "name": "Post-mortem ramble that keeps drifting into anecdotes",
+  "text": "Ok so the outage post-mortem doc is finally up, link below. Short version: the config push at 14:02 on Thursday took out the EU nodes for 41 minutes, about 12k users saw errors. Root cause was a typo in the replica weight and no canary step. Action items: Dan adds a canary gate to the deploy pipeline by the 18th, I'll write up the rollback runbook, and we're moving the config validation into CI. I feel like the real lesson is we got lucky it wasn't the US cluster. Someone also asked why alerts took 9 minutes to fire, which is fair, I'm looking into the threshold. Also, tangentially, the incident channel was a mess, half of us were debugging in DMs, which we should not do. Anyway doc link: https://go/incident-2231. Please read it before Friday's review, it's short, I promise.",
+  "must_keep": [
+   "the config push at 14:02 on Thursday took out the EU nodes for 41 minutes",
+   "about 12k users saw errors",
+   "Dan adds a canary gate to the deploy pipeline by the 18th",
+   "I'll write up the rollback runbook",
+   "read it before Friday's review"
+  ],
+  "must_drop": [
+   "Ok so",
+   "I feel like the real lesson is we got lucky it wasn't the US cluster",
+   "which is fair",
+   "which we should not do",
+   "it's short, I promise"
+  ]
+ },
+ {
+  "name": "Pure chatter, weekend trip and coffee machine, nothing actionable",
+  "text": "Heyyy so good news, the coffee machine on floor 3 is fixed. I don't know who kicked it but thank you. Also I finally went to that ramen place near the station, the one with the tiny door, and honestly it was just ok, I think everyone overhyped it. We should do a team lunch though, maybe next month when things calm down. Oh and my flight to Lisbon got moved to the 21st so I'll be out that whole week, not that anyone is counting. How's everyone doing? I feel like we haven't just chatted in ages. Nothing urgent here, just thought I'd say hi. Also the office plants look sad, someone should water them.",
+  "must_keep": [],
+  "must_drop": [
+   "Heyyy so good news, the coffee machine on floor 3 is fixed",
+   "honestly it was just ok",
+   "I think everyone overhyped it",
+   "How's everyone doing?",
+   "just thought I'd say hi"
+  ]
+ },
+ {
+  "name": "Casual-sounding thanks-and-vibes message with a hidden hard deadline",
+  "text": "Hi all! Just wanted to say the design review yesterday was actually really useful, thanks for sitting through my slides. So I've updated the Figma with the new empty states, and if nobody objects by Monday I'll hand the specs off to engineering. The one thing I need from you, Sam, is the final icon set, the current ones are placeholders and they look a bit rough. No rush on that until Wednesday I suppose. Also I'm going to be at the offsite on the 14th and 15th so I'll be slow to reply. Not a big deal. Oh, and should we change the primary button color? I keep going back and forth. Honestly I think the current blue is fine. Let me know.",
+  "must_keep": [
+   "if nobody objects by Monday I'll hand the specs off to engineering",
+   "the final icon set",
+   "I'm going to be at the offsite on the 14th and 15th"
+  ],
+  "must_drop": [
+   "Hi all!",
+   "thanks for sitting through my slides",
+   "they look a bit rough",
+   "Not a big deal",
+   "Honestly I think the current blue is fine"
+  ]
+ },
+ {
+  "name": "QA findings as a messy list with chatter between items",
+  "text": "QA notes from today, apologies in advance for the format. Build 2.4.1 on Android: login works, push works, but the notification badge gets stuck at 3 no matter what you read. That's the worst one. On iOS the settings screen crashes if you toggle dark mode twice quickly, repro is in the ticket, QA-889. Pixel 4a specifically, haven't tried other devices. Tablet layout is basically unusable, the nav overlaps the content, screenshot in the thread. Not sure that's new though. Search ranking is fine now, the fix from yesterday held. Oh, and someone should check the French strings, there's a truncated label on the profile page. Besides that, pretty smooth run. I'll keep hammering it tomorrow.",
+  "must_keep": [
+   "Build 2.4.1 on Android",
+   "the notification badge gets stuck at 3",
+   "crashes if you toggle dark mode twice quickly",
+   "QA-889",
+   "the fix from yesterday held"
+  ],
+  "must_drop": [
+   "apologies in advance for the format",
+   "That's the worst one",
+   "Not sure that's new though",
+   "Besides that, pretty smooth run",
+   "I'll keep hammering it tomorrow"
+  ]
+ }
+]
