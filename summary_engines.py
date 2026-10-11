@@ -255,6 +255,12 @@ class StudentEngine(Engine):
         if self._pipe is None:
             import torch
             from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+            # Two threads, not "all of them". Measured 2026-10-11 on this model: 4 threads
+            # 4.0s/card, 2 threads 2.8s. On a model this small the sync cost of more
+            # threads exceeds what they buy, and the default of every logical core made
+            # the dogfood run slower than it needed to be. It also leaves the other vCPU
+            # for /classify, which is the path that has to stay at 69ms.
+            torch.set_num_threads(int(os.environ.get("PAYCHAT_SUMMARY_THREADS", "2")))
             tok = AutoTokenizer.from_pretrained(self.model_dir)
             model = AutoModelForSeq2SeqLM.from_pretrained(self.model_dir)
             model.eval()
