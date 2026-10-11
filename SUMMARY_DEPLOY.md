@@ -144,8 +144,11 @@ Three things, and only three:
 
 1. Render a card: a title and a list of bullets.
 2. If the stored summary is `null`, **draw nothing**. No empty card, no placeholder.
-3. The bullet list is **variable length**, typically 2–8. It is not a design constant — it
+3. The bullet list is **variable length**, typically 2–9. It is not a design constant — it
    is however many things the message contains.
+
+Nothing else. A card may end with a bullet reading `Tickets: QA-101, QA-102` — that is an
+ordinary bullet and needs no special case on either platform.
 
 ---
 
@@ -158,7 +161,9 @@ replies is invisible to this.
 
 A live rehearsal of a group day made that concrete: a 500 on an endpoint was reported,
 diagnosed and fixed across four short messages, and appears on no card. Neither does a
-QA ticket still failing.
+QA ticket still failing — "QA-116 still fails" is four words, so the gate rejects it and
+the ticket-number restoration never sees it. Restoring ids only helps inside a message
+that already earned a card.
 
 Conversation-level summaries — "what was decided in this room since you last looked" —
 are the fix, and are what Zoom and Teams both ship. They need this model to exist first,
@@ -195,6 +200,33 @@ were verbatim copies — which is what this replaced.
 Output passes de-duplication and the structural guards before it is returned: a seq2seq
 under beam search restates itself, and 16% of raw bullets on real traffic were repeats or
 fragments. None survive.
+
+**Ticket numbers are put back.** The student invents no identifiers — 0 fabricated across
+69 real cards — but it used to omit them, and ticket numbers are the single thing most
+worth keeping. Measured over the tokens the labels mark important:
+
+| token | before | after |
+|---|---|---|
+| **ticket id** | **8/20 — 40.0%** | **20/20 — 100%** |
+| version | 19/24 — 79.2% | unchanged |
+| weekday | 65/77 — 84.4% | unchanged |
+| clock time | 29/35 — 82.9% | unchanged |
+| ratio/size | 14/16 — 87.5% | unchanged |
+| amount | 3/3 — 100% | unchanged |
+| **all** | 138/175 — 78.9% | **150/175 — 85.7%** |
+
+An id already in the message is restored two ways. Where a bullet clearly came from the
+sentence carrying it, the id is appended to that bullet — `Crash on iOS 17.2 when applying
+gift card (JIRA-4471)`. Where the id sits in a sentence with no content of its own ("That's
+PAY-1198", "logged all of these under QA-101, QA-102, QA-103"), no bullet can overlap it
+and guessing a neighbour would risk naming the wrong ticket, so it goes on one trailing
+line: `Tickets: QA-101, QA-102, QA-103`.
+
+It never invents, never attaches an id to a bullet from a different sentence, never reads
+a version or a date (`3.2.0-rc3`, `2026-10-18`, `4.5:1`) as a ticket, and adds at most
+that one line. `tests/test_identifiers.py` holds all of it, because a misattributed ticket
+number would be worse than the omission this fixes. On a realistic 31-message day it
+produced **zero** trailing lines — it stays dormant unless an id would otherwise be lost.
 
 ---
 

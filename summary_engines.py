@@ -189,6 +189,103 @@ class Seq2SeqEngine(Engine):
         return {"title": summarizer.title_for(prose), "points": points}
 
 
+# A ticket reference: two or more leading uppercase alphanumerics, a hyphen, digits.
+# QA-101, JIRA-4471, CHECKOUT-4417, INF-2041. A leading digit cannot match, so "2026-10"
+# and version strings are not mistaken for tickets.
+_TICKET = re.compile(r"\b[A-Z][A-Z0-9]{1,}-\d+\b")
+
+# How much of a bullet's content has to come from the sentence carrying the id before the
+# id is attached to it. Measured over the drops: the bullets that genuinely came from that
+# sentence scored 0.83-1.00 and the ones that did not scored 0.00-0.17, so anything in the
+# middle is the safe place to cut. A misattributed ticket number is worse than a missing
+# one, which is why this is deliberately strict and leaves half the drops alone.
+_TICKET_OVERLAP = 0.4
+
+# Two is a reference; five is a bullet that has turned into a changelog.
+_MAX_IDS_PER_POINT = 2
+
+# Ids that could not be attached to a bullet go on one trailing line instead. Capped
+# because "Tickets: " followed by eleven of them is not a summary of anything.
+_MAX_IDS_IN_FOOTER = 6
+
+
+def _restore_ticket_ids(text, points):
+    """Put back ticket ids the student dropped, on the bullet that came from them.
+
+    The student does not invent identifiers - 0 fabricated across 69 real cards - but it
+    omits them: only 8 of 20 ticket ids marked important reached the card, against 79-100%
+    for versions, amounts, weekdays, clock times and sizes. For this team the ticket
+    number is the thing someone opens the tab to find, so a card that says "three tickets
+    still failing" without naming them has lost the point of itself.
+
+    Two mechanisms, because the drops had two causes.
+
+    Half the time a bullet clearly came from the sentence carrying the id (overlap
+    0.83-1.00 where it did, 0.00-0.17 where it did not), and the id is appended to that
+    bullet: "Crash on iOS 17.2 when applying gift card (JIRA-4471)".
+
+    The other half sit in sentences that carry no content of their own - "That's
+    PAY-1198", "Steps to repro are in the ticket, ENG-8871", "I've logged all of these in
+    JIRA under QA-101, QA-102, and QA-103". These refer back to something the card already
+    describes, so no bullet can ever overlap them, and picking a neighbouring bullet by
+    proximity would be a guess. A misattributed ticket number is worse than a missing one,
+    so those go on one trailing line - "Tickets: QA-101, QA-102, QA-103" - which is never
+    wrong about which issue they belong to.
+
+    This never invents: an id reaches the card only if it is already in the message. It
+    never reorders existing bullets, never drops one, and adds at most the single trailing
+    line.
+    """
+    if not points:
+        return points
+    card_blob = " ".join(points).lower()
+    missing = [t for t in dict.fromkeys(_TICKET.findall(text or ""))
+               if t.lower() not in card_blob]
+    if not missing:
+        return points
+
+    def words(s):
+        return {w for w in re.findall(r"[a-z0-9]+", s.lower())
+                if len(w) > 2 and w not in _TICKET_STOP}
+
+    sentences = re.split(r"(?<=[.!?])\s+", text or "")
+    # Decide every id's home first, then render once, so two ids on one bullet read as
+    # "(DB-1, DB-2)" rather than "(DB-1) (DB-2)".
+    assigned = {}
+    orphans = []
+    for tid in missing:
+        sent = next((s for s in sentences if tid in s), "")
+        sw = words(sent)
+        best, score = None, 0.0
+        for i, p in enumerate(points):
+            pw = words(p)
+            if not pw or len(assigned.get(i, ())) >= _MAX_IDS_PER_POINT:
+                continue
+            ov = len(sw & pw) / len(pw)
+            if ov > score:
+                best, score = i, ov
+        if best is not None and score >= _TICKET_OVERLAP:
+            assigned.setdefault(best, []).append(tid)
+        else:
+            orphans.append(tid)
+
+    out = [f"{p} ({', '.join(assigned[i])})" if i in assigned else p
+           for i, p in enumerate(points)]
+
+    if orphans:
+        shown = orphans[:_MAX_IDS_IN_FOOTER]
+        label = "Ticket" if len(shown) == 1 else "Tickets"
+        line = f"{label}: {', '.join(shown)}"
+        if len(orphans) > len(shown):
+            line += f" and {len(orphans) - len(shown)} more"
+        out.append(line)
+    return out
+
+
+_TICKET_STOP = frozenset(
+    "the and for with that this from was were are has have had not but its".split())
+
+
 def production_summary(text, student=None):
     """What /message-summary serves. Rules decide IF; the student writes the card.
 
@@ -226,7 +323,8 @@ def production_summary(text, student=None):
     # "Issues", "Training" from "train"), which is what a title is for.
     #
     # The rules title stays as the fallback, for when the student is absent or fails.
-    return {"title": card.get("title") or gate.title, "points": card["points"]}
+    return {"title": card.get("title") or gate.title,
+            "points": _restore_ticket_ids(text, card["points"])}
 
 
 def default_student(model_dir=None):
