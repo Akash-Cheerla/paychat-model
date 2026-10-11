@@ -5285,6 +5285,11 @@ async def log_status():
 # does not break.
 _SUMMARY_STUDENT = {"loaded": False, "engine": None}
 
+# How many cards one batch request may ask the MODEL for. At ~3s a card an unbounded
+# batch is a timeout; the gate rejects ~99% of real messages so this is never reached in
+# practice. Past it the rules answer instantly instead of the caller getting nothing.
+_SUMMARY_BATCH_MODEL_CALLS = int(os.environ.get("PAYCHAT_SUMMARY_BATCH_CALLS", "12"))
+
 
 def _summary_student():
     if not _SUMMARY_STUDENT["loaded"]:
@@ -5324,15 +5329,26 @@ async def message_summary(req: MessageSummaryRequest):
     student = _summary_student()
     source = "student+rules" if student else "rules"
     if req.messages is not None:
+        # The model costs ~3s a card, so an unbounded batch is a timeout waiting to
+        # happen: 100 long messages would hold the request for five minutes. In practice
+        # the gate rejects ~99% and a batch of 100 real messages needs one or two model
+        # calls, so this budget is never reached - it exists for the pathological batch.
+        # Past it, the rules still answer, instantly, rather than the caller getting
+        # nothing.
+        budget = _SUMMARY_BATCH_MODEL_CALLS
         out = []
         for m in req.messages[:100]:
             if not isinstance(m, dict):
                 continue
-            out.append({"message_id": m.get("message_id"),
-                        "summary": summary_engines.production_summary(
-                            m.get("text") or "", student),
-                        "source": source})
-        return {"results": out, "as_of": _utc_iso("seconds")}
+            use = student if budget > 0 else None
+            before = budget
+            card = summary_engines.production_summary(m.get("text") or "", use)
+            if card is not None and use is not None:
+                budget -= 1
+            out.append({"message_id": m.get("message_id"), "summary": card,
+                        "source": source if before > 0 else "rules"})
+        return {"results": out, "model_calls_used": _SUMMARY_BATCH_MODEL_CALLS - budget,
+                "as_of": _utc_iso("seconds")}
     return {"summary": summary_engines.production_summary(req.text or "", student),
             "source": source,
             "as_of": _utc_iso("seconds")}
