@@ -29,8 +29,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-import summarizer
-import summary_engines
 
 import torch
 import torch.nn as nn
@@ -5279,81 +5277,6 @@ async def log_status():
 
 
 # ── Request/Response schemas ──
-# The student is ~1GB and takes ~35s to load, so it is loaded once on first use rather
-# than per request or at import. None means the weights are not on this box, and
-# production_summary() then serves the rules card - the feature degrades, the endpoint
-# does not break.
-_SUMMARY_STUDENT = {"loaded": False, "engine": None}
-
-# How many cards one batch request may ask the MODEL for. At ~3s a card an unbounded
-# batch is a timeout; the gate rejects ~99% of real messages so this is never reached in
-# practice. Past it the rules answer instantly instead of the caller getting nothing.
-_SUMMARY_BATCH_MODEL_CALLS = int(os.environ.get("PAYCHAT_SUMMARY_BATCH_CALLS", "12"))
-
-
-def _summary_student():
-    if not _SUMMARY_STUDENT["loaded"]:
-        _SUMMARY_STUDENT["engine"] = summary_engines.default_student()
-        _SUMMARY_STUDENT["loaded"] = True
-        logger.info("summary student: %s",
-                    _SUMMARY_STUDENT["engine"].model_dir
-                    if _SUMMARY_STUDENT["engine"] else "not installed, using rules")
-    return _SUMMARY_STUDENT["engine"]
-
-
-class MessageSummaryRequest(BaseModel):
-    """One message, or a batch of them, to summarise for the Summary tab."""
-    text: Optional[str] = None
-    # [{"message_id": "...", "text": "..."}] - a whole screen in one round trip, so
-    # opening the tab is not N requests.
-    messages: Optional[list] = None
-
-
-@app.post("/message-summary")
-async def message_summary(req: MessageSummaryRequest):
-    """A topic and a few bullets for a long message, or nothing when there is nothing
-    worth showing.
-
-    Here so that iOS and Android show the SAME card. iOS summarises on-device today
-    (Apple Foundation Models) and Android does not summarise at all, which means a fix to
-    the wording ships with an App Store release and never reaches Android. One
-    implementation, one place to fix.
-
-    `summary` is null when the message is too short, is mostly links, or yields nothing
-    but topic labels - no card is better than a card of noise. Callers render a card only
-    when `summary` is present.
-
-    Nothing is stored and nothing here can affect a later /detect: this reads the text it
-    is given and returns.
-    """
-    student = _summary_student()
-    source = "student+rules" if student else "rules"
-    if req.messages is not None:
-        # The model costs ~3s a card, so an unbounded batch is a timeout waiting to
-        # happen: 100 long messages would hold the request for five minutes. In practice
-        # the gate rejects ~99% and a batch of 100 real messages needs one or two model
-        # calls, so this budget is never reached - it exists for the pathological batch.
-        # Past it, the rules still answer, instantly, rather than the caller getting
-        # nothing.
-        budget = _SUMMARY_BATCH_MODEL_CALLS
-        out = []
-        for m in req.messages[:100]:
-            if not isinstance(m, dict):
-                continue
-            use = student if budget > 0 else None
-            before = budget
-            card = summary_engines.production_summary(m.get("text") or "", use)
-            if card is not None and use is not None:
-                budget -= 1
-            out.append({"message_id": m.get("message_id"), "summary": card,
-                        "source": source if before > 0 else "rules"})
-        return {"results": out, "model_calls_used": _SUMMARY_BATCH_MODEL_CALLS - budget,
-                "as_of": _utc_iso("seconds")}
-    return {"summary": summary_engines.production_summary(req.text or "", student),
-            "source": source,
-            "as_of": _utc_iso("seconds")}
-
-
 class DetectRequest(BaseModel):
     text: str
     chat_id: Optional[str] = None

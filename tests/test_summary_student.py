@@ -1,10 +1,13 @@
 """The production summary path: rules gate, student writes, rules fall back.
 
 `production_summary()` is the split each half measurably earns. Rules drop 90.5% of pure
-chatter and 82 of 151 qualifying dogfood messages, and write the better title - "Build 52"
-keeps the identifier where the student gives "App Build Testing" and loses it. The student
-rewrites instead of copying: 5.2% verbatim against the rules' 60.7%, at half the source
-length, with zero invented numbers across 326 bullets of real traffic.
+chatter and 82 of 151 qualifying dogfood messages. The student writes the card, title
+included: on 69 cards of real traffic 7.2% of its titles were weak against the rules'
+72.9% ("Bug" 15 times, "Build" 11 times), and the two keep identifiers equally (1/20
+each) - the "Build 52" vs "App Build Testing" example that once justified the rules
+title was a single case, not a pattern. The student rewrites instead of copying: 5.2%
+verbatim against the rules' 60.7%, at half the source length, with zero invented numbers
+across 326 bullets and 0 of 69 titles.
 
 Neither does the other's job. The student alone cards every piece of small talk it is
 handed - it produced a card for the IOS/Android/Ride-Request message that Akash rejected
@@ -56,6 +59,24 @@ def check(name, got, want):
     return ok
 
 
+def summary_endpoint(url):
+    """The summary URL to check, or None to skip the endpoint half.
+
+    tests/run_all.py hands every battery the same /detect URL, and since 2026-10-11 the
+    summary is a separate service on its own port - rewriting /detect to /message-summary
+    hits the intent API, which answers 404. So the endpoint half runs only when
+    PAYCHAT_SUMMARY_URL says where that service is, or when --url already points at it.
+    """
+    import os
+    env = os.environ.get("PAYCHAT_SUMMARY_URL")
+    if env:
+        return env.rstrip("/") + "/message-summary"
+    if url and "/detect" not in url and "/classify" not in url:
+        return url.rstrip("/") + ("" if url.endswith("/message-summary")
+                                  else "/message-summary")
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", help="also exercise /message-summary")
@@ -71,16 +92,30 @@ def main():
     out = E.production_summary(SHORT, Stub({"title": "X", "points": ["a b c"]}))
     failed += [] if check("too short: no card", out, None) else ["gate short"]
 
-    # ---- the student writes the bullets, the rules write the title --------------------
+    # ---- the student writes the whole card, title included ---------------------------
+    # This asserted the opposite until 2026-10-11, on the strength of this very example:
+    # the stub's "App Build Testing" loses the build number the rules' "Build 52" keeps.
+    # Counted over 69 real cards the example turned out not to generalise - the two keep
+    # identifiers equally often (1/20 each) while 72.9% of rules titles were generic or a
+    # single bare word against the student's 7.2%. So the student's title ships, and a
+    # synthetic case where it reads worse is the price of that.
     out = E.production_summary(BUILD52, Stub({"title": "App Build Testing",
                                               "points": ["Build 52 assigned in live",
                                                          "Test entirety of app"]}))
-    ok = out and out["title"] == "Build 52" and out["points"] == ["Build 52 assigned in live",
-                                                                 "Test entirety of app"]
-    print(f"  {'PASS' if ok else 'FAIL'}  rules keep the identifier in the title, "
-          f"student keeps the bullets")
+    ok = out and out["title"] == "App Build Testing" and out["points"] == [
+        "Build 52 assigned in live", "Test entirety of app"]
+    print(f"  {'PASS' if ok else 'FAIL'}  the student writes the title and the bullets")
     if not ok:
-        failed.append("title/bullet split")
+        failed.append("student title")
+
+    # and when the student returns bullets but no title, the rules title is the fallback
+    out = E.production_summary(BUILD52, Stub({"points": ["Build 52 assigned in live",
+                                                         "Test entirety of app"]}))
+    ok = out and out["title"] == "Build 52"
+    print(f"  {'PASS' if ok else 'FAIL'}  no student title -> the rules title is used "
+          f"({out['title'] if out else None!r})")
+    if not ok:
+        failed.append("title fallback")
         print(f"        got {out!r}")
 
     # ---- failure modes: every one must degrade to the rules card, never 500 -----------
@@ -131,7 +166,9 @@ def main():
         t0 = time.time()
         out = E.production_summary(BUILD52, student)
         print(f"\n  live student loaded in {time.time()-t0:.0f}s")
-        ok = out and out["title"] == "Build 52" and len(out["points"]) >= 3
+        # the identifier must survive into the title; the wording around it is the
+        # student's to choose ("Build 52 Test" is as good as "Build 52")
+        ok = out and "Build 52" in out["title"] and len(out["points"]) >= 3
         print(f"  {'PASS' if ok else 'FAIL'}  real student on Build 52 -> "
               f"{out['title'] if out else None!r}, {len(out['points']) if out else 0} bullets")
         if not ok:
@@ -143,11 +180,14 @@ def main():
         if not ok:
             failed.append("live chatter")
 
-    if a.url:
+    url = summary_endpoint(a.url)
+    if a.url and not url:
+        print("\n  (no summary service URL - set PAYCHAT_SUMMARY_URL to check the "
+              "endpoint; the intent URL does not serve it)")
+    if url:
         import requests
-        url = a.url.replace("/detect", "/message-summary")
         r = requests.post(url, json={"text": BUILD52}, timeout=120).json()
-        ok = (r.get("summary") or {}).get("title") == "Build 52"
+        ok = "Build 52" in ((r.get("summary") or {}).get("title") or "")
         print(f"\n  {'PASS' if ok else 'FAIL'}  endpoint returns the card "
               f"(source={r.get('source')!r})")
         if not ok:

@@ -18,7 +18,7 @@ These run against the module directly, with no server, so they are quick enough 
 every change. The last block goes through /message-summary to check the endpoint agrees.
 
     python tests/test_summarizer.py
-    python tests/test_summarizer.py --url http://127.0.0.1:8971/message-summary
+    python tests/test_summarizer.py --url http://127.0.0.1:8972/message-summary
 """
 import argparse
 import io
@@ -149,7 +149,8 @@ def run_endpoint(url):
     failed = []
     r = requests.post(url, json={"text": CASES[0][1]}, timeout=30).json()
     one = (r.get("summary") or {}).get("title")
-    ok = one == "Build 52"
+    # the build number must be in the title; the student picks the wording round it
+    ok = "Build 52" in (one or "")
     failed += [] if ok else ["endpoint: single message"]
     print(f"  {'PASS' if ok else 'FAIL'}  endpoint returns a card for a long message ({one!r})")
 
@@ -167,18 +168,35 @@ def run_endpoint(url):
     return failed
 
 
+def summary_endpoint(url):
+    """The summary URL to check, or None to skip the endpoint half.
+
+    tests/run_all.py hands every battery the same /detect URL, and since 2026-10-11 the
+    summary is a separate service on its own port - rewriting /detect to /message-summary
+    hits the intent API, which answers 404. So the endpoint half runs only when
+    PAYCHAT_SUMMARY_URL says where that service is, or when --url already points at it.
+    """
+    import os
+    env = os.environ.get("PAYCHAT_SUMMARY_URL")
+    if env:
+        return env.rstrip("/") + "/message-summary"
+    if url and "/detect" not in url and "/classify" not in url:
+        return url.rstrip("/") + ("" if url.endswith("/message-summary")
+                                  else "/message-summary")
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", help="also check the endpoint, e.g. .../message-summary")
     a = ap.parse_args()
     failed = run_unit()
-    if a.url:
-        # tests/run_all.py hands every battery the same /detect URL. Point it at the
-        # endpoint this file is about rather than failing on a response it never asked for.
-        url = a.url.replace("/detect", "/message-summary")
-        if not url.endswith("/message-summary"):
-            url = url.rstrip("/") + "/message-summary"
+    url = summary_endpoint(a.url)
+    if url:
         failed += run_endpoint(url)
+    elif a.url:
+        print("\n  (no summary service URL - set PAYCHAT_SUMMARY_URL to check the "
+              "endpoint; the intent URL does not serve it)")
     return 1 if failed else 0
 
 

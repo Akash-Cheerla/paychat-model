@@ -190,7 +190,7 @@ class Seq2SeqEngine(Engine):
 
 
 def production_summary(text, student=None):
-    """What /message-summary serves. Rules decide IF, the student writes WHAT.
+    """What /message-summary serves. Rules decide IF; the student writes the card.
 
     The split is not a compromise, it is each half doing what it measurably does best.
     Rules drop 90.5% of pure chatter and 82 of 151 qualifying dogfood messages; the
@@ -212,21 +212,41 @@ def production_summary(text, student=None):
         return gate.as_dict()
     if not card or not card.get("points"):
         return gate.as_dict()
-    # The rules write the better title: "Build 52" keeps the identifier where the model
-    # gives "App Build Testing" and loses it.
-    return {"title": gate.title, "points": card["points"]}
+    # The STUDENT writes the title. This used to take the rules title, on the strength
+    # of one example - "Build 52" against the model's "App Build Testing" - and that
+    # example did not survive being counted. Over 69 cards of real traffic:
+    #
+    #   weak title (generic or one bare word)   rules 72.9%   student  7.2%
+    #   message has an identifier, title keeps it   1/20          1/20
+    #
+    # So the rules win nothing on identifiers and lose badly on everything else: their
+    # titles were "Bug" 15 times and "Build" 11 times across 70 cards, which is a tab
+    # showing a column of the same word. Student titles invent no numbers (0 of 69) -
+    # the new words they introduce are inflections and category nouns ("Fixes",
+    # "Issues", "Training" from "train"), which is what a title is for.
+    #
+    # The rules title stays as the fallback, for when the student is absent or fails.
+    return {"title": card.get("title") or gate.title, "points": card["points"]}
 
 
 def default_student(model_dir=None):
     """The student if its weights are on disk, else None. Never raises."""
+    # summary_model/ sits beside saved_model/ and conv_model/ and ships the same way:
+    # git LFS already tracks *.safetensors, so Samyak's existing `git pull` brings it and
+    # there is no separate weight-delivery step to get wrong.
     path = Path(model_dir or os.environ.get("PAYCHAT_SUMMARY_MODEL")
-                or (ROOT / "models" / "student_flan-t5-base"))
+                or (ROOT / "summary_model"))
     if not (path / "config.json").exists():
         return None
     try:
         return StudentEngine(str(path))
     except Exception:                    # noqa: BLE001
         return None
+
+
+# Read at import so /summary-status can report the real number before the first card
+# forces the lazy load. Applied in StudentEngine._load().
+SUMMARY_THREADS = int(os.environ.get("PAYCHAT_SUMMARY_THREADS", "2"))
 
 
 class StudentEngine(Engine):
@@ -244,7 +264,7 @@ class StudentEngine(Engine):
     no card, which 20% of its training set taught it to say.
     """
 
-    def __init__(self, model_dir="models/student_flan-t5-base",
+    def __init__(self, model_dir="summary_model",
                  prefix="summarize the chat message: "):
         self.name = "student"
         self.model_dir = str(ROOT / model_dir) if not Path(model_dir).is_absolute() else model_dir
@@ -260,11 +280,15 @@ class StudentEngine(Engine):
             # threads exceeds what they buy, and the default of every logical core made
             # the dogfood run slower than it needed to be. It also leaves the other vCPU
             # for /classify, which is the path that has to stay at 69ms.
-            torch.set_num_threads(int(os.environ.get("PAYCHAT_SUMMARY_THREADS", "2")))
+            torch.set_num_threads(SUMMARY_THREADS)
             tok = AutoTokenizer.from_pretrained(self.model_dir)
             model = AutoModelForSeq2SeqLM.from_pretrained(self.model_dir)
             model.eval()
             self._pipe = (tok, model, torch)
+
+    def is_loaded(self):
+        """Are the weights resident? False until the first card forces the load."""
+        return self._pipe is not None
 
     def summarize(self, text):
         self._load()

@@ -39,6 +39,7 @@ sys.path.insert(0, str(ROOT))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from summarizer import summarize   # noqa: E402
+import summary_engines            # noqa: E402
 
 # Words that carry no identity - present in almost every sentence, so matching on them
 # would make everything look covered.
@@ -82,16 +83,38 @@ def main():
     ap.add_argument("--cases", default="data/eval/summary_messages.json")
     ap.add_argument("--show-missed", action="store_true")
     ap.add_argument("--show-leaked", action="store_true")
+    # The rules are only half of what ships: production_summary() uses them as the gate
+    # and the student writes the card. Without this the battery scores an engine no
+    # caller gets, which is how the KEPT number came to be quoted for the rules alone.
+    ap.add_argument("--production", action="store_true",
+                    help="score the production path (rules gate + student) instead")
     a = ap.parse_args()
 
     cases = json.loads((ROOT / a.cases).read_text(encoding="utf-8"))
+
+    if a.production:
+        student = summary_engines.default_student()
+        if student is None:
+            print("  no student weights on this box - cannot score the production path")
+            return 1
+        print(f"  scoring the PRODUCTION path (rules gate + student) - "
+              f"~3s a card, {len(cases)} messages")
+
+        def card_for(text):
+            out = summary_engines.production_summary(text, student)
+            if out is None:
+                return None
+            return type("D", (), {"points": out["points"], "title": out["title"]})()
+    else:
+        print("  scoring the RULES only - pass --production for what ships")
+        card_for = summarize
     kept = missed = leaked = clean = 0
     chatter_right = chatter_total = 0
     no_card = 0
     missed_rows, leaked_rows, wrong_chatter = [], [], []
 
     for c in cases:
-        d = summarize(c["text"])
+        d = card_for(c["text"])
         points = d.points if d else []
         if d is None:
             no_card += 1

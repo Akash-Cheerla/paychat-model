@@ -52,4 +52,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
+# One image, two services. The intent API is the default. The summary service runs
+# from the SAME image with the CMD overridden - it must not share a process with
+# the intent API, see the module docstring in summary_app.py:
+#
+#   docker run ... <image> python -m uvicorn summary_app:app --host 0.0.0.0 --port 8001
 CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

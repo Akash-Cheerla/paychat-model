@@ -9,11 +9,14 @@ The last of those is deliberately included. A decision spread over short message
 known limitation of per-message summarisation, and the rehearsal should show it honestly
 rather than only the cases that work.
 """
-import io, json, sys, time
+import io, json, os, sys, time
 import requests
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-URL = "http://127.0.0.1:8971/message-summary"
+# The SUMMARY service, which is a different process from the intent one on 8971 -
+# see summary_app.py for why. Override with PAYCHAT_SUMMARY_URL.
+URL = os.environ.get("PAYCHAT_SUMMARY_URL",
+                     "http://127.0.0.1:8972") + "/message-summary"
 
 # (sender, time, text)
 DAY = [
