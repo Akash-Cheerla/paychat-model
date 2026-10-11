@@ -68,7 +68,14 @@ CARD_THRESHOLD = 2
 # correctly dropped from 71% to 90% at no cost to recall, measured over 90 generated
 # messages (2026-10-08). Requiring three reached 100% but suppressed a genuine two-line
 # bug report, which is the wrong trade.
-CARD_STRONG = 5
+#
+# Lowered from 5 to 4 after a live rehearsal (2026-10-11): a regression report listing
+# three open bugs, and an iOS release note, each had ONE point scoring 4 and the rest
+# scoring zero - so "two positives, or one >= 5" rejected both, while a message of three
+# weak 1s passed. One strong signal is enough. The chatter that used to slip through
+# topped out at 3 ("the coffee machine is broken", "we need to talk"), so 4 still
+# excludes it.
+CARD_STRONG = 4
 # About two lines of a card - the design lets a point wrap once.
 MAX_POINT_LENGTH = 120
 
@@ -491,6 +498,15 @@ _IMPORTANT = [
         r"freez(?:e|es|ing)|disconnects?|auto-disconnects?|drops?\s+(?:the\s+)?call|"
         r"times?\s+out|timeout|overlap(?:s|ping)?|misaligned|unable\s+to|"
         r"does\s?n'?t\s+work|won'?t\s+(?:load|open|save|send))\b"),
+    # Something still outstanding. A live rehearsal on 2026-10-11 dropped a regression
+    # report whose central line was "Three things still open: the split amount shows
+    # blank..." - a list of three bugs, scoring zero, because none of them used a word
+    # from the pattern above.
+    (3, r"\b(?:still\s+(?:open|failing|broken|outstanding|not\s+working)|"
+        r"remains?\s+(?:open|broken)|outstanding|shows?\s+blank|comes?\s+back\s+empty)\b"),
+    # A fix is as worth recording as the fault. The same rehearsal dropped "I've pushed
+    # the fix for the summary card showing duplicate bullets" for the same reason.
+    (2, r"\b(?:fix(?:ed|es|ing)?|resolved|patched|workaround|rolled\s+back|reverted)\b"),
     # A decision that was taken.
     (2, r"\b(?:assigned|approved|rejected|merged|released|deployed|signed\s+off|"
         r"marked|agreed|decided|confirmed|cancelled|postponed)\b"),
