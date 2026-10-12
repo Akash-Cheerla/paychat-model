@@ -147,8 +147,11 @@ Three things, and only three:
 3. The bullet list is **variable length**, typically 2–9. It is not a design constant — it
    is however many things the message contains.
 
-Nothing else. A card may end with a bullet reading `Tickets: QA-101, QA-102` — that is an
-ordinary bullet and needs no special case on either platform.
+Nothing else. A card may end with a bullet reading `Tickets: QA-101, QA-102`, or one
+reading `Build: https://install.shareipa.com/ccUH8I` / `Design: https://figma.com/...` —
+those are ordinary bullets and need no special case on either platform. If the client
+already linkifies URLs in text, they will be tappable for free; if not, they are still
+readable and that is enough.
 
 ---
 
@@ -168,6 +171,13 @@ that already earned a card.
 Conversation-level summaries — "what was decided in this room since you last looked" —
 are the fix, and are what Zoom and Teams both ship. They need this model to exist first,
 which is why per-message goes out first.
+
+**It sometimes garbles a clause.** "Cannot make any other user as admin" came back as
+"Cannot make admin as admin" (dogfood 2026-10-10). It does not invent numbers, amounts or
+ticket IDs — zero across every card measured, on 69 archived cards and again on a blind
+set — so the failure is awkward phrasing rather than wrong facts. Fixing it needs a
+retrain on more data of this shape, not another rule; adding rules to patch generation is
+how the title logic went wrong once already.
 
 ---
 
@@ -200,6 +210,50 @@ were verbatim copies — which is what this replaced.
 Output passes de-duplication and the structural guards before it is returned: a seq2seq
 under beam search restates itself, and 16% of raw bullets on real traffic were repeats or
 fragments. None survive.
+
+**Links are content.** The gate used to delete URLs before measuring length, so "please
+use the following build for testing `<url>` 1. the group profile image issues have been
+addressed" measured 124 characters, failed the 140 bar and produced no card — one of the
+most useful messages in the room. Links are now shortened rather than removed, so the
+length is what a reader would actually read (that message measures 149), and a URL in the
+message is appended to the card as its own labelled bullet. A message that really is
+nothing but links still fails, and a described link only earns a card when it points at
+something the team works in — a Figma, a doc, a ticket, a build. A blog link in "no action
+needed I just think you'll enjoy it" does not.
+
+Three scoring gaps closed at the same time, all found on the 2026-10-10 log:
+
+- `issue` could not match **"issues"**, which is the commonest bug word in these rooms —
+  "the group profile image issues and UI issues have been addressed" scored zero. Same for
+  `bug`, `error`, `regression`. "addressed" was not read as a fix either.
+- A bare **"cannot"** scored nothing, so "1. Cannot set group profiles pictures once
+  created 2. Cannot make any other user as admin" produced no card. `unable to` and
+  `doesn't work` had always matched.
+- **"I wanted …"** was treated as throat-clearing and cancelled the sentence it introduced,
+  which deleted "I wanted a call to take a decision on Ram which is 4GB rn but we may need
+  8GB" — the most consequential message in the log that day.
+
+**A name is sometimes mistaken for the topic.** "we'll need gpu's Gowtham , just fyi"
+comes back titled "Gpu Gowtham Needed" and "Still going on Gowtham !" as "Gowtham Update".
+
+This is a known limitation, not a fix, and deliberately so. Stripping the addressed name
+before the model reads the message fixed both titles and was then measured: it touched 57
+of 90 generated messages and took production recall from 62.8% to 61.8%, because a rule
+that removes a capitalised word sitting against a comma cannot tell a person from a
+product, and in a work chat the person addressed is usually the person who now owns the
+thing. It was deleting
+
+```
+reproduced it three times on Chrome, and once on Safari
+Add the index and test on staging (owner: Mike, due: tomorrow)
+Mike, you're on deployment
+```
+
+Losing who owns a task is worse than an odd title, so the rule was withdrawn. Doing it
+properly needs the room's participant names from the backend so there is no guessing -
+and even then `owner: Mike,` has to survive. A greeting needs no handling either way:
+"Hi Gowtham , I wanted a call to take a decision on Ram" gives "Decision On Ram" with or
+without it.
 
 **Ticket numbers are put back.** The student invents no identifiers — 0 fabricated across
 69 real cards — but it used to omit them, and ticket numbers are the single thing most

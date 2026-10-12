@@ -286,6 +286,84 @@ _TICKET_STOP = frozenset(
     "the and for with that this from was were are has have had not but its".split())
 
 
+# A link in one of these chats is a thing to open, so the card says what kind.
+_LINK_KINDS = [
+    ("Design", ("figma.com", "sketch.com", "zeplin.io", "invisionapp.com")),
+    ("Doc", ("docs.google.com", "notion.so", "confluence", "sharepoint.com")),
+    ("Ticket", ("atlassian.net", "jira", "linear.app", "github.com", "gitlab.com")),
+    ("Recording", ("zoom.us", "loom.com", "drive.google.com")),
+    ("Build", ("install.shareipa.com", "testflight", "appcenter", "diawi", "firebase")),
+]
+_URL_RX = re.compile(r"https?://\S+|\bwww\.\S+", re.IGNORECASE)
+_MAX_LINKS = 3
+
+
+def _link_kind(url):
+    low = url.lower()
+    for name, needles in _LINK_KINDS:
+        if any(n in low for n in needles):
+            return name
+    return "Link"
+
+
+def _restore_links(text, points):
+    """Make sure a link in the message reaches the card.
+
+    Akash, 2026-10-11: "urls should be taken in summary". He is right about what these
+    rooms contain - "please use the following build for testing <url>" and "here's the
+    link to the complete user flow <figma url>" are among the most useful messages in the
+    log, and the URL is the entire actionable part. The student drops them: the 455-char
+    build message carded as four bullets about the fixes and no way to get the build.
+
+    Same shape as the ticket-number restoration: only URLs already in the message, never
+    invented, appended as their own points and labelled by what they point at so the card
+    says "Build: ..." rather than a bare link. Capped, because a message that is a list of
+    nine links is a reference list and its own card already.
+    """
+    if not points:
+        return points
+    blob = " ".join(points)
+    seen, out = set(), list(points)
+    for m in _URL_RX.finditer(text or ""):
+        url = m.group(0).rstrip(").,;'\"")
+        if url in blob or url in seen:
+            continue
+        seen.add(url)
+        if len(seen) > _MAX_LINKS:
+            break
+        out.append(f"{_link_kind(url)}: {url}")
+    return out
+
+
+# WITHDRAWN 2026-10-11: stripping the addressed name before the model reads the message.
+#
+# The bug was real - "we'll need gpu's Gowtham , just fyi" came back titled "Gpu Gowtham
+# Needed", and "Still going on Gowtham !" as "Gowtham Update". A regex that removed a
+# capitalised word sitting against a comma or exclamation mark fixed both of those, and
+# was then measured: it touched 57 of 90 generated messages and took production KEPT from
+# 62.8% to 61.8%, because it was deleting
+#
+#   "reproduced it three times on Chrome, and once on Safari"   <- product names
+#   "the invite email itself goes to spam on Gmail"
+#   "Add the index and test on staging (owner: Mike, due: tomorrow)"   <- the OWNER
+#   "Mike, you're on deployment"
+#
+# Two things were wrong. The pattern cannot tell a person from a product, because "going
+# on Gowtham !" and "on Chrome, and once on Safari" are the same shape. And the premise
+# was wrong: in a work chat the person addressed is usually the person who now owns the
+# thing, which is exactly what a summary must keep - the importance table scores an
+# @mention at +3 for that reason.
+#
+# A greeting is harmless either way; measured on the real messages, "Hi Gowtham , I wanted
+# a call to take a decision on Ram" gives "Decision On Ram" with or without stripping, as
+# does "Cool Akash. And yes, we need gpu power". Only the mid-sentence form moved, and
+# that is the form that cannot be identified safely.
+#
+# Doing this properly needs the room's participant names from the backend, so the guess
+# disappears - and even then "owner: Mike," has to stay. Until then a name occasionally
+# reaching a title is the cheaper failure. Do not reintroduce a positional regex.
+
+
 def production_summary(text, student=None):
     """What /message-summary serves. Rules decide IF; the student writes the card.
 
@@ -323,8 +401,9 @@ def production_summary(text, student=None):
     # "Issues", "Training" from "train"), which is what a title is for.
     #
     # The rules title stays as the fallback, for when the student is absent or fails.
-    return {"title": card.get("title") or gate.title,
-            "points": _restore_ticket_ids(text, card["points"])}
+    points = _restore_ticket_ids(text, card["points"])
+    points = _restore_links(text, points)
+    return {"title": card.get("title") or gate.title, "points": points}
 
 
 def default_student(model_dir=None):

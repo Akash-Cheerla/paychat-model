@@ -492,8 +492,12 @@ _IMPORTANT = [
     # vocabulary of a report that never says "bug": the voice-note card in the app
     # ("saves in 15-20 seconds", "auto-disconnects after 2-3 attempts") scored almost
     # nothing without it.
-    (3, r"\b(?:crash(?:es|ed|ing)?|bug|broken|fail(?:s|ed|ing)?|error|not\s+working|"
-        r"regression|blocked|stuck|wrong|missing|issue)\b"),
+    # The plurals were missing and that was costly: the pattern read "issue\b", which
+    # cannot match "issues", and "issues" is the commonest bug word in this team's chat.
+    # "The group profile image issues and UI issues have been addressed" scored ZERO
+    # (dogfood 2026-10-10). Same for bug/error/regression.
+    (3, r"\b(?:crash(?:es|ed|ing)?|bugs?|broken|fail(?:s|ed|ing)?|errors?|not\s+working|"
+        r"regressions?|blocked|stuck|wrong|missing|issues?)\b"),
     (3, r"\b(?:too\s+slow|slow(?:er|ly)?|delay(?:s|ed)?|lag(?:s|gy|ging)?|hangs?|"
         r"freez(?:e|es|ing)|disconnects?|auto-disconnects?|drops?\s+(?:the\s+)?call|"
         r"times?\s+out|timeout|overlap(?:s|ping)?|misaligned|unable\s+to|"
@@ -506,10 +510,32 @@ _IMPORTANT = [
         r"remains?\s+(?:open|broken)|outstanding|shows?\s+blank|comes?\s+back\s+empty)\b"),
     # A fix is as worth recording as the fault. The same rehearsal dropped "I've pushed
     # the fix for the summary card showing duplicate bullets" for the same reason.
-    (2, r"\b(?:fix(?:ed|es|ing)?|resolved|patched|workaround|rolled\s+back|reverted)\b"),
+    # "addressed" is how this team says fixed - "the group profile image issues and UI
+    # issues have been addressed" - and it was not in the list.
+    (2, r"\b(?:fix(?:ed|es|ing)?|resolved|patched|workaround|rolled\s+back|reverted|"
+        r"address(?:ed|ing)|sorted|handled)\b"),
     # A decision that was taken.
     (2, r"\b(?:assigned|approved|rejected|merged|released|deployed|signed\s+off|"
         r"marked|agreed|decided|confirmed|cancelled|postponed)\b"),
+    # Something a user cannot do. The commonest way a bug is reported in this team's own
+    # chat and it scored zero: "1. Cannot set group profiles pictures once created 2.
+    # Cannot make any other user as admin" produced no card at all (dogfood 2026-10-10).
+    # "unable to" and "doesn't work" were matched above; a bare "cannot" was not. The
+    # lookahead keeps the chatter uses out - "can't wait", "can't believe".
+    # The lookahead is the whole safety of this rule. Without "stop" in it, "I can't stop
+    # thinking about this blog post" bought a card for a message about standing desks and
+    # a weekend, and chatter rejection fell from 90.5% to 85.7% (generated set).
+    (3, r"\bcan(?:not|n't|'t)\s+"
+        r"(?!wait|believe|thank|imagine|help|tell|stop|even|get\s+over|see\s+why)\w+"),
+    # A decision that still has to be MADE, as against one already taken above. The
+    # 4GB/8GB RAM message - the most consequential thing in the log that day - carried
+    # "take a decision on Ram" and "Does that work?" and scored nothing for either.
+    (3, r"\b(?:take\s+a\s+decision|need\s+to\s+decide|decision\s+on|have\s+to\s+decide|"
+        r"which\s+way\s+(?:do\s+we|to)\s+go|shall\s+we)\b"),
+    # Asking someone to confirm. A question put to the room is an open loop, which is
+    # exactly what a summary is for.
+    (2, r"\bdoes\s+(?:that|this|it)\s+work\b|\bworks?\s+for\s+you\b|"
+        r"\b(?:can|could)\s+you\s+confirm\b|\bplease\s+confirm\b|\bthoughts\s*\?"),
     # Weak on its own. "Meeting room 2" and "the third day in a row" are numbers in
     # chatter; a number only means something next to one of the signals above.
     (1, r"\d"),
@@ -517,7 +543,12 @@ _IMPORTANT = [
 # Throat-clearing, opinion and hedging. Present in nearly every long chat message and
 # worth nothing to the person reading the card a day later.
 _UNIMPORTANT = [
-    (-4, r"^(?:i\s+(?:think|guess|feel|believe|spent|was|am|have\s+been|wanted)|overall|"
+    # "wanted" was in this list and had to come out. It is throat-clearing in "I wanted to
+    # vent" and the subject of the sentence in "I wanted a call to take a decision on Ram
+    # which is 4GB rn but we may need 8GB" - where -4 deleted the decision along with the
+    # preamble (dogfood 2026-10-10). The dedicated pattern at the bottom of this list
+    # still cancels "wanted to say/vent/mention/share", which is the case this was for.
+    (-4, r"^(?:i\s+(?:think|guess|feel|believe|spent|was|am|have\s+been)|overall|"
          r"anyway|personally|honestly|basically|just\s+wanted|fyi)\b"),
     # A message that says outright it has nothing in it. The scoring word is INSIDE the
     # negation - "Nothing important from me today, just procrastinating before I start on
@@ -810,6 +841,9 @@ _REFERENCE_HOSTS = [
     ("Documents", ("docs.google.com", "notion.so", "confluence", "sharepoint.com")),
     ("Tickets", ("atlassian.net", "jira", "linear.app", "github.com", "gitlab.com")),
     ("Recordings", ("zoom.us", "loom.com", "drive.google.com")),
+    # Where a build to test actually comes from in this team's chat.
+    ("Build", ("install.shareipa.com", "testflight.apple.com", "diawi.com",
+               "appcenter.ms", "firebaseapp.com", "play.google.com/apps/test")),
 ]
 
 
@@ -822,14 +856,22 @@ def _reference_title(text: str) -> str:
 
 
 def is_worth_summarizing(text: str) -> bool:
-    """Long enough, and more than one sentence, measured WITHOUT its links.
+    """Long enough, and more than one sentence, measured AS THE READER SEES IT.
 
-    A message that is mostly URLs is long only on paper, and its summary would just be the
-    message again - UNLESS the links are labelled, in which case the labels are the point.
+    This used to delete the links before measuring, on the grounds that a message which is
+    mostly URLs is long only on paper. That was wrong about this team's traffic, where the
+    link IS the payload: "please use the following build for testing <url>, 1. the group
+    profile issues have been addressed" measured 124 characters with the URL deleted and
+    was dropped, and it is one of the most useful messages in the room.
+
+    So links are shortened rather than removed - the same form a point would show - and
+    the length is what the reader would actually read. That message measures 149 and
+    qualifies. A message that really is nothing but URLs still fails, because collapsed
+    links are short.
     """
     if len(labelled_links(text)) >= 2:
         return True
-    prose = replacing_links(text or "", lambda _: "").strip()
+    prose = replacing_links(text or "").strip()
     if len(prose) < MINIMUM_LENGTH:
         return False
     return len(sentences(prose)) >= 2
@@ -854,7 +896,10 @@ def summarize(text: str) -> Optional[SummaryDraft]:
     shortened = replacing_links(text)
     draft = SummaryDraft(title_for(shortened), points_for(shortened)).polished()
     if not draft.points or not draft.has_substance():
-        return None
+        # A message whose prose says nothing can still be carrying the build or the
+        # design, and that is the whole message. Same fallback as the scoring checks
+        # below, which this return used to skip.
+        return _described_links(text) or None
     # Shaped like sentences is not the same as worth reading. 21 generated messages of
     # pure chatter - a sandwich shop changing its bread, a lost jacket, someone's cat -
     # every one produced a card, because every one is made of grammatical sentences that
@@ -862,8 +907,46 @@ def summarize(text: str) -> Optional[SummaryDraft]:
     # about something: a deadline, an instruction, a decision, something broken.
     scores = [importance(p) for p in draft.points]
     if max(scores, default=0) < CARD_THRESHOLD:
-        return None
+        return _described_links(text) or None
     if not (sum(1 for s in scores if s > 0) >= 2
             or max(scores) >= CARD_STRONG):
-        return None
+        return _described_links(text) or None
     return draft
+
+
+def _described_links(text: str) -> Optional[SummaryDraft]:
+    """A message whose point IS a link, for when nothing else in it scored.
+
+    Akash, 2026-10-11: "urls should be taken in summary". The labelled-link branch above
+    needs TWO of them and parses only a strict "label: url", which is brittle against what
+    these rooms send - "- Voice setup during registration: https:// <figma>" has a space
+    after the scheme and a bullet before the label, so it read as zero labelled links.
+    Both that and "here's the link to the complete user flow for a group call: <figma>"
+    scored nothing anywhere and produced no card, while being exactly the kind of message
+    someone scrolls back for.
+
+    A sentence qualifies only if it carries a URL and describes it in three words or more,
+    which is what separates "here's the link to the complete user flow" from "lol check
+    this out <link>". If none does, there is no card - this never invents one.
+    """
+    if not _URL.search(text or ""):
+        return None
+    # The link has to point at something this team works in. "I stumbled onto this blog
+    # post about weird pagination patterns and I can't stop thinking about it, linked
+    # below, no action needed" describes its link in plenty of words and is pure chatter -
+    # it cost 5 points of chatter rejection on its own (generated set). A Figma, a doc, a
+    # ticket or a build is an artefact someone will open; example.com is reading material.
+    if _reference_title(text) == "Links":
+        return None
+    described = []
+    for sentence in sentences(replacing_links(text or "")):
+        if not _URL.search(sentence) and "link" not in sentence.lower():
+            continue
+        if len(_URL.sub("", sentence).split()) < 3:
+            continue
+        point = tidy(sentence.strip(" -*•"))
+        if point and point not in described:
+            described.append(point)
+    if not described:
+        return None
+    return SummaryDraft(_reference_title(text), described[:MAX_POINTS])
