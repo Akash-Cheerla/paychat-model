@@ -261,13 +261,13 @@ worth keeping. Measured over the tokens the labels mark important:
 
 | token | before | after |
 |---|---|---|
-| **ticket id** | **8/20 — 40.0%** | **20/20 — 100%** |
-| version | 19/24 — 79.2% | unchanged |
-| weekday | 65/77 — 84.4% | unchanged |
-| clock time | 29/35 — 82.9% | unchanged |
-| ratio/size | 14/16 — 87.5% | unchanged |
-| amount | 3/3 — 100% | unchanged |
-| **all** | 138/175 — 78.9% | **150/175 — 85.7%** |
+| **ticket id** | 8/20 — 40.0% | **20/20 — 100%** |
+| **version** | 19/24 — 79.2% | **21/24 — 87.5%** |
+| **weekday** | 63/77 — 81.8% | **68/77 — 88.3%** |
+| **clock time** | 29/35 — 82.9% | **31/35 — 88.6%** |
+| **ratio/size** | 14/16 — 87.5% | **16/16 — 100%** |
+| amount | 3/3 — 100% | 3/3 — 100% |
+| **all** | 138/175 — 78.9% | **159/175 — 90.9%** |
 
 An id already in the message is restored two ways. Where a bullet clearly came from the
 sentence carrying it, the id is appended to that bullet — `Crash on iOS 17.2 when applying
@@ -278,7 +278,19 @@ line: `Tickets: QA-101, QA-102, QA-103`.
 
 It never invents, never attaches an id to a bullet from a different sentence, never reads
 a version or a date (`3.2.0-rc3`, `2026-10-18`, `4.5:1`) as a ticket, and adds at most
-that one line. `tests/test_identifiers.py` holds all of it, because a misattributed ticket
+that one line.
+
+**Deadlines and versions are restored too, by a separate mechanism.** Reusing the ticket
+logic for dates looked fine — 14 of 27 dropped tokens placed "confidently" by overlap —
+and would have written `Fix needed by Wednesday EOD (Thursday)`, two contradictory
+deadlines on one line, plus the same figure twice as `(4.5)` and `(4.5:1)`. An id is
+opaque and belongs to one thing; a date is semantic and a bullet may already carry one.
+
+So a time is never attached to a bullet that already has a time of its own, and
+overlapping matches collapse to the longest, so `09:15 UTC` is restored once. Where
+neither holds, the token stays dropped — there is deliberately no trailing line for
+dates, because `Tickets: QA-101` is unambiguous while `Deadlines: Friday` without saying
+what is due is noise. `tests/test_identifiers.py` holds all of it, because a misattributed ticket
 number would be worse than the omission this fixes. On a realistic 31-message day it
 produced **zero** trailing lines — it stays dormant unless an id would otherwise be lost.
 

@@ -287,6 +287,92 @@ _TICKET_STOP = frozenset(
 
 
 # A link in one of these chats is a thing to open, so the card says what kind.
+# Deadlines, versions and measurements, longest pattern first so "09:15 UTC" wins over
+# "09:15" and "4.5:1" over "4.5" - otherwise the same figure is restored twice.
+_DATE_PATTERNS = [
+    re.compile(r"\b\d{1,2}:\d{2}\s?(?:am|pm|AM|PM|UTC|IST)\b"),
+    re.compile(r"\b\d{1,2}\s?(?:am|pm|AM|PM)\b"),
+    re.compile(r"\b\d+(?:\.\d+)?\s?:\s?\d+\b"),
+    re.compile(r"\b\d+\.\d+(?:\.\d+)?(?:-[A-Za-z0-9]+)?\b"),
+    re.compile(r"\b\d+\s?(?:KB|MB|GB|TB|ms)\b", re.IGNORECASE),
+    re.compile(r"\b(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b", re.IGNORECASE),
+    re.compile(r"\b(?:EOD|noon|midnight|tonight|tomorrow|today)\b", re.IGNORECASE),
+]
+
+# Does a bullet ALREADY carry a time of its own? The guard that makes this safe.
+_HAS_DATE = re.compile(
+    r"\b\d{1,2}:\d{2}|\b\d{1,2}\s?(?:am|pm)\b|\b\d+\.\d+|"
+    r"\b(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b|"
+    r"\b(?:EOD|noon|midnight|tonight|tomorrow|today|week|month)\b", re.IGNORECASE)
+
+
+def _restore_dates(text, points):
+    """Put back a deadline, version or measurement the student dropped.
+
+    Retention measured 2026-10-11, on the tokens the labels mark important: ticket ids
+    100% after their own fix, amounts 100%, but weekdays 82%, clock times 83% and versions
+    79%. A dropped deadline is the worst of these to lose - the importance table weights
+    "by Friday" highest of anything it scores, because it is the thing people scroll back
+    for.
+
+    This is NOT the ticket-id mechanism reused. An id is opaque and can only belong to one
+    thing; a date is semantic, and of the 27 dropped tokens 14 looked safely placeable by
+    overlap alone while actually producing:
+
+        "Fix needed by Wednesday EOD"        + Thursday   <- two contradictory deadlines
+        "...report blockers by Thursday"     + EOD        <- already has one
+        "Color palette fails contrast check" + 4.5, 4.5:1 <- the same figure twice
+
+    So two guards beyond the overlap test. A token is never attached to a bullet that
+    already carries a time of its own, which is what stops a second deadline landing on a
+    task that has one. And overlapping matches of the same figure collapse to the longest,
+    so "09:15 UTC" is restored once rather than as "09:15 UTC" and "09:15".
+
+    Where neither applies the token stays dropped. There is no trailing line for dates the
+    way there is for ticket numbers: "Tickets: QA-101" is unambiguous, while "Deadlines:
+    Friday" without saying what is due on Friday is noise.
+    """
+    if not points:
+        return points
+    blob = " ".join(points)
+    sentences = re.split(r"(?<=[.!?])\s+", text or "")
+
+    def words(s):
+        return {w for w in re.findall(r"[a-z0-9]+", s.lower())
+                if len(w) > 2 and w not in _TICKET_STOP}
+
+    # longest-match-wins, so a figure is not restored under two patterns
+    found = []
+    for rx in _DATE_PATTERNS:
+        for m in rx.finditer(text or ""):
+            tok = m.group(0)
+            if any(tok in t or t in tok for t in found):
+                continue
+            found.append(tok)
+
+    out = list(points)
+    attached = set()
+    for tok in found:
+        if tok.lower() in blob.lower():
+            continue
+        sent = next((s for s in sentences if tok in s), "")
+        sw = words(sent)
+        best, score = None, 0.0
+        for i, p in enumerate(out):
+            if i in attached or _HAS_DATE.search(p):
+                continue          # never a second time on a bullet that has one
+            pw = words(p)
+            if not pw:
+                continue
+            ov = len(sw & pw) / len(pw)
+            if ov > score:
+                best, score = i, ov
+        if best is not None and score >= _TICKET_OVERLAP:
+            out[best] = f"{out[best]} ({tok})"
+            attached.add(best)
+    return out
+
+
 _LINK_KINDS = [
     ("Design", ("figma.com", "sketch.com", "zeplin.io", "invisionapp.com")),
     ("Doc", ("docs.google.com", "notion.so", "confluence", "sharepoint.com")),
@@ -402,6 +488,7 @@ def production_summary(text, student=None):
     #
     # The rules title stays as the fallback, for when the student is absent or fails.
     points = _restore_ticket_ids(text, card["points"])
+    points = _restore_dates(text, points)
     points = _restore_links(text, points)
     return {"title": card.get("title") or gate.title, "points": points}
 

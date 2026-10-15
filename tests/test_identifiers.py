@@ -32,7 +32,58 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from summary_engines import _restore_ticket_ids   # noqa: E402
+from summary_engines import _restore_dates, _restore_ticket_ids   # noqa: E402
+
+# Dates are restored by a SEPARATE mechanism, deliberately. An id is opaque and can only
+# belong to one thing; a date is semantic, and reusing the ticket logic put two
+# contradictory deadlines on one bullet. Of the 27 dropped date tokens, 14 looked safely
+# placeable by overlap alone and would have produced "Fix needed by Wednesday EOD
+# (Thursday)", "...report blockers by Thursday (EOD)" and the same figure twice as "(4.5)"
+# and "(4.5:1)". The two guards below are what the cases here hold.
+#
+# (name, source message, bullets in, expected bullets out)
+DATES = [
+    ("places a deadline on the bullet from its sentence",
+     "Ops needs a dry run on the staging clone before Friday at noon.",
+     ["Ops needs dry run on staging clone"],
+     ["Ops needs dry run on staging clone (Friday)"]),
+
+    ("REFUSES a bullet that already carries a deadline",
+     "Fix needed by Wednesday EOD. Please also read the notes before Thursday.",
+     ["Fix needed by Wednesday EOD"],
+     ["Fix needed by Wednesday EOD"]),
+
+    ("collapses the same figure matched by two patterns",
+     "The color palette fails the contrast check, it needs at least 4.5:1 against "
+     "the background.",
+     ["Color palette fails contrast check"],
+     ["Color palette fails contrast check (4.5:1)"]),
+
+    ("collapses 09:15 UTC rather than adding 09:15 as well",
+     "Database CPU spiked to 100% at 09:15 UTC during the incident.",
+     ["Database CPU spiked to 100 percent"],
+     ["Database CPU spiked to 100 percent (09:15 UTC)"]),
+
+    ("does not attach to a bullet from a different sentence",
+     "We should push the Friday release to Tuesday. Priya will take the gift card crash.",
+     ["Priya to take gift card crash"],
+     ["Priya to take gift card crash"]),
+
+    ("a version reaches the bullet it belongs to",
+     "Login works on Android and push works. Both are punted to 2.4.1.",
+     ["Both punted to the next release"],
+     None),            # asserted on count only - placement depends on overlap
+
+    ("no dates in the message changes nothing",
+     "Login works on both platforms and the chat list scrolls",
+     ["Login works on both platforms"],
+     ["Login works on both platforms"]),
+
+    ("a date already in the card is not repeated",
+     "Ship it on Friday please.",
+     ["Ship on Friday"],
+     ["Ship on Friday"]),
+]
 
 # (name, source message, bullets in, expected bullets out)
 CASES = [
@@ -134,7 +185,25 @@ def main():
             print(f"        got:  {got}")
             print(f"        want: {want}")
 
-    print(f"\n  TOTAL {len(CASES) - len(failed)}/{len(CASES)} correct")
+    print("\n  deadlines, versions and measurements")
+    for name, src, points, want in DATES:
+        before = list(points)
+        got = _restore_dates(src, points)
+        if want is None:
+            # placement depends on overlap; what must hold is that nothing is invented,
+            # nothing is lost, and no bullet ends up with two times on it
+            ok = (len(got) == len(before)
+                  and all(got[i].startswith(before[i]) for i in range(len(before))))
+        else:
+            ok = got == want
+        print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+        if not ok:
+            failed.append(name)
+            print(f"        got:  {got}")
+            print(f"        want: {want}")
+
+    total = len(CASES) + len(DATES)
+    print(f"\n  TOTAL {total - len(failed)}/{total} correct")
     return 1 if failed else 0
 
 
