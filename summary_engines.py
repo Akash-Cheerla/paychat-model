@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
+import sensitive
 import summarizer
 
 ROOT = Path(__file__).resolve().parent
@@ -466,13 +467,13 @@ def production_summary(text, student=None):
     if gate is None:
         return None                      # nothing here worth a card
     if student is None:
-        return gate.as_dict()
+        return sensitive.clean_card(gate.as_dict())
     try:
         card = student.summarize(text)
     except Exception:                    # noqa: BLE001 - a model fault must not 500
-        return gate.as_dict()
+        return sensitive.clean_card(gate.as_dict())
     if not card or not card.get("points"):
-        return gate.as_dict()
+        return sensitive.clean_card(gate.as_dict())
     # The STUDENT writes the title. This used to take the rules title, on the strength
     # of one example - "Build 52" against the model's "App Build Testing" - and that
     # example did not survive being counted. Over 69 cards of real traffic:
@@ -490,7 +491,10 @@ def production_summary(text, student=None):
     points = _restore_ticket_ids(text, card["points"])
     points = _restore_dates(text, points)
     points = _restore_links(text, points)
-    return {"title": card.get("title") or gate.title, "points": points}
+    # Last thing before it is returned, so nothing added by the restorations above can
+    # slip a credential or a clinical fact onto the card either.
+    return sensitive.clean_card({"title": card.get("title") or gate.title,
+                                 "points": points})
 
 
 def default_student(model_dir=None):

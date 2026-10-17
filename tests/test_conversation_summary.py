@@ -32,6 +32,48 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 
 import room_summarizer as R   # noqa: E402
 
+# Found by auditing all 253 summaries the logs produce, before the feature was shown to
+# anyone. This path reads EVERY message in a room, which is a different exposure from the
+# per-message card, and the corpus that exposed it is the anonymised WhatsApp exports -
+# real human conversation, and the right population to check for a consumer chat app.
+SENSITIVE = [
+    ("an OTP request never reaches a summary",
+     "Can you please share the OTP for dejavoo portal please", True),
+    ("a phone number never reaches a summary",
+     "Hi sir can you add this number in wisecats group 7320863304", True),
+    ("a password never reaches a summary",
+     "We also can't change the wifi password", True),
+    ("a UPI reference never reaches a summary",
+     "Failed because upi is not set on your end", True),
+    ("a card-shaped number never reaches a summary",
+     "use 4111 1111 1111 for the test", True),
+    ("an ordinary money request is not sensitive",
+     "Can you send me 500 for the cab", False),
+    ("a deadline is not sensitive", "I need to leave by 4", False),
+]
+
+PRIVATE = [
+    ("personal finance news is refused",     "My salary got delayed", True),
+    ("a social ask is refused",              "Give me a few too, will you smoke with me?", True),
+    ("substance chatter is refused",         "Let me smoke one cig, it's awesome", True),
+    ("health is refused",                    "I'm sick today, working from home", True),
+    # The rescue matters more than the refusal: a money request that happens to mention
+    # rent or salary is the thing this feature exists for.
+    ("a rent request survives",              "I need 650$ for my rent this month, can you help out a friend?", False),
+    ("a repayment promise survives",         "Will send you back once i got salary", False),
+    ("a split that mentions drinks survives","beers were 800 split 4 ways", False),
+    ("a cab booking survives",               "book a cab from home to office", False),
+]
+
+OPENERS = [
+    ("a leading But is stripped",   "But june's is still due", "June's is still due"),
+    ("a leading So is stripped",    "So need something asap", "Need something asap"),
+    ("a leading And also is stripped", "And also check if filter is blocked", "Check if filter is blocked"),
+    ("stacked fillers are stripped", "Ohh btw can you send me 500 ?", "Can you send me 500 ?"),
+    ("a clean point is untouched",  "Metro is stuck", "Metro is stuck"),
+    ("stripping stops before it guts the point", "But same issue", "But same issue"),
+]
+
 
 def msg(i, sender, text, hour=9, minute=0):
     return {"sender": sender, "text": text,
@@ -109,9 +151,16 @@ def main():
         check("points carry a timestamp", all(p.get("ts") for p in s.points), True)
         check("points are oldest first",
               [p["ts"] for p in s.points] == sorted(p["ts"] for p in s.points), True)
-        check("every point is text somebody actually sent",
-              all(any(p["text"] in m["text"] or p["text"].rstrip(".") in m["text"]
-                      for m in MONEY_RIDE) for p in s.points), True)
+        # The anti-fabrication property, and the reason the engine is the rules. Points
+        # are no longer literal substrings - _tidy strips a leading conjunction and
+        # recapitalises - so what is asserted is that no point contains a WORD nobody
+        # said. A generated summary cannot pass this; "Meeting Rescheduled" did not.
+        import re as _re
+        said = set(_re.findall(r"[a-z0-9']+", " ".join(m["text"] for m in MONEY_RIDE).lower()))
+        invented = [w for p in s.points
+                    for w in _re.findall(r"[a-z0-9']+", p["text"].lower())
+                    if w not in said]
+        check("no point contains a word nobody said", invented, [])
         check("the window is reported",
               bool(s.window_from and s.window_to and s.window_from <= s.window_to), True)
         check("shape counts what is in it", bool(s.shape), True)
@@ -140,7 +189,7 @@ def main():
           isinstance(R.window([{"text": "hi", "ts": "not-a-date", "sender": "a"}],
                               hours=2), list), True)
 
-    total = len(STANDS_ALONE) + 20
+    total = len(STANDS_ALONE) + len(SENSITIVE) + len(PRIVATE) + len(OPENERS) + 20
     print(f"\n  TOTAL {total - len(failed)}/{total} correct")
     return 1 if failed else 0
 

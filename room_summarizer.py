@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Sequence
 
+import sensitive
 import summarizer as S
 
 # A day of a working group repeats itself. The dogfood log is the extreme - "Can you book
@@ -136,6 +137,66 @@ def _stands_alone(point: str) -> bool:
     return not _BARE_ANAPHORA.search(point)
 
 
+# Credentials and identifiers are defined once, in sensitive.py, and shared with the
+# per-message path - the audit that found them found the same leaks in both.
+_SENSITIVE = sensitive.SECRET
+
+
+# A point that opens on a conjunction reads as half a sentence - "But june's is still
+# due", "So need something asap" - which was 5.6% of all points. The content is fine; the
+# opener is not, so it is removed rather than the point refused. summarizer._LEAD_INS does
+# this for per-message cards; short messages never went through it, because they never
+# used to become points at all.
+_OPENER = re.compile(
+    r"^(?:and|but|or|so|then|also|because|cos|coz|cause|which|that|plus|anyway|"
+    r"actually|basically|well|hmm+|oh+|ohh+|btw|ok|okay|yeah|yes)\b[\s,]*",
+    re.IGNORECASE)
+
+
+# Someone's private life is not a summary point. The ask patterns cannot tell a social
+# ask from a work one - "will you smoke with me?" is the same shape as "will you send me
+# 500?" and scores higher - and two work-vocabulary patterns misfire on personal news:
+# "My salary got delayed" scores on the "delay" rule meant for a delayed build, and
+# "Can't quit fb, only snapchat" on the "cannot" rule meant for a broken feature.
+#
+# Found by auditing all 253 summaries the logs produce. The corpus for this is the
+# anonymised WhatsApp exports (cr_/rw_/nw_ rooms), which is real human conversation and
+# therefore the right population to check - PayChat is a consumer chat app, so most rooms
+# will look like these rather than like group_12.
+#
+# Rescued when the point also carries money or a commitment, because that is the feature's
+# whole purpose: "drinks came to 1200, can you send me 300" has to survive.
+_PRIVATE = re.compile(
+    r"\b(?:smoke|smoking|cigarettes?|cigs?|vape|weed|drunk|hangover|"
+    r"period|periods|pregnan\w*|sick|ill|fever|hospital|doctor|surgery|medicine|meds|"
+    r"depress\w*|anxiety|therapy|divorce|breakup|broke\s+up|girlfriend|boyfriend|"
+    r"crush|dating|salary|payslip|appraisal|fired|laid\s+off|resign\w*)\b",
+    re.IGNORECASE)
+
+# What rescues a point from the test above - a transaction or a commitment, which is what
+# the feature exists to surface.
+_ACTIONABLE = re.compile(
+    r"[$£€₹]\s?\d|\b\d+\s?(?:rs|rupees?|bucks?|dollars?)\b|"
+    r"\b(?:send|sent|pay|paid|transfer|owe|owes|split|share|cab|ride|book(?:ed|ing)?|"
+    r"pickup|pick\s+up|drop)\b",
+    re.IGNORECASE)
+
+
+def _is_private(point: str) -> bool:
+    return bool(_PRIVATE.search(point or "")) and not _ACTIONABLE.search(point or "")
+
+
+def _tidy(point: str) -> str:
+    """Strip leading conjunctions and filler, repeatedly, then recapitalise."""
+    text = (point or "").strip()
+    for _ in range(4):
+        stripped = _OPENER.sub("", text, count=1).strip()
+        if stripped == text or len(stripped.split()) < 3:
+            break
+        text = stripped
+    return text[:1].upper() + text[1:] if text else text
+
+
 def _candidates(message: dict):
     """The point(s) one message contributes.
 
@@ -221,7 +282,10 @@ def summarize_room(messages: Sequence[dict], room: str = "",
 
     scored = []
     for m in messages:
-        for c in _candidates(m):
+        for raw in _candidates(m):
+            if not raw or sensitive.is_sensitive(raw) or _is_private(raw):
+                continue                  # no credentials, no numbers, no private life
+            c = _tidy(raw)
             if not c or not S._is_substantive(c):
                 continue
             score = S.importance(c)

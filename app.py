@@ -3898,11 +3898,40 @@ _PHONE_RE = re.compile(
 _PHONE_STOP = {"0", "100", "200", "300", "400", "500", "700", "1000"}
 
 # Order / invoice / transaction identifiers are long digit runs that nobody can dial.
-# Matched against the text immediately preceding the candidate.
+# Matched against the text immediately preceding the candidate. Card and credential words
+# are here because a card number IS in phone-number shape: "I used the company card 4111
+# 1111 1111 1111 for the dinner, send me your share" put 4111111111111111 into the phone
+# slot of a money prompt (2026-10-17), which hands the app a PAN to display.
 _PHONE_REF_CONTEXT = re.compile(
     r'\b(?:order|invoice|inv|ref|reference|txn|transaction|receipt|ticket|tracking|'
-    r'confirmation|acct|account)\b\W{0,4}(?:no\.?|number|id|#)?\W{0,4}$',
+    r'confirmation|acct|account|card|visa|mastercard|amex|rupay|debit|credit|'
+    r'cvv|cvc|pin|otp|aadhaar|aadhar|pan|passport|ifsc|upi)\b'
+    r'\W{0,4}(?:no\.?|num|number|id|#|is)?\W{0,4}$',
     re.IGNORECASE)
+
+# E.164 caps a dialable number at 15 digits. Anything longer is an identifier, and 16 is
+# the commonest card length.
+_PHONE_MAX_DIGITS = 15
+
+
+def _looks_like_card(bare: str) -> bool:
+    """Luhn check, which a card number passes and a phone number essentially never does.
+
+    Only meaningful at card lengths (13-19), so shorter candidates are not tested - a
+    7-digit local number that happened to satisfy Luhn would otherwise be thrown away.
+    """
+    if not (13 <= len(bare) <= 19) or not bare.isdigit():
+        return False
+    total, alt = 0, False
+    for ch in reversed(bare):
+        d = ord(ch) - 48
+        if alt:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+        alt = not alt
+    return total % 10 == 0
 
 
 def _extract_phone(text: str) -> Optional[str]:
@@ -3912,7 +3941,9 @@ def _extract_phone(text: str) -> Optional[str]:
     for m in _PHONE_RE.finditer(text):
         digits = re.sub(r'[^\d+]', '', m.group(1))
         bare = digits.lstrip('+')
-        if len(bare) < 7 or bare in _PHONE_STOP:
+        if len(bare) < 7 or len(bare) > _PHONE_MAX_DIGITS or bare in _PHONE_STOP:
+            continue
+        if _looks_like_card(bare):
             continue
         if _PHONE_REF_CONTEXT.search(text[:m.start()]):
             continue
