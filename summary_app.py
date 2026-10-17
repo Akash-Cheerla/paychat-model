@@ -31,6 +31,7 @@ from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+import room_summarizer
 import summary_engines
 
 logging.basicConfig(level=logging.INFO)
@@ -150,6 +151,55 @@ def message_summary(req: MessageSummaryRequest):
                 "as_of": _utc_iso()}
     return {"summary": summary_engines.production_summary(req.text or "", student),
             "source": source,
+            "as_of": _utc_iso()}
+
+
+class ConversationSummaryRequest(BaseModel):
+    """A window of one room to summarise."""
+    room_id: Optional[str] = None
+    # Oldest first or newest first, either is fine - they get sorted by ts.
+    # [{"sender": "...", "ts": "2026-10-16T09:15:00Z", "text": "..."}]
+    messages: list = []
+    # Optional window. `since` is an ISO timestamp: what was said after the reader last
+    # looked, which needs the client to know its own read position. `hours` is a lookback
+    # and needs nothing from the client. With neither, the whole list is the window.
+    since: Optional[str] = None
+    hours: Optional[float] = None
+
+
+# A room-day in the logs runs to a few hundred messages; the busiest is 323. This is a
+# bound on a pathological request, not a window size.
+_MAX_WINDOW_MESSAGES = 2000
+
+
+@app.post("/conversation-summary")
+def conversation_summary(req: ConversationSummaryRequest):
+    """What happened in this room, for a window of it.
+
+    Separate from /message-summary and deliberately different: that one summarises a
+    single long message with the distilled model, this one summarises a WINDOW with the
+    rules. Per-message cards reach about 3% of what gets said, so a decision reached
+    across four short replies is invisible to them - dm_13_70 on 2026-08-30 is 323
+    messages of money and ride requests and produces no per-message card at all.
+
+    The engine is the rules, not the student, because the student cannot do this: handed a
+    day window it fabricated "Meeting Rescheduled" for a conversation containing no
+    meeting, and every busy room-day is 1,770-2,467 tokens against its 512-token input.
+    Every point here is a span of something somebody said, carried with its sender and
+    timestamp, so there is nothing to fabricate with.
+
+    `summary` is null for a quiet window, and the caller draws nothing - same contract as
+    a short message. No title: a window has no single subject to read off it, and naming
+    one anyway produced "Key Points" 91 times in 255 summaries. `shape` is the
+    at-a-glance substitute ({"requests": 6, "problems": 3}) and cannot be wrong.
+
+    Nothing is stored. Fast enough to call on open - it is scoring, not generation.
+    """
+    msgs = [m for m in req.messages[:_MAX_WINDOW_MESSAGES] if isinstance(m, dict)]
+    window = room_summarizer.window(msgs, since=req.since, hours=req.hours)
+    summary = room_summarizer.summarize_room(window, room=req.room_id or "")
+    return {"summary": summary.as_dict() if summary else None,
+            "messages_in_window": len(window),
             "as_of": _utc_iso()}
 
 

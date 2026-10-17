@@ -138,6 +138,67 @@ down is not.
 
 ---
 
+## A whole conversation, not one message
+
+`POST /conversation-summary` — a second, separate endpoint on the same service. The
+per-message endpoint is unchanged by it.
+
+```
+POST /conversation-summary
+{"room_id": "dm_13_70",
+ "messages": [{"sender": "13", "ts": "2026-08-30T09:15:00Z", "text": "..."}],
+ "hours": 24}
+```
+
+```json
+{"summary": {"room": "dm_13_70", "messages": 323,
+             "window_from": "2026-08-30T09:05:11Z", "window_to": "2026-08-30T13:46:02Z",
+             "shape": {"requests": 6, "problems": 3, "deadlines": 2},
+             "points": [{"sender": "13", "ts": "...", "text": "Ohh btw can you send me 500 ?", "score": 4},
+                        {"sender": "70", "ts": "...", "text": "Metro is stuck", "score": 3}]},
+ "messages_in_window": 323}
+```
+
+**Why it exists.** Per-message cards reach the long messages and nothing else — about 3%
+of what gets said. The clearest case in our own logs is `dm_13_70` on 2026-08-30: **323
+messages, zero per-message cards**, and the whole day is a money-and-ride thread — 500
+revised down to 300, metro stuck, a lift falling through, "literally at 200 until Friday",
+"I need to leave by 4". Nothing in that day is long enough to earn a card, so the tab is
+empty. This returns twelve points from it.
+
+**The window.** `hours` is a lookback and needs nothing from the client. `since` is an ISO
+timestamp — "what was said after I last looked" — and needs the client to know its own
+read position. With neither, the whole `messages` list is the window. Up to 2000 messages
+per request.
+
+**Timing: ~20ms for 323 messages**, against 3–10s for a per-message card. This path is
+scoring, not generation — no model is loaded for it, so it is cheap enough to call when
+the tab opens.
+
+**No title, and that is deliberate.** A window has no single subject to read off it.
+Naming one anyway gave `"Key Points"` 91 times across 255 room-day summaries, and keeping
+only the titles that passed a specificity test left `"Karam It's"` and `"Book I'll"`. The
+room and the window already say what it is; `shape` says whether it is worth opening and
+cannot be wrong about it.
+
+**It cannot fabricate.** Every point is a span of something somebody actually said, with
+its sender and timestamp. There is no generation in this path. That is also why the engine
+is the rules and not the distilled model: handed a day window, the student produced
+`"Meeting Rescheduled"` and `"First/Second/Third meeting canceled"` for a conversation
+containing no meeting, because every busy room-day is 1,770–2,467 tokens against its
+512-token input and it was distilled on single-message cards. A model-written version
+needs (window → card) teacher pairs and a longer context, which is a different base
+model, not a prompt change.
+
+**What it will not catch.** The score bar is the same one a per-message card has to clear,
+so a window of pure small talk draws no card — 169 of 882 room-days in the logs produce a
+summary at all, which is correct: most days hold nothing worth remembering. A point is
+also refused when its only object is a bare pronoun — "Can you bring it up?" scores the
+same as "can you send me 500" but the reader cannot act on it without scrolling back,
+which is the thing a summary exists to save them.
+
+---
+
 ## For the apps
 
 Three things, and only three:
@@ -146,6 +207,11 @@ Three things, and only three:
 2. If the stored summary is `null`, **draw nothing**. No empty card, no placeholder.
 3. The bullet list is **variable length**, typically 2–9. It is not a design constant — it
    is however many things the message contains.
+
+For the conversation summary, the same three plus one: each point carries a `sender` and
+a `ts`, and showing them is most of its value — "70 at 09:29: Im literally at 200 until
+Friday" is worth more than the sentence alone. There is no `title`; show the room and the
+window, and `shape` if you want a one-line hint of what is in it.
 
 Nothing else. A card may end with a bullet reading `Tickets: QA-101, QA-102`, or one
 reading `Build: https://install.shareipa.com/ccUH8I` / `Design: https://figma.com/...` —
