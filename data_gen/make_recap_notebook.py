@@ -108,7 +108,12 @@ print("teacher ready")"""),
 
 code("""# Phase 1 - generate. Resumable: it appends, so re-run after a disconnect.
 PAIRS = "%s"
-TARGET_PAIRS = 1800
+# TWO STAGES, deliberately. Run 40 first and look at them: the whole round rests on the
+# teacher writing CONCLUSIONS rather than restating the selected lines, and 40 pairs is
+# fifteen minutes against six to nine hours for the full set. Five rules-based attempts at
+# this feature looked right before being measured and were not, so the cheap check first.
+# Raise this to 1800 once the 40 read well - the cell appends, so nothing is wasted.
+TARGET_PAIRS = 40
 
 def ask(prompt, max_new=800):
     msgs = [{"role": "user", "content": prompt}]
@@ -153,6 +158,23 @@ with open(PAIRS, "a") as f:
             print(have, "pairs |", skipped)
 print("done:", have, "pairs |", skipped)""" % PAIRS),
 
+md("""## Phase 1b - READ THE 40 BEFORE GOING FURTHER
+
+Stop here on the first run. The question is whether the teacher writes the conclusion or
+just reformats the lines it was given. Send these back before raising TARGET_PAIRS.
+
+```python
+for p in [json.loads(l) for l in open(PAIRS)][:6]:
+    print("INPUT\n" + p["input"])
+    print("\nTEACHER\n" + p["target"])
+    print("=" * 70)
+```
+
+What good looks like: the four lines about a split collapse into one figure, the owner is
+named, and nothing appears that nobody said. What failure looks like: the same bullets
+with headings on top - that is what the rules already give, and no amount of training
+data turns it into a recap."""),
+
 md("""## Phase 2 - throw away the pairs that would teach the wrong thing
 
 The teacher is good, not perfect. A pair is dropped when:
@@ -187,6 +209,23 @@ for p in raw:
         dropped["copied the input"] = dropped.get("copied the input", 0) + 1; continue
     if not re.search(r"(?:DECISIONS|ACTION ITEMS|OPEN QUESTIONS|INFORMATION)", tgt):
         dropped["no sections"] = dropped.get("no sections", 0) + 1; continue
+    # A figure that is only ever ASKED about must not be asserted. The local validation
+    # run produced a chat saying "so we're paying $9,600 each?" and a recap saying
+    # "We're paying $9,600 each." - the grounding check passes it, because 9,600 is in
+    # the input, and it is still a number nobody agreed to.
+    asked_only = set()
+    for line in inp.splitlines():
+        nums = set(NUM.findall(line))
+        if not nums: continue
+        if line.rstrip().endswith("?"):
+            asked_only |= nums
+        else:
+            asked_only -= nums
+    if asked_only:
+        head = tgt.split("OPEN QUESTIONS")[0]
+        if any(n in head for n in asked_only):
+            dropped["asserted a question"] = dropped.get("asserted a question", 0) + 1
+            continue
     kept.append({"input": inp, "target": tgt})
 print(f"{len(raw)} generated -> {len(kept)} usable")
 print("dropped:", dropped)

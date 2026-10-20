@@ -156,7 +156,12 @@ Write the recap someone would read a day later to catch up. Rules:
 - State the CONCLUSION, not the steps. If the lines work out a split over several
   messages, give the final figure once, not the working.
 - Every number must appear in the lines above. Never calculate a new one.
+- A QUESTION stays a question. If a line asks "so we're paying 9,600 each?" that figure
+  is not agreed - it belongs under OPEN QUESTIONS, never stated as a fact under
+  INFORMATION or DECISIONS. Only state an amount as settled when a line settles it.
 - Never write an item nobody said. If something is unclear, leave it out.
+- Prefer the specific over the vague. Drop "this needs urgent attention" and "let's
+  discuss further" - they say nothing a reader can act on.
 - No preamble, no closing line, no heading of your own.
 
 Output the recap and nothing else."""
