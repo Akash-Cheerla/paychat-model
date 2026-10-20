@@ -451,6 +451,114 @@ def _restore_links(text, points):
 # reaching a title is the cheaper failure. Do not reintroduce a positional regex.
 
 
+_TITLE_GENERIC = frozenset("""
+bug bugs payment payments update updates issue issues testing test tests status app
+build builds fix fixes work team call calls money ride chat notes general discussion
+task tasks plan demo api key points list amount working travel event links meeting
+release check needed changes change request requests reporting review and the of for
+""".split())
+
+_TITLE_FILLER = frozenset("the a an and or of to in on at for with is are was were be "
+                          "this that it its".split())
+
+# A heading is a few words. Past this the model has restated a bullet instead of naming
+# the card - "Integrated @mentions in group chats" is accurate and is not a title.
+_TITLE_MAX_WORDS = 5
+
+
+def _rough_stem(word):
+    """Enough stemming to let a heading inflect, not enough to merge unrelated words.
+
+    "Hire" has to match "hiring" - the inflection drops the e, so a prefix test alone
+    fails - while "DevOps" must still not match "dejavoo". Stripping one suffix and a
+    trailing e gets both: hir/hir matches, devop/dejavoo does not.
+    """
+    w = (word or "").lower()
+    for suf in ("ings", "ing", "ers", "er", "ed", "es", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 3:
+            w = w[: -len(suf)]
+            break
+    return w[:-1] if len(w) > 3 and w.endswith("e") else w
+
+
+def _title_words(title):
+    return [w for w in re.findall(r"[A-Za-z0-9'][A-Za-z0-9'._/-]*", title or "")]
+
+
+def _title_is_weak(title, points):
+    """Is this heading worth replacing - generic, or about nothing the card says?
+
+    Hand-judged over 30 real cards: 70% of headings are accurate, 10% are clearly wrong
+    ("Construction Deadline" on a pizza-restaurant job ad, "Issue With Group Chat" on a
+    ride message) and 7% are generic ("Bug", "Changes And Fixes"). Only the weak ones are
+    retitled, so the accurate majority is never touched and never pays for the extra call.
+    """
+    words = _title_words(title)
+    if not words:
+        return True
+    if all(w.lower() in _TITLE_GENERIC for w in words):
+        return True
+    tw = {w.lower() for w in words if w.lower() not in _TITLE_FILLER}
+    pw = {w.lower() for w in re.findall(r"[A-Za-z0-9']+", " ".join(points).lower())}
+    # Compared on prefixes, because a heading abstracts: "Translation" against
+    # "translating" is the same subject, and matching whole words called that a miss.
+    return bool(tw) and not any(
+        any(p.startswith(t[:5]) or t.startswith(p[:5]) for p in pw) for t in tw)
+
+
+def _retitle(points, student):
+    """Ask for a heading for THE POINTS, not for the message.
+
+    The model writes an accurate heading about 70% of the time, but it is conditioned on
+    the whole message, so the title and the bullets are generated from the same source
+    independently and can diverge. Handing it the bullets makes the heading answer to what
+    the card actually says. Measured on the 19 weak cards in a real-traffic sample:
+
+        "Issue With Group Chat" -> "Ride Sending"            (was wrong)
+        "Model Update"          -> "Self-Initiated Messages"
+        "Review Needed"         -> "Profile Pic Gap Check"
+        "Group Rules Call"      -> "Group Size Split"
+        "Build Update"          -> "Added Ringing Sounds"
+
+    Four rules-based attempts at this all came out net-neutral or worse: reading the title
+    from the highest-scoring points, filtering on a specificity test, running title_for
+    over the points, and composing from the first point's leading words. They are recorded
+    in room_summarizer.py and in the commit history so they are not retried.
+
+    Returns None whenever the answer is not usable - the caller keeps the original, so
+    this can only improve a heading or leave it alone.
+    """
+    try:
+        card = student.summarize(". ".join(points) + ".")
+    except Exception:                    # noqa: BLE001 - a model fault must not 500
+        return None
+    cand = ((card or {}).get("title") or "").strip()
+    if not cand or cand.upper() == "NONE":
+        return None
+    words = _title_words(cand)
+    if not words or len(words) > _TITLE_MAX_WORDS:
+        return None                      # it restated a bullet
+    if all(w.lower() in _TITLE_GENERIC for w in words):
+        return None                      # no better than what we had
+    low = cand.lower().rstrip(".")
+    if any(low == p.lower().rstrip(".") for p in points):
+        return None                      # a bullet is not a heading
+    # Every word has to come from the points. Retitling "Isabella Issue" over bullets
+    # about dejavoo produced "Processed On DevOps" - it heard "dejavoo" as "DevOps" and
+    # put a word nobody wrote into the heading. Category nouns are exempt, because a
+    # heading is allowed to abstract: "Power Supply Issues" over bullets that never say
+    # "issue" is the job, "DevOps" over bullets that say "dejavoo" is not.
+    pw = {_rough_stem(w) for w in re.findall(r"[A-Za-z0-9']+", " ".join(points).lower())}
+    for w in words:
+        lw = w.lower().strip("./-")
+        if not lw or lw in _TITLE_FILLER or lw in _TITLE_GENERIC:
+            continue
+        st = _rough_stem(lw)
+        if not any(p == st or p.startswith(st[:4]) or st.startswith(p[:4]) for p in pw):
+            return None
+    return cand
+
+
 def production_summary(text, student=None):
     """What /message-summary serves. Rules decide IF; the student writes the card.
 
@@ -491,10 +599,14 @@ def production_summary(text, student=None):
     points = _restore_ticket_ids(text, card["points"])
     points = _restore_dates(text, points)
     points = _restore_links(text, points)
+    # Only a weak heading is retitled, and only from the points, so the accurate majority
+    # is untouched and does not pay for the extra model call.
+    title = card.get("title") or gate.title
+    if _title_is_weak(title, points):
+        title = _retitle(points, student) or title
     # Last thing before it is returned, so nothing added by the restorations above can
     # slip a credential or a clinical fact onto the card either.
-    return sensitive.clean_card({"title": card.get("title") or gate.title,
-                                 "points": points})
+    return sensitive.clean_card({"title": title, "points": points})
 
 
 def default_student(model_dir=None):

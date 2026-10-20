@@ -124,6 +124,101 @@ STANDS_ALONE = [
 ]
 
 
+# Rooms are not about one thing. These interleave several threads with chatter between,
+# the way a real room does, and assert that no topic is lost - a topic that vanishes is
+# the failure that matters, because someone scrolls back BECAUSE they missed it.
+#
+# Found by running these (2026-10-19): a shared bill scored only the +1 any digit earns,
+# so "dinner last night came to 2400 total" was below the bar and a room whose whole
+# subject was a split produced NO summary. The per-message path never noticed, because
+# those messages are far too short to card - which is the gap this feature exists for.
+def _mt(sender, text, minute, topic):
+    return {"sender": sender, "text": text,
+            "ts": f"2026-11-10T09:{minute:02d}:00Z", "_topic": topic}
+
+CHAT = ["morning", "lol", "ok", "sure", "nice", "haha yeah", "yep", "cool", "ya", "hmm"]
+
+def _interleaved():
+    """Three threads, round-robin, chatter between - nothing arrives in a block."""
+    threads = [
+        [("13", "dinner last night came to 2400 total"), ("13", "can everyone send me 600 each")],
+        [("4", "the split amount shows blank when participants is not sent"),
+         ("4", "QA-116 still fails on the latest build")],
+        [("70", "can you book me a cab from my home to the airport"),
+         ("70", "I need to leave by 4 so book it before that")],
+    ]
+    topics = ["money", "bug", "ride"]
+    out, minute, chat = [], 0, list(CHAT)
+    for turn in range(2):
+        for t, name in zip(threads, topics):
+            s_, txt = t[turn]
+            out.append(_mt(s_, txt, minute, name)); minute += 2
+            if chat:
+                out.append(_mt("26", chat.pop(0), minute, "chatter")); minute += 2
+    return out
+
+MULTITOPIC = [
+    ("three interleaved topics all survive", _interleaved(), {"money", "bug", "ride"}),
+    ("a bill buried in chatter survives",
+     [_mt("26", CHAT[i % len(CHAT)], i, "chatter") for i in range(14)]
+     + [_mt("13", "dinner last night came to 2400 total", 16, "money")]
+     + [_mt("26", CHAT[i % len(CHAT)], 18 + i, "chatter") for i in range(6)],
+     {"money"}),
+    ("a minority topic is not crowded out by a dominant one",
+     [_mt("4", t, i * 2, "bug") for i, t in enumerate([
+         "QA-116 still fails on the latest build",
+         "cannot set the group profile picture once the group is created",
+         "back swipe gesture not working in group chats",
+         "the split amount shows blank when participants is not sent"])]
+     + [_mt("13", "dinner last night came to 2400 total", 20, "money")]
+     + [_mt("26", CHAT[i % len(CHAT)], 22 + i, "chatter") for i in range(8)],
+     {"bug", "money"}),
+]
+
+MONEY_POINTS = [
+    ("a bill total scores",          "dinner last night came to 2400 total", True),
+    ("a bill in the other order",    "cab fare was 350", True),
+    ("a per-head split scores",      "split 4 ways, 52 each", True),
+    ("a currency amount scores",     "$208 total for dinner", True),
+    ("a build number does NOT",      "Build 61 is on TestFlight", False),
+    ("a ticket id does NOT",         "QA-116 still fails", False),
+    ("a version does NOT",           "version 3.2.0-rc3 shipped", False),
+    ("a RAM figure does NOT",        "4 GB RAM minimum, 2 vCPU", False),
+    ("a latency figure does NOT",    "100ms median, 140ms p90", False),
+]
+
+
+# Requests belong to the Intent Log; what a recap keeps is what the Intent Log does not
+# have. Found by Akash 2026-10-19 after the first version read like a transcript of the
+# money thread it was duplicating.
+INTENTS = [
+    ("a money request is the intent log's",   "Can you send me 500 for the cab", True),
+    ("a ride request is the intent log's",    "Can you book me a cab to the office", True),
+    ("an informal ask is too",                "Gimme 200 bucks if you can homie", True),
+    ("so is announcing the transfer",         "Sending 380 now", True),
+    ("and offering to send",                  "I'll send you 150 back", True),
+    # What the intent log does NOT hold: the figure, the split, the balance, the date.
+    ("what the bill was stays",               "Dinner last night came to 2400 total", False),
+    ("how it was split stays",                "18000 split three ways so 6000 each", False),
+    ("the net balance stays",                 "Net you owe me 380", False),
+    ("a due date stays",                      "Rent is due on the 5th", False),
+    ("a cost quoted stays",                   "The plumber wants 600 for the visit", False),
+    ("a bug stays",                           "QA-116 is still failing on 61.3", False),
+    ("a commitment stays",                    "I'll call the plumber", False),
+]
+
+# What the published guidance on recaps says people read them for.
+SECTIONS_CASES = [
+    ("a date change is a decision",   "It's thursday 2pm now instead of next monday", "decisions"),
+    ("a due date is a decision",      "Rent is due on the 5th", "decisions"),
+    ("taking something on is an action", "I'll call the plumber", "action items"),
+    ("a group commitment is an action",  "Let's sync at 4 today", "action items"),
+    ("being asked is an action",      "Please pull it before you test anything", "action items"),
+    ("a question is open",            "Is that a blocker for thursday?", "open questions"),
+    ("a fact is information",         "The kitchen tap is leaking again", "information"),
+]
+
+
 def main():
     failed = []
 
@@ -144,7 +239,14 @@ def main():
     if s:
         joined = " | ".join(p["text"] for p in s.points)
         check("the amount revision survives", "300" in joined, True)
-        check("the ride request survives", "cab" in joined.lower(), True)
+        # A ride or money REQUEST is the Intent Log's job, not the recap's. Akash,
+        # 2026-10-19: "regarding intents we dont need them in summaries we already have
+        # intent logs". What survives from a money conversation is what the intent log
+        # does not hold - the amount, the split, who is owed.
+        check("a ride request is left to the intent log",
+              any("book me a cab" in p["text"].lower() for p in s.points), False)
+        check("the amount the intent log does not hold survives",
+              any("300" in p["text"] or "200" in p["text"] for p in s.points), True)
         check("the deadline survives", "leave by 4" in joined, True)
         check("pleasantries do not", "haha" in joined.lower(), False)
         check("points carry a sender", all(p.get("sender") for p in s.points), True)
@@ -189,7 +291,9 @@ def main():
           isinstance(R.window([{"text": "hi", "ts": "not-a-date", "sender": "a"}],
                               hours=2), list), True)
 
-    total = len(STANDS_ALONE) + len(SENSITIVE) + len(PRIVATE) + len(OPENERS) + 20
+    total = (len(STANDS_ALONE) + len(SENSITIVE) + len(PRIVATE) + len(OPENERS)
+             + len(MONEY_POINTS) + len(INTENTS) + len(SECTIONS_CASES)
+             + 3 * len(MULTITOPIC) + 21)
     print(f"\n  TOTAL {total - len(failed)}/{total} correct")
     return 1 if failed else 0
 

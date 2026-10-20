@@ -49,7 +49,12 @@ NEAR_DUPLICATE = 0.75
 POINT_THRESHOLD = 2
 
 # A window with nothing in it gets no card at all, the same way a short message does not.
-MIN_POINTS = 2
+# A recap is for a window with something in it. Below this the window draws nothing
+# rather than a card of one or two lines - Akash, 2026-10-19: "cant keep 1-2 lines and
+# for each small topic and just 1-3 points we can have sumary for each, thats not
+# professional". The published guidance agrees: recaps are built for busy windows, and a
+# quiet one is not expected to produce one.
+MIN_POINTS = 4
 
 # A ceiling, not a target. The count follows the content - the median window produces
 # three points and a busy day produces twelve - but the ceiling has to be low, because
@@ -71,13 +76,21 @@ class RoomSummary:
     messages: int = 0
     window_from: Optional[str] = None
     window_to: Optional[str] = None
-    # {"requests": 4, "deadlines": 2} - the at-a-glance substitute for a topic.
+    # {"requests": 4, "deadlines": 2} - what kinds of thing the window holds.
     shape: dict = field(default_factory=dict)
+    # [{"heading": "decisions", "points": [...]}, ...] - what a recap is read for,
+    # kept apart so the reader does not have to interpret it.
+    cards: list = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {"room": self.room, "messages": self.messages,
                 "window_from": self.window_from, "window_to": self.window_to,
                 "shape": dict(self.shape),
+                "sections": [{"heading": c["heading"],
+                              "points": [dict(p) for p in c["points"]]}
+                             for c in self.cards],
+                # The same points as one flat chronological list, for a caller that
+                # wants the conversation's own order rather than per-thread cards.
                 "points": [dict(p) for p in self.points]}
 
 
@@ -149,7 +162,16 @@ _SENSITIVE = sensitive.SECRET
 # used to become points at all.
 _OPENER = re.compile(
     r"^(?:and|but|or|so|then|also|because|cos|coz|cause|which|that|plus|anyway|"
-    r"actually|basically|well|hmm+|oh+|ohh+|btw|ok|okay|yeah|yes)\b[\s,]*",
+    r"actually|basically|well|hmm+|oh+|ohh+|btw|ok|okay|yeah|yes|same|"
+    # How people open a message TO the room. These arrived on cards reading as content:
+    # "Guys dinner last night came to 2400 total", "Quick one - the investor demo moved
+    # up", "Same, 18000 split three ways so 6000 each".
+    r"guys|team|folks|everyone|quick\s+one|small\s+ask|hi\s+team|hey\s+team"
+    # The lookahead is not optional. Without it "that" matches inside "that's", because
+    # \b sits between the word and the apostrophe, and "that's mine, i'll look today"
+    # was being rewritten to "'s mine, i'll look today" - the opener stripper corrupting
+    # the text it was meant to tidy.
+    r")\b(?!['’])[\s,:-]*",
     re.IGNORECASE)
 
 
@@ -170,7 +192,11 @@ _PRIVATE = re.compile(
     r"\b(?:smoke|smoking|cigarettes?|cigs?|vape|weed|drunk|hangover|"
     r"period|periods|pregnan\w*|sick|ill|fever|hospital|doctor|surgery|medicine|meds|"
     r"depress\w*|anxiety|therapy|divorce|breakup|broke\s+up|girlfriend|boyfriend|"
-    r"crush|dating|salary|payslip|appraisal|fired|laid\s+off|resign\w*)\b",
+    r"crush|dating|salary|payslip|appraisal|fired|laid\s+off|resign\w*|"
+    # "they let me go on friday, still figuring out what to do" reached a card once the
+    # weekday signal started firing - losing a job said in confidence, in a summary.
+    r"let\s+(?:me|him|her|them)\s+go|letting\s+(?:me|him|her|them)\s+go|"
+    r"made\s+redundant|notice\s+period|severance)\b",
     re.IGNORECASE)
 
 # What rescues a point from the test above - a transaction or a commitment, which is what
@@ -195,6 +221,145 @@ def _tidy(point: str) -> str:
             break
         text = stripped
     return text[:1].upper() + text[1:] if text else text
+
+
+# What something cost is the premise of every split, and it scored 1 - below the bar.
+# "dinner last night came to 2400 total", "dinner was 208 total", "drinks came to 1200",
+# "the bill is 2400" all scored only the +1 that any digit earns, so a room whose whole
+# subject was a shared bill produced no summary (mt_buried, 2026-10-19). The per-message
+# path never noticed because those messages are far too short to earn a card of their own,
+# which is exactly the gap this feature exists to close.
+#
+# An amount alone is not enough - "Build 61" and "QA-116" are numbers too - so a spend
+# word has to be next to it.
+_SPEND_WORDS = (r"total|each|split|splits|share|shares|bill|cost|costs|came|comes|"
+                r"wants|want|charges|charged|quoted|asking|asks|"
+                r"owe|owes|owed|paid|pay|pays|send|sending|sent|transfer|"
+                r"dinner|lunch|breakfast|drinks|cab|ride|trip|rent|fare|fees?|"
+                r"ticket|tickets|groceries|petrol|fuel")
+_AMOUNT = (r"[$£€₹]\s?\d|\b\d[\d,]*(?:\.\d+)?\s?(?:rs|rupees?|bucks?|dollars?|k)\b"
+           r"|\b\d[\d,]{1,}")
+# Either order: "dinner was 208 total" and "cab fare was 350" both count.
+_MONEY_POINT = re.compile(
+    rf"(?:{_AMOUNT})(?=[\s\S]{{0,40}}?\b(?:{_SPEND_WORDS})\b)"
+    rf"|\b(?:{_SPEND_WORDS})\b[\s\S]{{0,40}}?(?:{_AMOUNT})",
+    re.IGNORECASE)
+
+# Enough to clear POINT_THRESHOLD on its own, since that is the whole point.
+_MONEY_BONUS = 2
+
+# summarizer.importance was built for long work messages and scores ordinary conversation
+# at nothing. Measured on realistic rooms (2026-10-19) it dropped every one of these:
+#
+#   0  the investor demo moved up            0  the kitchen tap is leaking again
+#   1  it's thursday 2pm now instead ...     0  i'll call the plumber
+#   1  rent is due on the 5th                1  also the plumber wants 600 for the visit
+#   0  the electricity bill came too         1  2400 for last month
+#
+# A flatmates' rent-and-plumber conversation produced 2 points from 26 messages. The
+# patterns want "by Friday", "blocker", "crash", "QA-116" - work vocabulary - and a
+# consumer chat app is mostly not that. These are room-path only; the per-message card is
+# untouched, and it never saw these lines anyway because they are far too short to card.
+_ROOM_SIGNALS = [
+    # A date or time in any of the shapes conversation actually uses. The shipped pattern
+    # needs by/before/due IMMEDIATELY followed by a digit, so "due on the 5th" and a bare
+    # "thursday 2pm" both scored nothing.
+    (3, re.compile(r"\b(?:due|deadline|by|before|on|from)\s+(?:the\s+)?"
+                   r"(?:\d{1,2}(?:st|nd|rd|th)?\b|mon|tues|wednes|thurs|fri|satur|sun)",
+                   re.IGNORECASE)),
+    (3, re.compile(r"\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b"
+                   r"(?:\s+(?:morning|afternoon|evening|night|\d))?", re.IGNORECASE)),
+    (3, re.compile(r"\b\d{1,2}\s?(?:am|pm)\b|\b\d{1,2}:\d{2}\b", re.IGNORECASE)),
+    # A plan or a date that CHANGED, which is the thing people scroll back to check.
+    (3, re.compile(r"\b(?:moved?|shifted|pushed|postponed|rescheduled|brought)\s+"
+                   r"(?:it\s+)?(?:up|back|forward|to|from)\b|\binstead\s+of\b",
+                   re.IGNORECASE)),
+    # Something is wrong, in the words people use at home rather than in a bug tracker.
+    (3, re.compile(r"\b(?:leak(?:s|ing|ed)?|blocked|clogged|flooded|burst|jammed|"
+                   r"not\s+work(?:ing)?|stopped\s+work(?:ing)?|broke(?:n|\s+down)?|"
+                   r"dirty|smell(?:s|ing|y)?|noisy|too\s+(?:high|low|slow|hot|cold)|"
+                   # how a blank or missing field gets reported, which scored nothing:
+                   # "the login screen is blank on android too"
+                   r"blank|empty|missing|greyed\s+out|stuck\s+on|"
+                   r"keeps?\s+\w+ing)\b", re.IGNORECASE)),
+    # Somebody taking something on. "I'll call the plumber" is the single most useful
+    # line in that whole conversation and it scored zero.
+    (3, re.compile(r"\b(?:i'?ll|i\s+will|we'?ll|we\s+will|let'?s|let\s+me)\s+"
+                   r"(?:call|book|order|arrange|sort|handle|take|do|send|pay|check|ask|"
+                   r"tell|get|fix|bring|collect|organise|organize|"
+                   # "let's sync at 3 tomorrow" is the commonest way a team commits to a
+                   # time and it scored 1
+                   r"sync|meet|catch\s+up|review|look|start|finish|ship|deploy|discuss)\b",
+                   re.IGNORECASE)),
+    # A release or a version being available, which is how this team hands work over.
+    (2, re.compile(r"\b(?:is\s+)?(?:up|live|out|released|shipped|deployed|available)\s+"
+                   r"(?:on|in|at)\b|\bon\s+(?:testflight|play\s*store|app\s*store)\b",
+                   re.IGNORECASE)),
+    # A bill or a cost without a spend verb next to it - "2400 for last month".
+    (2, re.compile(r"\b(?:rent|bill|bills|electricity|water|gas|wifi|internet|"
+                   r"maintenance|deposit|fees?)\b", re.IGNORECASE)),
+]
+
+
+# Money and ride REQUESTS do not belong in a summary - the Intent Log already has them,
+# and duplicating them is what made the first version read like a transcript. Akash,
+# 2026-10-19: "regarding intents we dont need them in summaries we already have intent
+# logs, summaries are for something that is important or we have many discussions or info
+# on".
+#
+# The line is request versus fact. "can you send me 500" and "book me a cab to the office"
+# are intents and come out. "dinner last night came to 2400 total" and "18000 split three
+# ways so 6000 each" are information somebody will scroll back for and stay - the intent
+# log records that a sheet opened, not what the bill was or how it was divided.
+_INTENT_SHAPED = re.compile(
+    r"^(?:\s*(?:ok|okay|yes|also|and|but|so|hey|hi|btw|actually|please)\b[\s,]*)*"
+    r"(?:(?:can|could|would|will|cud)\s+(?:you|u|someone|anyone|somebody)\b"
+    r"|(?:gimme|give\s+me|send\s+me|lend\s+me|transfer\s+me|pay\s+me)\b"
+    r"|(?:i'?ll|i\s+will|let\s+me)\s+(?:send|transfer|pay|book|order)\b"
+    r"|(?:sending|transferring|paying|booking)\b"
+    r"|(?:book|order)\s+(?:me|us|a|an)\b)",
+    re.IGNORECASE)
+
+# ... unless the line also carries something the intent log does not: what it cost, how it
+# was split, who is owed, or a date attached to it.
+_INTENT_EXCEPTION = re.compile(
+    r"\b(?:total|each|split|ways|share|shares|net|owes?|owed|owe|due|rent|bill)\b"
+    r"|\b(?:by|before)\s+(?:\d|mon|tues|wednes|thurs|fri|satur|sun)",
+    re.IGNORECASE)
+
+
+def _is_intent(point: str) -> bool:
+    """Is this the Intent Log's job rather than the summary's?"""
+    text = (point or "").strip()
+    return bool(_INTENT_SHAPED.search(text)) and not _INTENT_EXCEPTION.search(text)
+
+
+# What a recap is actually read for. The published guidance on summary products is
+# consistent about this: decisions, action items with owners, and open questions, kept
+# apart so the reader does not have to interpret the thing. A flat list of quoted lines is
+# a record rather than a tool, which is what the first version was.
+_SECTIONS = [
+    ("decisions", re.compile(
+        r"\b(?:decided|agreed|approved|rejected|confirmed|going\s+with|sticking\s+with|"
+        r"final(?:ised|ized)?|signed\s+off|locked|"
+        r"moved?\s+(?:to|up|back|forward)|instead\s+of|rescheduled|postponed|cancelled|"
+        r"is\s+due\b|is\s+now\b)", re.IGNORECASE)),
+    ("action items", re.compile(
+        r"\b(?:let'?s\s+\w+|"
+        r"i'?ll|we'?ll|i\s+will|we\s+will|let\s+me|please|needs?\s+to|"
+        r"has\s+to|have\s+to|must|will\s+(?:check|call|tell|ask|do|send|fix)|"
+        r"taking|owns?|assigned|pull\s+it|verify)\b", re.IGNORECASE)),
+    ("open questions", re.compile(
+        r"\?\s*$|^\s*(?:is|are|does|do|did|can|could|should|who|what|when|where|why|how)\b",
+        re.IGNORECASE)),
+]
+
+
+def _section_of(point: str) -> str:
+    for name, rx in _SECTIONS:
+        if rx.search(point or ""):
+            return name
+    return "information"
 
 
 def _candidates(message: dict):
@@ -241,21 +406,49 @@ def _candidates(message: dict):
 # What kinds of thing the window contained. Factual, so it is never wrong about the
 # window the way a guessed topic is - "4 requests, 2 deadlines" tells the reader whether
 # to open it, which is all a heading is for.
+# Order matters: the first match wins, so the most specific category comes first. Money
+# leads because it is what this product is for - a shared bill is the premise of every
+# split, and without a money category "Dinner last night came to 2400 total" fell through
+# to no category at all (measured on the four-topic room, 2026-10-19).
 _SHAPE = [
-    ("deadlines", re.compile(r"\b(?:by|before|due|until|no later than)\s+"
+    ("money", _MONEY_POINT),
+    ("deadlines", re.compile(r"\b(?:by|before|due|until|no\s+later\s+than)\s+"
                              r"(?:\d|mon|tue|wed|thu|fri|sat|sun|today|tomorrow|tonight|"
-                             r"eod|noon|midnight|next\s+\w+)|\b(?:eod|asap|deadline)\b",
+                             r"eod|noon|midnight|next\s+\w+)|\b(?:eod|asap|deadline)\b|"
+                             # "the demo moved to Thursday 2pm" is a deadline too
+                             r"\bmoved?\s+(?:to|up\s+to)\s+"
+                             r"(?:\d|mon|tue|wed|thu|fri|sat|sun|next\s+\w+)|"
+                             r"\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\s+\d",
                              re.IGNORECASE)),
     ("requests", re.compile(r"\b(?:can|could|would|will)\s+(?:you|someone|anyone|we)\b|"
                             r"\bplease\b|@\w+|\bgimme\b|\bneed\s+(?:you|someone)\b",
                             re.IGNORECASE)),
     ("problems", re.compile(r"\b(?:crash(?:es|ed|ing)?|bugs?|broken|fail(?:s|ed|ing)?|"
                             r"errors?|not\s+working|stuck|wrong|missing|issues?|"
-                            r"can(?:not|n't|'t))\b", re.IGNORECASE)),
+                            r"can(?:not|n't|'t))\b|"
+                            # how a blank field gets reported, which had no category
+                            r"\b(?:blank|empty|does\s?n'?t|do\s?n'?t|wo\s?n'?t|"
+                            r"no\s+log|dropped|silently)\b", re.IGNORECASE)),
     ("decisions", re.compile(r"\b(?:assigned|approved|rejected|merged|released|deployed|"
-                             r"agreed|decided|confirmed|cancelled|postponed|fixed)\b",
-                             re.IGNORECASE)),
+                             r"agreed|decided|confirmed|cancelled|postponed|fixed|"
+                             r"going\s+with|sticking\s+with)\b", re.IGNORECASE)),
 ]
+
+
+def _kind_of(point: str) -> Optional[str]:
+    """Which of the shape categories this point belongs to, strongest first.
+
+    Carried on every point so a client can GROUP by it. Points come out in timestamp
+    order, which is deliberate - a money thread reads "send me 500" then "actually send
+    300" and reordering it loses the correction - but in a room running several threads at
+    once that means the list switches subject almost every line (measured: 10 of 11
+    switches on a four-topic room). Grouping is a presentation choice, so the category
+    goes in the payload and the client decides.
+    """
+    for name, rx in _SHAPE:
+        if rx.search(point or ""):
+            return name
+    return None
 
 
 def shape(points: Sequence[dict]) -> dict:
@@ -285,14 +478,43 @@ def summarize_room(messages: Sequence[dict], room: str = "",
         for raw in _candidates(m):
             if not raw or sensitive.is_sensitive(raw) or _is_private(raw):
                 continue                  # no credentials, no numbers, no private life
+            if _is_intent(raw):
+                continue                  # the Intent Log already has this
             c = _tidy(raw)
-            if not c or not S._is_substantive(c):
+            # A shared cost is substantive even when it reads as dangling. summarizer's
+            # _is_dangling treats a trailing "each" as a point stopping mid-phrase, which
+            # is right for prose and wrong here: "18000 split three ways so 6000 each",
+            # "6000 for rent plus 800 for electricity each" and "yes 6800 each" were ALL
+            # rejected, and that is the most useful sentence shape in a bill-splitting
+            # app. The score threshold and the stands-alone test still apply.
+            if not c:
+                continue
+            # The strongest conversational signal only, not the sum - stacking them let a
+            # chatty line with a day name and a vague plan outscore a real deadline.
+            room_signal = max((w for w, rx in _ROOM_SIGNALS if rx.search(c)), default=0)
+            is_money = bool(_MONEY_POINT.search(c))
+            # A line that fired a conversational signal IS substantive, by definition, and
+            # so is a shared cost. summarizer._is_substantive wants a bare function word
+            # or a digit, which ordinary speech often has neither of once contracted:
+            # "That's mine, i'll look today" - a person taking a bug - has function words
+            # only inside "that's" and "i'll", and was rejected. _is_dangling separately
+            # rejects every "X each" line, which is the shape of every split.
+            # The exemption bypasses the function-word and dangling tests, NOT the length
+            # one. Without this line "Friday", "Wifi", "Now wifi", "Around 3:30PM" and
+            # "$556 sent" all became points, because a weekday, a clock time or a bill
+            # word is enough to fire a signal on its own.
+            if len(c.split()) < S.MINIMUM_POINT_WORDS:
+                continue
+            if not (S._is_substantive(c) or is_money or room_signal):
                 continue
             score = S.importance(c)
+            if is_money:
+                score += _MONEY_BONUS      # what it cost is the premise of the split
+            score = max(score, room_signal)
             if score < POINT_THRESHOLD or not _stands_alone(c):
                 continue
             scored.append({"sender": m.get("sender"), "ts": m.get("ts"),
-                           "text": c, "score": score})
+                           "text": c, "score": score, "kind": _kind_of(c)})
 
     # Strongest first, so when a near-duplicate is dropped the better-scoring copy of it
     # is the one that survives.
@@ -311,10 +533,133 @@ def summarize_room(messages: Sequence[dict], room: str = "",
 
     kept.sort(key=lambda s: s["ts"] or "")
     stamps = [s["ts"] for s in messages if s.get("ts")]
+    grouped = sections(kept)
     return RoomSummary(room=room, points=kept, messages=len(messages),
                        window_from=min(stamps) if stamps else None,
                        window_to=max(stamps) if stamps else None,
-                       shape=shape(kept))
+                       shape=shape(kept), cards=grouped)
+
+
+# Two points belong to the same thread when they talk about the same things. Tuned on
+# the realistic rooms: at 0.15 the dinner split and the build thread merged, at 0.30 the
+# dinner split broke into three one-point cards.
+_SAME_THREAD = 0.22
+
+# Words that are in every conversation and name nothing, so they must never become a
+# thread's headline. "Too" and "I'll Plumber" were the first version's output.
+_TITLE_STOP = frozenset("""
+also then just only still even really quite very much more most some sure yeah okay
+said says tell told think thought know knew want wants need needs going gonna
+today tomorrow yesterday tonight morning evening night week month year time
+thing things stuff guys folks everyone anyone someone nothing anything something
+actually honestly basically literally obviously maybe perhaps probably
+""".split())
+
+# A thread of one point is not a thread. Those are collected into a final catch-all card
+# rather than shown as a row of single-bullet cards.
+_MIN_THREAD = 2
+
+
+def _link(a: dict, b: dict) -> float:
+    wa, wb = _content(a["text"]), _content(b["text"])
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / min(len(wa), len(wb))
+
+
+def threads(points: Sequence[dict]) -> List[List[dict]]:
+    """Split the window's points into the threads being discussed.
+
+    A window summary of a real room is several conversations at once - a build to test, a
+    dinner split, a demo date moving - and one flat chronological list of all of them is
+    what made the first version read badly: it changed subject almost every line. Each
+    thread becomes its own card instead.
+
+    Single-link clustering on shared content words, which is enough here because the
+    points are already the few things worth remembering rather than raw chat, and because
+    threads in a chat room genuinely do use different vocabulary - rent and plumber, cab
+    and repayment. Chronology is preserved WITHIN a thread, which is what matters: "send
+    me 500" then "actually send 300" has to stay in that order.
+    """
+    groups: List[List[dict]] = []
+    for p in points:
+        # AVERAGE linkage, not single. Single-link chains: the dinner split joined the
+        # build thread because one point shared "600" with it and that point shared a
+        # word with the next, so three unrelated threads merged into one card. A point
+        # has to look like at least half of a thread to belong to it.
+        joined = [g for g in groups
+                  if sum(1 for q in g if _link(p, q) >= _SAME_THREAD) * 2 >= len(g)]
+        if not joined:
+            groups.append([p])
+            continue
+        # And when a point bridges two threads, it joins the one it matches best rather
+        # than welding them together.
+        best = max(joined, key=lambda g: sum(_link(p, q) for q in g) / len(g))
+        best.append(p)
+    for g in groups:
+        g.sort(key=lambda p: p["ts"] or "")
+    # Biggest thread first, then earliest - a card with five things in it matters more
+    # than one with two, and a stable order beats whatever the clustering happened to do.
+    groups.sort(key=lambda g: (-len(g), g[0]["ts"] or ""))
+    real = [g for g in groups if len(g) >= _MIN_THREAD]
+    loose = [p for g in groups if len(g) < _MIN_THREAD for p in g]
+    if loose:
+        loose.sort(key=lambda p: p["ts"] or "")
+        real.append(loose)
+    return real
+
+
+def thread_title(points: Sequence[dict]) -> Optional[str]:
+    """A headline for ONE thread.
+
+    Titling a whole mixed window was hopeless - summarizer.title_for gave "Key Points" 91
+    times in 255 summaries, because a window has no single subject to read off. A thread
+    does, which is the point of splitting them: this is the same job as titling one
+    message, which the existing title_for already does.
+    """
+    if not points:
+        return None
+    text = " . ".join(p["text"] for p in points)
+    title = S.title_for(text)
+    if title in ("Key Points", "Nothing to report"):
+        # Name it after what the thread is mostly about: the content words it shares.
+        # Name it after the words the thread keeps coming back to. Counted rather than
+        # intersected, because an intersection over five points is usually empty, and
+        # restricted to real words - the first version produced "Too" and "I'll Plumber".
+        counts: dict = {}
+        for p in points:
+            for w in _content(p["text"]):
+                if len(w) >= 4 and w not in _TITLE_STOP and not w.endswith("'ll"):
+                    counts[w] = counts.get(w, 0) + 1
+        best = sorted(counts.items(), key=lambda kv: (-kv[1], -len(kv[0]), kv[0]))
+        pick = [w for w, n in best if n >= 2][:2] or [w for w, _ in best[:2]]
+        return " ".join(w.capitalize() for w in pick) if pick else None
+    return title
+
+
+def sections(points):
+    """Group the window's points into what a recap is read for.
+
+    Topic clustering was tried first and abandoned: word overlap on 3-10 word points
+    merged the dinner split into the build thread through a shared "600", average linkage
+    did not fix it, and naming each cluster produced "Too", "I'll Plumber" and "Saturday
+    Kitchen". Sections need no clustering and no generated headline, and they are what the
+    guidance on summary products says people actually want.
+
+    Order is deliberate: decisions, then what somebody has to do, then what is still open,
+    then the rest. Chronology is kept within a section, because "send me 500" then
+    "actually send 300" has to stay in that order.
+    """
+    order = ["decisions", "action items", "open questions", "information"]
+    buckets = {name: [] for name in order}
+    for p in points:
+        buckets[_section_of(p["text"])].append(p)
+    out = []
+    for name in order:
+        rows = sorted(buckets[name], key=lambda p: p["ts"] or "")
+        if rows:
+            out.append({"heading": name, "points": rows})
+    return out
 
 
 def window(messages: Sequence[dict], since: Optional[str] = None,
