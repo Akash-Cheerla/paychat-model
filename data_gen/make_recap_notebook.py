@@ -77,13 +77,23 @@ drive.mount('/content/drive')
 os.makedirs('/content/drive/MyDrive/paychat', exist_ok=True)"""),
 
 code("""# Phase 0b - the repo, for the rules that do the selecting and the arithmetic
-!test -d /content/paychat-model || git clone -q https://github.com/Akash-Cheerla/paychat-model.git /content/paychat-model
+# The BRANCH matters: distill_recaps.py and the reworked room_summarizer.py live on
+# recap-round, not on main, because main is what Samyak deploys and this has not been
+# approved for it. A clone of main fails with "No module named 'distill_recaps'".
+BRANCH = "recap-round"
+!test -d /content/paychat-model || git clone -q --branch $BRANCH https://github.com/Akash-Cheerla/paychat-model.git /content/paychat-model
 %cd /content/paychat-model
-!git pull -q
+!git fetch -q origin $BRANCH && git checkout -q $BRANCH && git pull -q origin $BRANCH
 sys.path.insert(0, '/content/paychat-model')
 sys.path.insert(0, '/content/paychat-model/data_gen')
-import room_summarizer as R, distill_recaps as DR
-print("rules loaded - MIN_POINTS", R.MIN_POINTS, "| MAX_POINTS", R.MAX_POINTS)"""),
+try:
+    import room_summarizer as R, distill_recaps as DR
+except ModuleNotFoundError as e:
+    raise SystemExit(
+        f"{e}. The checkout is missing a file this notebook needs - you are probably on "
+        f"main. Run:  !cd /content/paychat-model && git checkout {BRANCH} && git pull") from e
+print("rules loaded - MIN_POINTS", R.MIN_POINTS, "| MAX_POINTS", R.MAX_POINTS)
+print("branch:", open('/content/paychat-model/.git/HEAD').read().strip())"""),
 
 md("""## Phase 1 - the teacher writes the pairs
 
