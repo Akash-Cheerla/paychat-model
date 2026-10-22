@@ -153,11 +153,49 @@ POST /conversation-summary
 ```json
 {"summary": {"room": "dm_13_70", "messages": 323,
              "window_from": "2026-08-30T09:05:11Z", "window_to": "2026-08-30T13:46:02Z",
-             "shape": {"requests": 6, "problems": 3, "deadlines": 2},
-             "points": [{"sender": "13", "ts": "...", "text": "Ohh btw can you send me 500 ?", "score": 4},
-                        {"sender": "70", "ts": "...", "text": "Metro is stuck", "score": 3}]},
- "messages_in_window": 323}
+             "shape": {"requests": 3, "money": 2, "deadlines": 2, "problems": 2},
+             "sections": [
+               {"heading": "action items",
+                "points": [{"sender": "70", "ts": "...", "text": "I need to leave by 4",
+                            "score": 8, "kind": "deadlines"}]},
+               {"heading": "open questions",
+                "points": [{"sender": "13", "ts": "...", "text": "Can you send me 500 ?",
+                            "score": 6, "kind": "money"}]},
+               {"heading": "information",
+                "points": [{"sender": "70", "ts": "...", "text": "Metro is stuck",
+                            "score": 3, "kind": null}]}],
+             "points": [{"sender": "70", "ts": "...", "text": "I need to leave by 4",
+                         "score": 8, "kind": "deadlines"}]},
+ "messages_in_window": 323,
+ "as_of": "2026-10-22T22:19:28Z"}
 ```
+
+**Render `sections`.** `points` is the same set of points as a flat list, kept so a client
+that does not want headings keeps working — it is a duplicate, not extra content, so
+rendering both prints everything twice. Headings are a fixed set in this order —
+`decisions`, `action items`, `open questions`, then `information` for everything that fits
+none of them; a section is omitted entirely when it has no points, so do not assume any
+particular one is present, and render them in the order returned. `kind` is the signal that selected the point
+(`money`, `requests`, `deadlines`, `problems`, …) and is `null` when a point was selected
+on wording alone — it is a hint for an icon, not a classification, and the intent log is
+still the only place to read intents from.
+
+4 to 12 points per recap, and `summary` is `null` for a quiet window — draw nothing then,
+same contract as a short message.
+
+**`null` is the normal answer for a small window, and testing with a handful of messages
+will look broken.** Two floors, both deliberate:
+
+- **under 8 messages in the window — always `null`.** A recap of five messages is worth
+  less than reading the five messages, so there is no card at any content level.
+- **fewer than 4 qualifying points — `null`.** Requests and offers that the classifier
+  already fires on are deliberately excluded here (the Intent Log is where intents are
+  read from), so a short window that is mostly "can you send me 500" has almost nothing
+  left to put in a recap.
+
+So a 5-message test room returns `null` even when every line looks substantive, and that
+is correct behaviour rather than a bug. To see a recap, replay a real room-day — 60+
+messages — or at minimum 8 messages that are not all payment and ride requests.
 
 **Why it exists.** Per-message cards reach the long messages and nothing else — about 3%
 of what gets said. The clearest case in our own logs is `dm_13_70` on 2026-08-30: **323
