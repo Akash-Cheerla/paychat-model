@@ -143,8 +143,40 @@ _CONCRETE = re.compile(
 _PROPER_NOUN = re.compile(r"(?!^)(?<=[a-z,]\s)[A-Z][a-z]{2,}")
 
 
+# A promise with nothing in it. Measured on the 20 busiest real room-days, this shape was
+# the most common filler in a recap: "Let me check", "I will check Rupesh", "I'll look
+# into it". It defeats every test below - there is no anaphor for _BARE_ANAPHORA to catch,
+# and a trailing name reads as concrete to _PROPER_NOUN - while the line says nothing
+# about what was committed to. The commitment verbs are what scored it in the first place.
+#
+# The tail must be bounded. "Will check if she's available otherwise i have one guy who
+# can work for us as part time" opens identically and is real content, so anything beyond
+# a pronoun, a preposition or a time word ends the match and keeps the point.
+_BARE_COMMITMENT = re.compile(
+    r"^(?:let\s+me|i'?ll|i\s+will|i\s+can|we'?ll|we\s+will|will|gonna|going\s+to)\s+"
+    r"(?:check|look|see|do|try|confirm|verify|handle|sort|fix|take\s+care)"
+    r"(?:\s+(?:it|this|that|them|on|in|into|at|up|out|now|later|"
+    r"today|tomorrow|tonight|soon|again))*"
+    r"(?:\s+[A-Z][a-z]+)?[\s.!?]*$",
+    re.IGNORECASE)
+
+# Any pronoun standing in for the thing, not just the sentence openers _BARE_ANAPHORA
+# recognises.
+_ANAPHOR = re.compile(r"\b(?:it|this|that|one|them|those|these|there)\b", re.IGNORECASE)
+
+
 def _stands_alone(point: str) -> bool:
     point = (point or "").strip()
+    if _BARE_COMMITMENT.match(point):
+        return False
+    # A figure rescues a point through _CONCRETE's \d, which is right for "18000 split
+    # three ways so 6000 each" and wrong for "Make it 7": three words, a pronoun, and a
+    # number that means nothing without the line it amends - which a recap does not carry.
+    # Only very short points are judged this way, so "Put it on my tab with the 300" keeps
+    # enough around the pronoun to read on its own.
+    if len(point.split()) <= 4 and _ANAPHOR.search(point):
+        if not _CONCRETE.search(re.sub(r"\d+", "", point)):
+            return False
     if _CONCRETE.search(point) or _PROPER_NOUN.search(point):
         return True
     return not _BARE_ANAPHORA.search(point)
