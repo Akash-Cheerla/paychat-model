@@ -99,6 +99,26 @@ def _is_dm(room_id: str) -> bool:
     return room_id.startswith("dm_") if room_id else False
 
 
+def _is_self_chat(room_id: str) -> bool:
+    """The user's own notes-to-self room - the one room with nobody else in it.
+
+    Only `self_<user_id>` counts, which is what the clients were asked to send
+    (2026-11-01) precisely so this room can be told apart.
+
+    `dm_<id>_<id>` was accepted too at first, as a defensive guess at what a client
+    might build. It was measured against the corpus and dropped: dm_9_9 is a real room
+    there with THREE senders - a stress-test room repeating "send me 200" - so the
+    doubled-id shape does not mean self-chat in this data, and honouring it would have
+    switched a live room into agent mode. With the prefix alone, none of the 536 rooms
+    in the corpus is affected by any of this.
+    """
+    if not room_id:
+        return False
+    if room_id.startswith("self_"):
+        return True
+    return False
+
+
 INTENT_COOLDOWN_MSGS = 3
 
 _EXPLICIT_MONEY_REQUEST = re.compile(
@@ -652,6 +672,28 @@ class ConversationStateMachine:
                 "intents": model_intents,
                 "response_type": ResponseType.NEUTRAL,
                 "reason": "no room_id — immediate mode",
+                "pending_intent": None,
+                "conversation_state": None,
+            }
+
+        # Self-chat fires on the request itself (Gowtham, 2026-11-01: "it absolutely
+        # should fire intents ... in fact should almost complete the action, not just
+        # fire"). This is a deliberate exception to the rule that a request alone never
+        # fires, and the only one: that rule exists because a request is addressed to
+        # another person who has not agreed yet, and in this room there is nobody to
+        # agree. Waiting for a response here means waiting forever - measured before the
+        # ruling, "Please book a cab" in a self-chat returned no intent at all, because
+        # get_pending_from_others excludes your own sender and a reply_to pointing at
+        # your own message is discarded.
+        #
+        # Returning before tick_cooldowns is deliberate: nothing should accumulate as
+        # pending in a room where no response can ever arrive.
+        if _is_self_chat(room_id):
+            return {
+                "action": Action.FIRE if model_intents else Action.NO_FIRE,
+                "intents": model_intents,
+                "response_type": ResponseType.SELF_INITIATED,
+                "reason": "self-chat - fires on the request itself",
                 "pending_intent": None,
                 "conversation_state": None,
             }

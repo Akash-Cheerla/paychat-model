@@ -33,9 +33,11 @@ from typing import Optional
 import torch
 import torch.nn as nn
 try:
-    from api.conversation import conversation_sm, Action, MANAGED_INTENTS
+    from api.conversation import (conversation_sm, Action, MANAGED_INTENTS,
+                                  _is_self_chat)
 except ModuleNotFoundError:
-    from conversation import conversation_sm, Action, MANAGED_INTENTS
+    from conversation import (conversation_sm, Action, MANAGED_INTENTS,
+                              _is_self_chat)
 import numpy as np
 import spacy
 try:
@@ -489,6 +491,11 @@ def fast_keyword_detect(text: str) -> dict:
         'ping me', 'nudge me',
         'remember to ', 'gotta remember',
         'give me a reminder', 'give me a heads up',
+        # A note to self is a reminder, and it is how people dictate one. Without these
+        # "note to self, I owe Yash 250" reached only `money`, which a self-room then
+        # gates away as a request with nobody to answer it - so nothing fired at all.
+        'note to self', 'note to myself', 'mental note',
+        'reminder to self', 'remind myself',
     ]
     reminder_suppress = ['reminds me of', 'remind me why', 'remind me of', 'ping pong']
     has_reminder = any(w in t for w in reminder_words)
@@ -2161,7 +2168,12 @@ _INTENT_SLOT_KEYS = {
     "food_order": ["food"],
     "contact":    ["recipient", "phone"],
     "alarm":      ["time"],
-    "reminder":   ["task", "time"],
+    # recipient and amount, because a reminder about a payment still has to say who and
+    # how much or the app cannot build it. "remind me to pay Akash 15000" used to return
+    # task and time alone, while "remind me to send Akash 500" kept both - the difference
+    # was only that `money` happened to survive in the intent list for one and not the
+    # other, and slots follow intents. They stay null for a reminder with no payment in it.
+    "reminder":   ["task", "time", "recipient", "amount"],
     "calendar":   ["event", "time"],
     "bills":      ["bill_name", "amount"],
 }
@@ -2177,16 +2189,16 @@ def extract_slots(text: str, intents: list, room_id: str = None, prev_messages: 
     t = text.strip()
     tl = t.lower()
 
-    # ── Recipient (for money, contact, ride) ──
-    if any(i in intents for i in ["money", "contact"]):
+    # ── Recipient (for money, contact, reminder) ──
+    if any(i in intents for i in ["money", "contact", "reminder"]):
         recipient = _extract_recipient(t, tl)
         if not recipient and room_id:
             recipient = _resolve_pronoun_recipient(tl, room_id)
         if recipient:
             slots["recipient"] = recipient
 
-    # ── Amount (for money, bills) ──
-    if any(i in intents for i in ["money", "bills"]):
+    # ── Amount (for money, bills, reminder) ──
+    if any(i in intents for i in ["money", "bills", "reminder"]):
         amount = _extract_amount(t)
         if amount:
             slots["amount"] = amount
@@ -2345,6 +2357,10 @@ _NOT_A_PLACE = {
     "rn", "it", "that", "this", "them", "us", "quick", "quicker", "faster", "fast",
     "happen", "work", "possible", "official", "count", "sooner", "later", "earlier",
     "two", "three", "double", "half", "anything", "something", "whatever",
+    # "note to self, order a cab for Yash" was returning destination "Self": the frame
+    # of a note-to-self reminder ends in "to <word>", which is the same shape the
+    # destination extractor reads a place out of.
+    "self", "myself", "ourselves",
 }
 
 # "make it 6pm" / "make it 2" is a time or a count, never a destination.
@@ -3565,7 +3581,10 @@ def _extract_ride_slots(text: str, prev_messages: list = None) -> dict:
               # "ill book you an uber to your place" came back with pickup="ill".
               # Nobody types the apostrophe in chat, so these are common.
               "ill", "im", "ive", "id", "youre", "hes", "shes", "theyre", "were",
-              "lets", "cant", "dont", "wont", "u", "pls", "plz", "thx", "ok", "okay"}
+              "lets", "cant", "dont", "wont", "u", "pls", "plz", "thx", "ok", "okay",
+              # "note to self, order a cab for Yash" parsed the frame's own "to self"
+              # as the destination and answered "Self".
+              "self", "myself", "ourselves"}
     _TIME_PREPS = {"by", "before", "after", "around", "at"}
     _VAGUE_PLACES = {"your place", "my place", "his place", "her place", "their place",
                      "your house", "my house", "his house", "her house", "their house",
@@ -3782,6 +3801,14 @@ def _extract_reminder_task(text_lower: str) -> Optional[str]:
         r"don'?t\s+(?:let\s+me\s+)?forget\s+(?:to\s+)?(.+?)(?:\s+at\s+\d|\s+by\s+(?:\d|next|this|tomorrow)|\s+tomorrow|,\s*(?:and|also|i)\s+|$)",
         r"ping\s+me\s+(?:to|about)\s+(.+?)(?:\s+at\s+\d|\s+by\s+(?:\d|next|this)|\,\s*(?:and|also)\s+|$)",
         r"(?:gotta|need\s+to)\s+remember\s+(?:to\s+)?(.+?)(?:\s+at\s+\d|\s+by\s+(?:\d|next|this)|,\s*(?:and|also)\s+|$)",
+        # A note to self carries its task after the frame, with no "to": "note to self,
+        # I owe Yash 250". Without this the reminder fired with task None, which is a
+        # reminder the app cannot render.
+        r"(?:note\s+to\s+(?:self|myself)|mental\s+note|reminder\s+to\s+self)\s*[,:-]?\s*"
+        r"(?:that\s+|to\s+)?(.+?)"
+        r"(?:\s+at\s+\d|\s+by\s+(?:\d|next|this|tomorrow)|\s+tomorrow|\s+tonight|$)",
+        r"remind\s+myself\s+(?:to\s+)?(.+?)"
+        r"(?:\s+at\s+\d|\s+by\s+(?:\d|next|this|tomorrow)|\s+tomorrow|\s+tonight|$)",
     ]
     for p in patterns:
         m = re.search(p, text_lower)
@@ -4292,10 +4319,23 @@ _MONEY_HAS_DIRECTIVE = re.compile(
 )
 
 
+# An explicit reminder frame - the speaker has said the word. These are unambiguous in a
+# way a bare keyword is not, so they skip the merge gate below: "don't forget to transfer
+# 150 to Andril" scores 0.018 on the reminder head because the sentence looks like a
+# transfer, and the 0.10 gate threw the keyword hit away. The frame is the evidence here,
+# not the head.
+_EXPLICIT_REMINDER_FRAME = re.compile(
+    r"\b(?:remind\s+me\b|remind\s+myself\b|reminder\s+to\s+self\b|"
+    r"note\s+to\s+(?:self|myself)\b|mental\s+note\b|"
+    r"do\s?n['’]?t\s+(?:forget|let\s+me\s+forget)\b|"
+    r"give\s+me\s+a\s+reminder\b)",
+    re.IGNORECASE)
+
+
 def full_pipeline(text: str, room_id: str = None, context: list = None,
                    sender: str = None, message_id: str = None,
                    reply_to: str = None, participants: int = None,
-                   roster: list = None) -> dict:
+                   roster: list = None, log_extra: dict = None) -> dict:
     """Run the complete detection pipeline: model → keywords → suppression → slots → state machine → lifecycle."""
     # Phase 1a: Model inference (standalone, no context prefix — context is for state machine)
     if context is not None:
@@ -4307,6 +4347,10 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     if prev_messages:
         result["context_messages"] = len(prev_messages)
 
+    # Asking a PERSON for a lift. Rescued in a self-chat only - see _SELF_CHAT_LIFT.
+    _SELF_CHAT_LIFT = (r"\bneed a ride\b", r"\bgive me a ride\b", r"\bpick me up\b",
+                       r"\bneed a way (?:home|to get)\b", r"\bdrop me\b")
+
     # Phase 1b: Merge keyword detection — only when model sees partial signal
     # Lower gate for intents where keywords are highly unambiguous
     _KEYWORD_GATE = 0.25
@@ -4316,7 +4360,17 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     for intent in kw.get("intents", []):
         if intent in result["intents"]:
             continue
-        gate = 0.0 if intent in _NO_GATE_INTENTS else (0.10 if intent in _LOW_GATE_INTENTS else _KEYWORD_GATE)
+        if intent == "reminder" and _EXPLICIT_REMINDER_FRAME.search(text):
+            gate = 0.0
+        elif (intent == "ride" and _is_self_chat(room_id)
+              and any(re.search(p, text.lower()) for p in _SELF_CHAT_LIFT)):
+            # "pick me up at 6" scores 0.011 because the model was taught that a lift
+            # from a person is not a ride. With nobody in the room to give one, the
+            # keyword layer is right and the model's near-zero is an artefact of a rule
+            # that does not apply here.
+            gate = 0.0
+        else:
+            gate = 0.0 if intent in _NO_GATE_INTENTS else (0.10 if intent in _LOW_GATE_INTENTS else _KEYWORD_GATE)
         if result["scores"].get(intent, 0) >= gate:
             result["intents"].append(intent)
             result["scores"][intent] = max(result["scores"].get(intent, 0), kw["scores"].get(intent, 0.85))
@@ -5074,6 +5128,16 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
                             "message_id": _tb.get("message_id")} if _tb else None,
             })
 
+    # Phase 5c: in a self-chat the prompt belongs to the only person in the room.
+    #
+    # detect_target has no idea the room is empty: "send 500 to Ravi" reads as one person
+    # asking another to pay, so it returns show_to "others" and the payment sheet is
+    # aimed at everyone except the sender. Here that is nobody, and an intent that fires
+    # into an empty audience looks exactly like a broken feature. The user writing in
+    # their own notes is always the one performing the action.
+    if result["intents"] and _is_self_chat(room_id):
+        result["target"] = {"show_to": "sender", "reason": "self_chat"}
+
     # Phase 6: Guardrails — US compliance (PCI, FTC, BSA/AML)
     guardrails = run_guardrails(text, result["intents"])
     if guardrails:
@@ -5140,7 +5204,8 @@ def full_pipeline(text: str, room_id: str = None, context: list = None,
     result.pop("_text", None)
     result.pop("_cls_embedding", None)
 
-    _log_message(room_id, sender, text, result, message_id=message_id, reply_to=reply_to)
+    _log_message(room_id, sender, text, result, message_id=message_id, reply_to=reply_to,
+                 log_extra=log_extra)
     return result
 
 
@@ -5202,7 +5267,8 @@ def _log_identity():
     return _LOG_IDENT["short"]
 
 
-def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
+def _log_message(room_id, sender, text, result, message_id=None, reply_to=None,
+                 log_extra=None):
     """Append one line per message, until the expiry date."""
     if not _LOG_ALL and (not _LOG_ROOMS or room_id not in _LOG_ROOMS):
         return
@@ -5235,6 +5301,12 @@ def _log_message(room_id, sender, text, result, message_id=None, reply_to=None):
             # produced it cannot be compared with any other day.
             "model": _log_identity(),
         }
+        # Only present on a translated message: `text` above is the English that was
+        # classified, these are the typed original and its languages. A replay that
+        # ignores them still sees exactly what the model saw.
+        for k, v in (log_extra or {}).items():
+            if v is not None:
+                row[k] = v
         tb = (result.get("conversation_state") or {}).get("triggered_by")
         if tb and row["fired"]:
             row["matched"] = {"sender": tb.get("sender"), "text": tb.get("text"),
@@ -5336,6 +5408,18 @@ class DetectRequest(BaseModel):
     # larger or malformed roster is treated as absent, never rejected. Not stored, not
     # logged, and read by nothing but the location hint.
     roster: Optional[list] = None
+    # Self-chat and translated messages (2026-11-01, iOS). `text` stays exactly what
+    # the user typed; `translated_text` is the English rendering the client produced.
+    # The classifier is English-only, so when a translation is present it is the string
+    # that gets classified, while `text` is what goes to the log - the typed original is
+    # the only thing translation quality can ever be measured against afterwards.
+    #
+    # Codes are ISO 639-1 lowercase: "te", "hi", "en". Send translated_text as null when
+    # nothing was translated, not "" - an empty string would otherwise have to be told
+    # apart from a translation that legitimately produced nothing.
+    translated_text: Optional[str] = None
+    source_language: Optional[str] = None
+    target_language: Optional[str] = None
     # Whatever identifies the app build that produced this message, e.g. "ios-1.4.2".
     # Never used for classification — it is echoed back and written to the log line so
     # a mixed log can be filtered by client. Until everyone updates their app, the logs
@@ -5366,6 +5450,10 @@ class DetectResponse(BaseModel):
     # made a whole day of dogfood logs unattributable after a model swap.
     model_version: Optional[dict] = None
     client: Optional[str] = None
+    # The string that was actually classified, set ONLY when it was not `text` - i.e.
+    # when a translation was used. A client sending translated_text can otherwise not
+    # tell whether the service read it or silently fell back to the typed original.
+    classified_text: Optional[str] = None
 
 
 # ── Routes ──
@@ -5394,10 +5482,25 @@ def detect(req: DetectRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     rid = req.room_id or req.chat_id
-    result = full_pipeline(req.text, room_id=rid, context=req.context,
+
+    # Classify the translation when the client sent one. Guarded on target_language
+    # because a translation INTO something other than English is not a string this
+    # model can read: for an English->Telugu render of an English message, the typed
+    # text is the better input, not the output. Unknown target is treated as English,
+    # since the only translation the client sends today is into English.
+    translated = (req.translated_text or "").strip()
+    use_translation = bool(translated) and (
+        req.target_language or "en").strip().lower().startswith("en")
+    classified = req.translated_text if use_translation else req.text
+
+    result = full_pipeline(classified, room_id=rid, context=req.context,
                            sender=req.sender, message_id=req.message_id,
                            reply_to=req.reply_to, participants=req.participants,
-                           roster=_normalize_roster(req.roster))
+                           roster=_normalize_roster(req.roster),
+                           log_extra=({"source_text": req.text,
+                                       "source_language": req.source_language,
+                                       "target_language": req.target_language}
+                                      if use_translation else None))
     return DetectResponse(
         **{k: v for k, v in result.items() if k in DetectResponse.model_fields},
         chat_id=req.chat_id,
@@ -5408,6 +5511,7 @@ def detect(req: DetectRequest):
         # classification; they exist so a mixed log can be filtered after the fact.
         client=req.client,
         model_version=MODEL_VERSION,
+        classified_text=classified if use_translation else None,
     )
 
 
@@ -5444,9 +5548,20 @@ async def ws_detect(websocket: WebSocket):
             sndr = msg.get("sender")
             mid = msg.get("message_id")
             rto = msg.get("reply_to")
-            result = full_pipeline(text, room_id=rid, context=ctx,
+            # Same rule as /classify - see DetectRequest.translated_text. Kept in step
+            # with it deliberately: a message must not classify differently because the
+            # backend reached the service over the socket instead of HTTP.
+            translated = (msg.get("translated_text") or "").strip()
+            use_translation = bool(translated) and (
+                msg.get("target_language") or "en").strip().lower().startswith("en")
+            result = full_pipeline(translated if use_translation else text,
+                                   room_id=rid, context=ctx,
                                    sender=sndr, message_id=mid,
-                                   reply_to=rto)
+                                   reply_to=rto,
+                                   log_extra=({"source_text": text,
+                                               "source_language": msg.get("source_language"),
+                                               "target_language": msg.get("target_language")}
+                                              if use_translation else None))
 
             response = {
                 **msg,
