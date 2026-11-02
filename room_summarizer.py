@@ -54,7 +54,20 @@ POINT_THRESHOLD = 2
 # for each small topic and just 1-3 points we can have sumary for each, thats not
 # professional". The published guidance agrees: recaps are built for busy windows, and a
 # quiet one is not expected to produce one.
-MIN_POINTS = 4
+#
+# Lowered 4 -> 3 on Akash's ruling, 2026-10-30. This floor, not the signal table, was what
+# kept real bug conversations silent: dm_13_26 on 2026-10-27 is "There are multiple issues
+# on group call" / "I don't get any call" / "That is bug Yash" - three points of substance
+# and no recap. Three is a recap now; one or two still is not.
+#
+# Then split by room shape the same day - "3 for group and 4 for 1v1". A flat 3 doubled
+# coverage on the corpus (148 -> 216 recaps) but 48 of the 68 new recaps were one-to-one
+# personal chats whose three points were "Come in the evening", "Get me one ticket",
+# "Give a caption for my insta story". A group day of three points is three people
+# reporting three things; a one-to-one day of three points is usually two people making
+# arrangements, and that is what the higher floor is for.
+MIN_POINTS = 3          # group rooms
+MIN_POINTS_DM = 4       # one-to-one rooms
 
 # A ceiling, not a target. The count follows the content - the median window produces
 # three points and a busy day produces twelve - but the ceiling has to be low, because
@@ -164,9 +177,27 @@ _BARE_COMMITMENT = re.compile(
 # recognises.
 _ANAPHOR = re.compile(r"\b(?:it|this|that|one|them|those|these|there)\b", re.IGNORECASE)
 
+# The stock opening of every build handover in this room - "Hi Team, please use the
+# following build and verify the updates below". What shipped is in the numbered list
+# underneath, which becomes points of its own; the opener names no build and no change,
+# so it is a heading rather than a point. It only became one once the change-verb signal
+# below started scoring "verify".
+#
+# Deliberately narrow: it must be the WHOLE line, and a handover that says what to look
+# at - "Please use and test this version thoroughly for the full facial enrollment,
+# recognition, and authentication loop" - carries content and is kept.
+_BOILERPLATE = re.compile(
+    r"^\W*(?:hi\s+team\W*)?(?:please\s+)?(?:use|find|install)\s+(?:the\s+)?"
+    r"(?:following|latest|attached|below)\s+"
+    r"(?:build|version|apk|link|release|update)s?\b"
+    r"(?:\s+(?:and|to|for|then)\s+\w+\b[^.!?]{0,40})?\W*$",
+    re.IGNORECASE)
+
 
 def _stands_alone(point: str) -> bool:
     point = (point or "").strip()
+    if _BOILERPLATE.match(point):
+        return False
     if _BARE_COMMITMENT.match(point):
         return False
     # A figure rescues a point through _CONCRETE's \d, which is right for "18000 split
@@ -330,7 +361,57 @@ _ROOM_SIGNALS = [
     # A bill or a cost without a spend verb next to it - "2400 for last month".
     (2, re.compile(r"\b(?:rent|bill|bills|electricity|water|gas|wifi|internet|"
                    r"maintenance|deposit|fees?)\b", re.IGNORECASE)),
+    # A fault, said the way people actually say it. The household pattern above spells
+    # out "not working", "stopped working" and "broken", so every other way of reporting
+    # that something is broken scored zero across the whole dogfood log:
+    #
+    #   "the cab booking intent didn't work at all for whatever reason"
+    #   "my reply is not appearing on the iOS device"
+    #   "your name is not listing in the contacts"
+    #   "our current chat is not generating a summary"
+    #   "I couldn't able to add Yash"
+    #
+    # What they share is a negation sitting next to a verb for the thing DOING something,
+    # so that is what this matches rather than another list of adjectives. The verb list
+    # is what the log contains; the two-word gap carries "is not appearing", "did not get
+    # any" and "couldn't able to add" without reaching across a clause.
+    (2, re.compile(r"\b(?:(?:do|does|did|is|are|was|were|has|have|had|ca|could|would|"
+                   r"should|wo)n[o']?t|cannot|not|never|unable\s+to|"
+                   r"fail(?:s|ed|ing)?\s+to)\s+"
+                   r"(?:\w+\s+){0,2}?"
+                   r"(?:work|appear|show|display|list|generat|giv|hear|play|load|"
+                   r"open|connect|receiv|send|ring|respond|repl|sync|updat|detect|"
+                   r"recogni[sz]|translat|join|start|register|enroll|save|upload|"
+                   r"download|refresh|trigger|render|resolv)", re.IGNORECASE)),
+    # A change that has already been made. The release pattern above needs "up/live/out
+    # ... on/in/at", so the way this team actually hands work over scored zero:
+    # "Integrated Voice & Translation options in Settings", "I've pushed 2 branches for
+    # review", "Tag the current qwen3asr image before rebuilding". Past tense and the
+    # imperative are the marker that it is done or must be done, which is why "I'll fix
+    # it" is left to the commitment pattern above rather than listed here.
+    (2, re.compile(r"\b(?:integrated|added|implemented|pushed|merged|fixed|removed|"
+                   r"enabled|disabled|tagged?|rebuil[dt]|rebuilding|released|shipped|"
+                   r"deployed|migrated|upgraded|reverted|rolled\s+back|renamed|"
+                   r"refactored|replaced|hidden|restored)\b", re.IGNORECASE)),
+    # Which build it is in. "this version has the group profile pic implementation" and
+    # "this is the version with fully offline facial detection" are the only record of
+    # what shipped when, and both scored zero.
+    (2, re.compile(r"\bth(?:is|e)\s+(?:latest\s+|new\s+|current\s+)?"
+                   r"(?:version|build|release|apk|update)\b", re.IGNORECASE)),
 ]
+# A fifth signal was written and removed: a figure with a technical unit on it, for
+# "under 1.5 seconds", "the minimum characters needed is 140", "~950MB model via LFS".
+# Disabling it changed nothing at all - identical recaps, identical point count, on both
+# the 2026-10-29 log and the full dogfood corpus - because every line it fires on is in a
+# room-day that already produces a recap and is already at MAX_POINTS. Recorded here so
+# it is not written a third time without first finding traffic where it would matter.
+#
+# The three above are weighted 2, not 3, for the same reason: at 3 they tied with the
+# strongest existing signals and EVICTED established points through MAX_POINTS - 15 lost
+# against 62 gained on the full corpus, including real bug reports ("Something wrong with
+# wifi connection"). At 2 they qualify but rank below, filling free slots instead of
+# taking occupied ones: same coverage, same totals, 2 lost instead of 15, and both of
+# those are the boilerplate above being dropped on purpose.
 
 
 # Money and ride REQUESTS do not belong in a summary - the Intent Log already has them,
@@ -364,6 +445,26 @@ def _is_intent(point: str) -> bool:
     """Is this the Intent Log's job rather than the summary's?"""
     text = (point or "").strip()
     return bool(_INTENT_SHAPED.search(text)) and not _INTENT_EXCEPTION.search(text)
+
+
+# A card the app drew, not something a person said. 135 of the 1,229 messages in the
+# 2026-10-29 dogfood log are these - 11% of all traffic - and nothing distinguished them
+# from speech, with two consequences:
+#
+#   dm_53_67 on 2026-10-28 is TWENTY of them and not one human message, and still
+#   counted as an eligible room-day because MIN_MESSAGES counts rows;
+#   dm_13_26 on 2026-10-27 is 17 messages of which 4 are these, so a real bug
+#   conversation looks busier than it is.
+#
+# They are dropped before the message count, so a window has to contain that many things
+# a person actually said. Scoring them was never the problem - at 1 they sat below
+# POINT_THRESHOLD - the message count was.
+_SYSTEM_CARD = re.compile(r"\[voice_call:[0-9A-Z]+\]|^\s*\W*\s*voice\s+call\s+[—-]\s+"
+                          r"tap\s+to\s+join\b", re.IGNORECASE)
+
+
+def _is_system_card(text: Optional[str]) -> bool:
+    return bool(_SYSTEM_CARD.search(text or ""))
 
 
 # What a recap is actually read for. The published guidance on summary products is
@@ -493,6 +594,31 @@ def shape(points: Sequence[dict]) -> dict:
     return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
 
 
+def _point_floor(room: str, messages: Sequence[dict]) -> int:
+    """How many points this room has to produce before it gets a recap.
+
+    The room id decides it wherever it can, because the backend guarantees the shape:
+    dm_<lo>_<hi> for a one-to-one and a group id otherwise, which is the same test
+    conversation._is_dm already makes. Counting senders instead would get it wrong in
+    both directions - 15 group_* rooms in the corpus had only two people speak, and four
+    dm_* rooms looked like three-person rooms only because some rows carry no sender at
+    all and the placeholder counted as a third speaker.
+
+    The sender count is the fallback for an id that says nothing, which is every room
+    derived from a WhatsApp export (cr_/nw_/rw_), and it ignores unnamed senders for the
+    reason above.
+    """
+    if room:
+        if room.startswith("dm_"):
+            return MIN_POINTS_DM
+        if room.startswith(("group_", "grp_")):
+            return MIN_POINTS
+    named = {str(m.get("sender") or "").strip() for m in messages}
+    named.discard("")
+    named.discard("?")
+    return MIN_POINTS if len(named) > 2 else MIN_POINTS_DM
+
+
 def summarize_room(messages: Sequence[dict], room: str = "",
                    limit: int = MAX_POINTS) -> Optional[RoomSummary]:
     """The things worth remembering from one window of one room, oldest first.
@@ -501,9 +627,11 @@ def summarize_room(messages: Sequence[dict], room: str = "",
     Returns None when there is nothing worth showing - a quiet window draws no card, the
     same rule the per-message tab follows.
     """
-    messages = [m for m in messages if (m.get("text") or "").strip()]
+    messages = [m for m in messages
+                if (m.get("text") or "").strip() and not _is_system_card(m.get("text"))]
     if len(messages) < MIN_MESSAGES:
         return None
+    floor = _point_floor(room, messages)
 
     scored = []
     for m in messages:
@@ -558,9 +686,9 @@ def summarize_room(messages: Sequence[dict], room: str = "",
             continue
         seen.append(words)
         kept.append(s)
-        if len(kept) >= max(MIN_POINTS, min(limit, MAX_POINTS)):
+        if len(kept) >= max(floor, min(limit, MAX_POINTS)):
             break
-    if len(kept) < MIN_POINTS:
+    if len(kept) < floor:
         return None
 
     kept.sort(key=lambda s: s["ts"] or "")

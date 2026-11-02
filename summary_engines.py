@@ -559,6 +559,39 @@ def _retitle(points, student):
     return cand
 
 
+def _drop_title_echo(title, points):
+    """Remove a bullet that is nothing but the heading repeated.
+
+    "1. Call Button Unresponsive: After a call gets disconnected..." comes back as the
+    heading Call Button Unresponsive over a first bullet of exactly those three words, so
+    the reader reads one line twice and the top of the card carries no information. The
+    bullet is the redundant half, not the heading - the heading is a fine name for the
+    card - so the bullet goes.
+
+    Only an exact repeat, compared on words. A bullet the heading merely OPENS is left
+    alone: "Added ringing sounds for both callers and receivers" under the heading "Added
+    Ringing Sounds" still carries who it was added for, and deleting it would lose that.
+    Writing a better heading for those was tried four ways - retitling from the bullets,
+    retitling with the copied bullet hidden, the rules title, and reading a different beam
+    - and measured on 145 real cards. All four were rejected: the rules answer "Bug" 7
+    times in 15, hiding the bullet inverted a fact ("Intents Changes" over a card whose
+    own bullet says "Intents unchanged"), and a different beam rewrites the bullets too,
+    which cost one card a real point. That needs a student that was trained to abstract a
+    title, not a selection rule here.
+
+    Never empties a card: if the heading is the only thing the card says, the bullet stays
+    and the card is unchanged.
+    """
+    if not title or len(points) < 2:
+        return points
+    t = [w.lower() for w in re.findall(r"[A-Za-z0-9']+", title)]
+    if not t:
+        return points
+    kept = [p for p in points
+            if [w.lower() for w in re.findall(r"[A-Za-z0-9']+", p)] != t]
+    return kept or points
+
+
 def production_summary(text, student=None):
     """What /message-summary serves. Rules decide IF; the student writes the card.
 
@@ -604,6 +637,7 @@ def production_summary(text, student=None):
     title = card.get("title") or gate.title
     if _title_is_weak(title, points):
         title = _retitle(points, student) or title
+    points = _drop_title_echo(title, points)
     # Last thing before it is returned, so nothing added by the restorations above can
     # slip a credential or a clinical fact onto the card either.
     return sensitive.clean_card({"title": title, "points": points})
